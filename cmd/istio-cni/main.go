@@ -25,6 +25,9 @@ import (
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
+
+	"github.com/sirupsen/logrus"
+	"github.com/projectcalico/libcalico-go/lib/logutils"
 )
 
 // PluginConf is whatever you expect your configuration json to be. This is whatever
@@ -87,40 +90,32 @@ func parseConfig(stdin []byte) (*PluginConf, error) {
 
 // cmdAdd is called for ADD requests
 func cmdAdd(args *skel.CmdArgs) error {
+	logrus.Info("istio-cni cmdAdd parsing config")
 	conf, err := parseConfig(args.StdinData)
 	if err != nil {
 		return err
 	}
 
 	if conf.PrevResult == nil {
+		logrus.Error("must be called as chained plugin")
 		return fmt.Errorf("must be called as chained plugin")
 	}
+
+	logrus.WithFields(logrus.Fields{
+		"version": conf.CNIVersion,
+		"prevResult": conf.PrevResult,
+	}).Info("cmdAdd config parsed")
 
 	// This is some sample code to generate the list of container-side IPs.
 	// We're casting the prevResult to a 0.3.0 response, which can also include
 	// host-side IPs (but doesn't when converted from a 0.2.0 response).
 	containerIPs := make([]net.IP, 0, len(conf.PrevResult.IPs))
-	if conf.CNIVersion != "0.3.0" {
-		for _, ip := range conf.PrevResult.IPs {
-			containerIPs = append(containerIPs, ip.Address.IP)
-		}
-	} else {
-		for _, ip := range conf.PrevResult.IPs {
-			if ip.Interface == nil {
-				continue
-			}
-			intIdx := *ip.Interface
-			// Every IP is indexed in to the interfaces array, with "-1" standing
-			// for an unknown interface (which we'll assume to be Container-side
-			// Skip all IPs we know belong to an interface with the wrong name.
-			if intIdx >= 0 && intIdx < len(conf.PrevResult.Interfaces) && conf.PrevResult.Interfaces[intIdx].Name != args.IfName {
-				continue
-			}
-			containerIPs = append(containerIPs, ip.Address.IP)
-		}
+
+	for _, ip := range conf.PrevResult.IPs {
+		containerIPs = append(containerIPs, ip.Address.IP)
 	}
 	if len(containerIPs) == 0 {
-		return fmt.Errorf("got no container IPs")
+		logrus.Info("istio-cni got no container IPs")
 	}
 
 	// Pass through the result for the next plugin
@@ -129,6 +124,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 // cmdDel is called for DELETE requests
 func cmdDel(args *skel.CmdArgs) error {
+	logrus.Info("istio-cni cmdDel parsing config")
 	conf, err := parseConfig(args.StdinData)
 	if err != nil {
 		return err
@@ -141,11 +137,18 @@ func cmdDel(args *skel.CmdArgs) error {
 }
 
 func main() {
+	// Set up logging formatting.
+	logrus.SetFormatter(&logutils.Formatter{})
+
+	// Install a hook that adds file/line no information.
+	logrus.AddHook(&logutils.ContextHook{})
+
 	// TODO: implement plugin version
-	skel.PluginMain(cmdAdd, cmdGet, cmdDel, version.All, "TODO")
+	skel.PluginMain(cmdAdd, cmdGet, cmdDel, version.All, "istio-cni")
 }
 
 func cmdGet(args *skel.CmdArgs) error {
+	logrus.Info("cmdGet not implemented")
 	// TODO: implement
 	return fmt.Errorf("not implemented")
 }
