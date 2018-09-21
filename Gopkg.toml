@@ -22,4 +22,4 @@
 
 [[constraint]]
   name = "github.com/containernetworking/cni"
-  version = "0.6.0"
+  version = "v0.7.0-alpha1"

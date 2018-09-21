@@ -15,6 +15,7 @@
 package main
 
 import (
+	"crypto/sha512"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -85,13 +86,19 @@ func main() {
 	}
 
 	netns := os.Args[3]
-
-	cninet := &libcni.CNIConfig{
-		Path: filepath.SplitList(os.Getenv(EnvCNIPath)),
+	netns, err = filepath.Abs(netns)
+	if err != nil {
+		exit(err)
 	}
 
+	// Generate the containerid by hashing the netns path
+	s := sha512.Sum512([]byte(netns))
+	containerID := fmt.Sprintf("cnitool-%x", s[:10])
+
+	cninet := libcni.NewCNIConfig(filepath.SplitList(os.Getenv(EnvCNIPath)), nil)
+
 	rt := &libcni.RuntimeConf{
-		ContainerID:    "cni",
+		ContainerID:    containerID,
 		NetNS:          netns,
 		IfName:         "eth0",
 		Args:           cniArgs,

@@ -10,12 +10,12 @@
     "pkg/types/current",
     "pkg/version"
   ]
-  revision = "a7885cb6f8ab03fba07852ded351e4f5e7a112bf"
-  version = "v0.6.0"
+  revision = "07c1a6da47b7fbf8b357f4949ecce2113e598491"
+  version = "v0.7.0-alpha1"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "15c2c51d57c14c54e0fe663b05ead23f0a7a9b241d1ff8bcab7286b20022512f"
+  inputs-digest = "21389bee783a9739614c16f2edac339a2e4855ccc511863d30ce589f047ca18e"
   solver-name = "gps-cdcl"
   solver-version = 1
