@@ -39,15 +39,12 @@ metadata:
   name: istio-cni-config
   namespace: kube-system
 data:
-  # The CNI network configuration to install on each node.  The special
+  # The CNI network configuration to add to the plugin chain on each node.  The special
   # values in this config will be automatically populated.
   cni_network_config: |-
         {
           "type": "istio-cni",
-          "log_level": "info",
-          "policy": {
-              "type": "k8s"
-          },
+          "log_level": "debug",
           "kubernetes": {
               "kubeconfig": "__KUBECONFIG_FILEPATH__"
           }
@@ -105,6 +102,7 @@ spec:
         # and CNI network config file on each node.
         - name: install-cni
           image: docker.io/tiswanso/install-cni:v0.1-dev
+          imagePullPolicy: Always
           command: ["/install-cni.sh"]
           env:
             # Name of the CNI config file to create.

@@ -1,4 +1,4 @@
-// Copyright 2017 CNI authors
+// Copyright 2017 Istio authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +28,16 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/projectcalico/libcalico-go/lib/logutils"
+	"strings"
+	"os"
 )
+
+// Kubernetes a K8s specific struct to hold config
+type Kubernetes struct {
+	K8sAPIRoot string `json:"k8s_api_root"`
+	Kubeconfig string `json:"kubeconfig"`
+	NodeName   string `json:"node_name"`
+}
 
 // PluginConf is whatever you expect your configuration json to be. This is whatever
 // is passed in on stdin. Your plugin may wish to expose its functionality via
@@ -50,8 +59,17 @@ type PluginConf struct {
 	PrevResult    *current.Result         `json:"-"`
 
 	// Add plugin-specifc flags here
-	MyAwesomeFlag     bool   `json:"myAwesomeFlag"`
-	AnotherAwesomeArg string `json:"anotherAwesomeArg"`
+	LogLevel             string            `json:"log_level"`
+	Kubernetes           Kubernetes        `json:"kubernetes"`
+}
+
+// K8sArgs is the valid CNI_ARGS used for Kubernetes
+type K8sArgs struct {
+	types.CommonArgs
+	IP                         net.IP
+	K8S_POD_NAME               types.UnmarshallableString
+	K8S_POD_NAMESPACE          types.UnmarshallableString
+	K8S_POD_INFRA_CONTAINER_ID types.UnmarshallableString
 }
 
 // parseConfig parses the supplied configuration (and prevResult) from stdin.
@@ -80,12 +98,21 @@ func parseConfig(stdin []byte) (*PluginConf, error) {
 	}
 	// End previous result parsing
 
-	// Do any validation here
-	if conf.AnotherAwesomeArg == "" {
-		return nil, fmt.Errorf("anotherAwesomeArg must be specified")
+	return &conf, nil
+}
+
+// Set up logging using the provided log level,
+func ConfigureLogging(logLevel string) {
+	if strings.EqualFold(logLevel, "debug") {
+		logrus.SetLevel(logrus.DebugLevel)
+	} else if strings.EqualFold(logLevel, "info") {
+		logrus.SetLevel(logrus.InfoLevel)
+	} else {
+		// Default level
+		logrus.SetLevel(logrus.WarnLevel)
 	}
 
-	return &conf, nil
+	logrus.SetOutput(os.Stderr)
 }
 
 // cmdAdd is called for ADD requests
@@ -95,6 +122,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	if err != nil {
 		return err
 	}
+	ConfigureLogging(conf.LogLevel)
 
 	if conf.PrevResult == nil {
 		logrus.Error("must be called as chained plugin")
@@ -106,6 +134,32 @@ func cmdAdd(args *skel.CmdArgs) error {
 		"prevResult": conf.PrevResult,
 	}).Info("cmdAdd config parsed")
 
+	// Determine if running under k8s by checking the CNI args
+	k8sArgs := K8sArgs{}
+	if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
+		return err
+	}
+	logrus.Infof("Getting WEP identifiers with arguments: %s", args.Args)
+	logrus.Infof("Loaded k8s arguments: %v", k8sArgs)
+
+	var logger *logrus.Entry
+	logger = logrus.WithFields(logrus.Fields{
+			"ContainerID":      args.ContainerID,
+			"Pod":              string(k8sArgs.K8S_POD_NAME),
+			"Namespace":        string(k8sArgs.K8S_POD_NAMESPACE),
+	})
+
+	// Check if the workload is running under Kubernetes.
+	if string(k8sArgs.K8S_POD_NAMESPACE) != "" && string(k8sArgs.K8S_POD_NAME) != "" {
+		client, err := NewK8sClient(*conf, logger)
+		if err != nil {
+			return err
+		}
+		logrus.WithField("client", client).Debug("Created Kubernetes client")
+		GetK8sPodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
+	} else {
+		logger.Info("No Kubernetes Data")
+	}
 	// This is some sample code to generate the list of container-side IPs.
 	// We're casting the prevResult to a 0.3.0 response, which can also include
 	// host-side IPs (but doesn't when converted from a 0.2.0 response).
@@ -129,6 +183,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	if err != nil {
 		return err
 	}
+	ConfigureLogging(conf.LogLevel)
 	_ = conf
 
 	// Do your delete here
