@@ -23,7 +23,11 @@ export ISTIO_GO
 SHELL := /bin/bash
 
 # Current version, updated after a release.
-VERSION ?= 1.0-dev
+VERSION ?= 0.1-dev
+
+# cumulatively track the directories/files to delete after a clean
+DIRS_TO_CLEAN:=
+FILES_TO_CLEAN:=
 
 # If GOPATH is not set by the env, set it to a sane value
 GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
@@ -222,3 +226,24 @@ istio-cni-all: ${ISTIO_OUT}/istio-cni-linux
 istio-cni-install:
 	go install $(ISTIO_GO)/cmd/istio-cni
 
+#-----------------------------------------------------------------------------
+# Target: clean
+#-----------------------------------------------------------------------------
+.PHONY: clean clean.go
+
+DIRS_TO_CLEAN+=${ISTIO_OUT}
+
+clean: clean.go
+	rm -rf $(DIRS_TO_CLEAN)
+	rm -f $(FILES_TO_CLEAN)
+
+clean.go: ; $(info $(H) cleaning...)
+	$(eval GO_CLEAN_FLAGS := -i -r)
+	$(Q) $(GO) clean $(GO_CLEAN_FLAGS)
+
+#-----------------------------------------------------------------------------
+# Target: docker
+#-----------------------------------------------------------------------------
+
+# for now docker is limited to Linux compiles - why ?
+include tools/istio-cni-docker.mk
