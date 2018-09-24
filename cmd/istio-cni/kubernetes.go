@@ -19,7 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	kapiv1 "k8s.io/api/core/v1"
+	"strconv"
 )
 
 func NewK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset, error) {
@@ -45,27 +45,40 @@ func NewK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset,
 	return kubernetes.NewForConfig(config)
 }
 
-func GetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (labels map[string]string, annotations map[string]string, ports []kapiv1.ContainerPort, err error) {
+func GetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string, labels map[string]string, annotations map[string]string, ports []string, err error) {
 	pod, err := client.CoreV1().Pods(string(podNamespace)).Get(podName, metav1.GetOptions{})
 	logrus.Infof("pod info %+v", pod)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
-	for _, container := range pod.Spec.Containers {
+	containers = make([]string, len(pod.Spec.Containers))
+	for containerIdx, container := range pod.Spec.Containers {
 		logrus.WithFields(logrus.Fields{
 			"pod": podName,
 			"container": container.Name,
-		}).Info("Inspecting container")
+		}).Debug("Inspecting container")
+		containers[containerIdx] = container.Name
+
+		if container.Name == "istio-proxy" {
+			// don't include ports from istio-proxy in the redirect ports
+			continue
+		}
 		for _, containerPort := range container.Ports {
 			logrus.WithFields(logrus.Fields{
 				"pod": podName,
 				"container": container.Name,
 				"port": containerPort,
-			}).Info("Added pod port")
-			ports = append(ports, containerPort)
+			}).Debug("Added pod port")
+
+			ports = append(ports, strconv.Itoa(int(containerPort.ContainerPort)))
+			logrus.WithFields(logrus.Fields{
+				"ports": ports,
+				"pod": podName,
+				"container": container.Name,
+			}).Debug("port")
 		}
 	}
 
-	return pod.Labels, pod.Annotations, ports, nil
+	return containers, pod.Labels, pod.Annotations, ports, nil
 }

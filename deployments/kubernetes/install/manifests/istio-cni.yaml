@@ -44,7 +44,7 @@ data:
   cni_network_config: |-
         {
           "type": "istio-cni",
-          "log_level": "debug",
+          "log_level": "info",
           "kubernetes": {
               "kubeconfig": "__KUBECONFIG_FILEPATH__"
           }

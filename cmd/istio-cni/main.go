@@ -30,6 +30,18 @@ import (
 	"github.com/projectcalico/libcalico-go/lib/logutils"
 	"strings"
 	"os"
+	"os/exec"
+)
+
+var (
+	NsSetupBinDir = "/opt/cni/bin"
+	NsSetupProg = "istio-iptables.sh"
+	RedirectToPort = "15001"
+	NoRedirectUID = "1337"
+	RedirectMode = "REDIRECT" // other Option TPROXY
+	RedirectIpCidr = "*"
+	RedirectExcludeIpCidr = ""
+	RedirectExcludePort = "15020"
 )
 
 // Kubernetes a K8s specific struct to hold config
@@ -70,6 +82,36 @@ type K8sArgs struct {
 	K8S_POD_NAME               types.UnmarshallableString
 	K8S_POD_NAMESPACE          types.UnmarshallableString
 	K8S_POD_INFRA_CONTAINER_ID types.UnmarshallableString
+}
+
+func setupRedirect(netns string, ports []string) error {
+	netnsArg := fmt.Sprintf("--net=%s", netns)
+	nsSetupExecutable := fmt.Sprintf("%s/%s", NsSetupBinDir, NsSetupProg)
+	nsenterArgs := []string{
+		netnsArg,
+		nsSetupExecutable,
+		"-p", RedirectToPort,
+		"-u", NoRedirectUID,
+		"-m", RedirectMode,
+		"-i", RedirectIpCidr,
+		"-b", strings.Join(ports, ","),
+		"-d", RedirectExcludePort,
+		"-x", RedirectExcludeIpCidr,
+	}
+	logrus.WithFields(logrus.Fields{
+		"nsenterArgs": nsenterArgs,
+	}).Info("nsenter args")
+	out, err := exec.Command("nsenter", nsenterArgs...).CombinedOutput()
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"out": out,
+			"err": err,
+		}).Errorf("nsenter failed: %v", err)
+		logrus.Debugf("nsenter out: %s", out)
+	} else {
+		logrus.Debugf("nsenter done: %s", out)
+	}
+	return err
 }
 
 // parseConfig parses the supplied configuration (and prevResult) from stdin.
@@ -156,20 +198,28 @@ func cmdAdd(args *skel.CmdArgs) error {
 			return err
 		}
 		logrus.WithField("client", client).Debug("Created Kubernetes client")
-		GetK8sPodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
+		containers, _, _, ports, k8sErr := GetK8sPodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
+		if k8sErr != nil {
+			logger.Warnf("Error geting Pod data %v", k8sErr)
+		}
+		for _, container := range containers {
+			if container == "istio-proxy" {
+				logger.Info("Found an istio-proxy container")
+				if len(containers) > 1 {
+					logrus.WithFields(logrus.Fields{
+						"ContainerID":      args.ContainerID,
+						"netns": args.Netns,
+						"pod": string(k8sArgs.K8S_POD_NAME),
+						"Namespace":        string(k8sArgs.K8S_POD_NAMESPACE),
+						"ports": ports,
+					}).Info("Updating iptables redirect for Istio proxy")
+
+					_ = setupRedirect(args.Netns, ports)
+				}
+			}
+		}
 	} else {
 		logger.Info("No Kubernetes Data")
-	}
-	// This is some sample code to generate the list of container-side IPs.
-	// We're casting the prevResult to a 0.3.0 response, which can also include
-	// host-side IPs (but doesn't when converted from a 0.2.0 response).
-	containerIPs := make([]net.IP, 0, len(conf.PrevResult.IPs))
-
-	for _, ip := range conf.PrevResult.IPs {
-		containerIPs = append(containerIPs, ip.Address.IP)
-	}
-	if len(containerIPs) == 0 {
-		logrus.Info("istio-cni got no container IPs")
 	}
 
 	// Pass through the result for the next plugin
