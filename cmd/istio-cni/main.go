@@ -49,6 +49,7 @@ type Kubernetes struct {
 	K8sAPIRoot string `json:"k8s_api_root"`
 	Kubeconfig string `json:"kubeconfig"`
 	NodeName   string `json:"node_name"`
+	ExcludeNamespaces []string `json:"exclude_namespaces""`
 }
 
 // PluginConf is whatever you expect your configuration json to be. This is whatever
@@ -193,30 +194,41 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 	// Check if the workload is running under Kubernetes.
 	if string(k8sArgs.K8S_POD_NAMESPACE) != "" && string(k8sArgs.K8S_POD_NAME) != "" {
-		client, err := NewK8sClient(*conf, logger)
-		if err != nil {
-			return err
+		excludePod := false
+		for _, excludeNs := range conf.Kubernetes.ExcludeNamespaces {
+			if string(k8sArgs.K8S_POD_NAMESPACE) == excludeNs {
+				excludePod = true
+				break
+			}
 		}
-		logrus.WithField("client", client).Debug("Created Kubernetes client")
-		containers, _, _, ports, k8sErr := GetK8sPodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
-		if k8sErr != nil {
-			logger.Warnf("Error geting Pod data %v", k8sErr)
-		}
-		for _, container := range containers {
-			if container == "istio-proxy" {
-				logger.Info("Found an istio-proxy container")
-				if len(containers) > 1 {
-					logrus.WithFields(logrus.Fields{
-						"ContainerID":      args.ContainerID,
-						"netns": args.Netns,
-						"pod": string(k8sArgs.K8S_POD_NAME),
-						"Namespace":        string(k8sArgs.K8S_POD_NAMESPACE),
-						"ports": ports,
-					}).Info("Updating iptables redirect for Istio proxy")
+		if !excludePod {
+			client, err := NewK8sClient(*conf, logger)
+			if err != nil {
+				return err
+			}
+			logrus.WithField("client", client).Debug("Created Kubernetes client")
+			containers, _, _, ports, k8sErr := GetK8sPodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
+			if k8sErr != nil {
+				logger.Warnf("Error geting Pod data %v", k8sErr)
+			}
+			for _, container := range containers {
+				if container == "istio-proxy" {
+					logger.Info("Found an istio-proxy container")
+					if len(containers) > 1 {
+						logrus.WithFields(logrus.Fields{
+							"ContainerID": args.ContainerID,
+							"netns":       args.Netns,
+							"pod":         string(k8sArgs.K8S_POD_NAME),
+							"Namespace":   string(k8sArgs.K8S_POD_NAMESPACE),
+							"ports":       ports,
+						}).Info("Updating iptables redirect for Istio proxy")
 
-					_ = setupRedirect(args.Netns, ports)
+						_ = setupRedirect(args.Netns, ports)
+					}
 				}
 			}
+		} else {
+			logger.Info("Pod excluded")
 		}
 	} else {
 		logger.Info("No Kubernetes Data")

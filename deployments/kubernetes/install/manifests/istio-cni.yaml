@@ -46,7 +46,8 @@ data:
           "type": "istio-cni",
           "log_level": "info",
           "kubernetes": {
-              "kubeconfig": "__KUBECONFIG_FILEPATH__"
+              "kubeconfig": "__KUBECONFIG_FILEPATH__",
+              "exclude_namespaces": [ "istio-system" ]
           }
         }
 
