@@ -27,8 +27,9 @@ setup for container runtimes.
 
 1. Install Istio control-plane
 
-1. Modify `CNI_CONF_NAME` in [istio-cni.yaml](deployments/kubernetes/install/manifests/istio-cni.yaml) setting
-   to the filename for your k8s cluster's CNI config file in `/etc/cni/net.d`
+1. Modify [istio-cni.yaml](deployments/kubernetes/install/manifests/istio-cni.yaml)
+   1. set `CNI_CONF_NAME` to the filename for your k8s cluster's CNI config file in `/etc/cni/net.d`
+   1. set `exclude_namespaces` to include the namespace the Istio control-plane is installed in
 
 1. Install `istio-cni`: `kubectl apply -f deployments/kubernetes/install/manifests/istio-cni.yaml`
 
