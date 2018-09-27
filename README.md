@@ -22,6 +22,7 @@ chain has completed successfully.  Also, architecturally, the CNI plugins are th
 setup for container runtimes.
 
 ## Usage
+The following are the steps to install and use the CNI plugin.
 
 1. clone this repo
 
@@ -30,6 +31,8 @@ setup for container runtimes.
 1. Modify [istio-cni.yaml](deployments/kubernetes/install/manifests/istio-cni.yaml)
    1. set `CNI_CONF_NAME` to the filename for your k8s cluster's CNI config file in `/etc/cni/net.d`
    1. set `exclude_namespaces` to include the namespace the Istio control-plane is installed in
+   1. set `cni_bin_dir` to your kubernetes install's CNI bin location (the value of kubelet's `--cni-bin-dir`)
+      1. default is `/opt/cni/bin`
 
 1. Install `istio-cni`: `kubectl apply -f deployments/kubernetes/install/manifests/istio-cni.yaml`
 
@@ -41,6 +44,43 @@ setup for container runtimes.
 
 1. With auto-sidecar injection, the init containers will no longer be added to the pods and the CNI
    will be the component setting the iptables up for the pods.
+
+### Hosted Kubernetes
+
+Not all hosted Kubernetes clusters are created with the kubelet configured to use the CNI plugin so
+compatibility with this `istio-cni` solution is not ubiquitous.  The `istio-cni` plugin is expected
+to work with any hosted kubernetes leveraging CNI plugins.  The below table indicates the known CNI status
+of hosted Kubernetes environments and whether `istio-cni` has been trialed in the cluster type.
+
+| Hosted Cluster Type | Uses CNI | istio-cni tested? |
+|---------------------|----------|-------------------|
+| GKE 1.9.7-gke.6 default | N | N |
+| GKE 1.9.7-gke.6 w/ [network-policy](https://cloud.google.com/kubernetes-engine/docs/how-to/network-policy) | Y | Y |
+| IKS (IBM cloud) | Y | N |
+| EKS (AWS) | Y | N |
+| AKS (Azure) | Y | N |
+
+#### GKE Setup
+
+1. Enable [network-policy](https://cloud.google.com/kubernetes-engine/docs/how-to/network-policy) in your cluster.  NOTE: for existing clusters this redeploys the nodes.
+
+1. Make sure your kubectl user (service-account) has a ClusterRoleBinding to the `cluster-admin` role.  This is also a typical pre-requisite for installing Istio on GKE.
+   1. `kubectl create clusterrolebinding cni-cluster-admin-binding --clusterrole=cluster-admin --user=tiswanso@gmail.com`
+      1. User `tiswanso@gmail.com` is an admin user associated with the gcloud GKE cluster
+
+1. Install `istio-cni`: `kubectl apply -f deployments/kubernetes/install/manifests/istio-cni_gke.yaml`
+
+1. Install Istio
+
+1. remove the `initContainers` section from the result of helm template's rendering of
+   istio/templates/sidecar-injector-configmap.yaml and apply it to replace the
+   `istio-sidecar-injector` configmap.  --e.g. pull the `istio-sidecar-injector` configmap from
+   `istio.yaml` and remove the `initContainers` section and `kubectl apply -f <configmap.yaml>`
+   1. restart the `istio-sidecar-injector` pod via `kubectl delete pod ...`
+
+1. With auto-sidecar injection, the init containers will no longer be added to the pods and the CNI
+   will be the component setting the iptables up for the pods.
+
 
 ## Build
 

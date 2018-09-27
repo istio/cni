@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Script to install Calico CNI on a Kubernetes host.
+# Script to install Istio CNI on a Kubernetes host.
 # - Expects the host CNI binary path to be mounted at /host/opt/cni/bin.
 # - Expects the host CNI network config path to be mounted at /host/etc/cni/net.d.
 # - Expects the desired CNI config in the CNI_NETWORK_CONFIG env variable.
@@ -140,8 +140,10 @@ sed -i s/__KUBECONFIG_FILENAME__/istio-cni-kubeconfig/g $TMP_CONF
 sed -i s~__KUBECONFIG_FILEPATH__~${HOST_CNI_NET_DIR}/istio-cni-kubeconfig~g $TMP_CONF
 sed -i s~__LOG_LEVEL__~${LOG_LEVEL:-warn}~g $TMP_CONF
 
-CNI_CONF_NAME=${CNI_CONF_NAME:-10-istio-cni.conf}
-CNI_OLD_CONF_NAME=${CNI_OLD_CONF_NAME:-10-calico.conf}
+# default to first file in `ls` output
+CNI_CONF_NAME=${CNI_CONF_NAME:-$(ls | head -n 1)}
+CNI_CONF_NAME=${CNI_CONF_NAME:-10-calico.conflist}
+CNI_OLD_CONF_NAME=${CNI_OLD_CONF_NAME:-${CNI_CONF_NAME}}
 
 # Log the config file before inserting service account token.
 # This way auth token is not visible in the logs.

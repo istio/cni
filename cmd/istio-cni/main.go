@@ -50,6 +50,7 @@ type Kubernetes struct {
 	Kubeconfig string `json:"kubeconfig"`
 	NodeName   string `json:"node_name"`
 	ExcludeNamespaces []string `json:"exclude_namespaces""`
+	CniBinDir  string `json:"cni_bin_dir"`
 }
 
 // PluginConf is whatever you expect your configuration json to be. This is whatever
@@ -105,7 +106,7 @@ func setupRedirect(netns string, ports []string) error {
 	out, err := exec.Command("nsenter", nsenterArgs...).CombinedOutput()
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
-			"out": out,
+			"out": string(out[:]),
 			"err": err,
 		}).Errorf("nsenter failed: %v", err)
 		logrus.Debugf("nsenter out: %s", out)
@@ -184,6 +185,9 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 	logrus.Infof("Getting WEP identifiers with arguments: %s", args.Args)
 	logrus.Infof("Loaded k8s arguments: %v", k8sArgs)
+	if conf.Kubernetes.CniBinDir != "" {
+		NsSetupBinDir = conf.Kubernetes.CniBinDir
+	}
 
 	var logger *logrus.Entry
 	logger = logrus.WithFields(logrus.Fields{

@@ -44,10 +44,10 @@ data:
   cni_network_config: |-
         {
           "type": "istio-cni",
-          "log_level": "info",
+          "log_level": "debug",
           "kubernetes": {
               "kubeconfig": "__KUBECONFIG_FILEPATH__",
-              "cni_bin_dir": "/opt/cni/bin",
+              "cni_bin_dir": "/home/kubernetes/bin",
               "exclude_namespaces": [ "istio-system" ]
           }
         }
@@ -125,7 +125,7 @@ spec:
         # Used to install CNI.
         - name: cni-bin-dir
           hostPath:
-            path: /opt/cni/bin
+            path: /home/kubernetes/bin
         - name: cni-net-dir
           hostPath:
             path: /etc/cni/net.d
