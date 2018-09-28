@@ -45,6 +45,23 @@ The following are the steps to install and use the CNI plugin.
 1. With auto-sidecar injection, the init containers will no longer be added to the pods and the CNI
    will be the component setting the iptables up for the pods.
 
+## Validate the iptables are modified
+
+1. Collect your pod's container id using kubectl.
+```
+$ ns=test-istio
+$ podnm=reviews-v1-6b7f6db5c5-59jhf
+$ container_id=$(kubectl get pod -n ${ns} ${podnm} -o jsonpath="{.status.containerStatuses[?(@.name=='istio-proxy')].containerID}" | sed -n 's/docker:\/\/\(.*\)/\1/p')
+```
+
+2. SSH into the Kubernetes' worker node that runs your pod.
+
+3. Use `nsenter` to view the iptables.
+```
+$ cpid=$(docker inspect --format '{{ .State.Pid }}' $container_id)
+$ nsenter -t $cpid -n iptables -L -t nat -n -v --line-numbers -x
+```
+
 ### Hosted Kubernetes
 
 Not all hosted Kubernetes clusters are created with the kubelet configured to use the CNI plugin so
@@ -56,7 +73,7 @@ of hosted Kubernetes environments and whether `istio-cni` has been trialed in th
 |---------------------|----------|-------------------|
 | GKE 1.9.7-gke.6 default | N | N |
 | GKE 1.9.7-gke.6 w/ [network-policy](https://cloud.google.com/kubernetes-engine/docs/how-to/network-policy) | Y | Y |
-| IKS (IBM cloud) | Y | N |
+| IKS (IBM cloud) | Y | Y (on k8s 1.10) |
 | EKS (AWS) | Y | N |
 | AKS (Azure) | Y | N |
 
@@ -81,6 +98,9 @@ of hosted Kubernetes environments and whether `istio-cni` has been trialed in th
 1. With auto-sidecar injection, the init containers will no longer be added to the pods and the CNI
    will be the component setting the iptables up for the pods.
 
+### IKS Setup
+
+No special set up is required for IKS, as it is currently use the default `cni-conf-dir` and `cni-bin-dir`.
 
 ## Build
 
