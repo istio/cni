@@ -155,7 +155,7 @@ CNI_CONF_FILE=/host/etc/cni/net.d/${CNI_CONF_NAME}
 if [ -e "/host/etc/cni/net.d/${CNI_CONF_NAME}" ]; then
     # This section overwrites an existing plugins list entry to for istio-cni
     CNI_TMP_CONF_DATA=$(cat ${TMP_CONF})
-    CNI_CONF_DATA=$(cat ${CNI_CONF_FILE} | jq 'del( .plugins[] | select(.type == "istio-cni"))' | jq ".plugins += [${CNI_TMP_CONF_DATA}]")
+    CNI_CONF_DATA=$(cat ${CNI_CONF_FILE} | jq 'del( .plugins[]? | select(.type == "istio-cni"))' | jq ".plugins += [${CNI_TMP_CONF_DATA}]")
     echo "${CNI_CONF_DATA}" > ${TMP_CONF}
 fi
 
