@@ -40,7 +40,8 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 docker.install-cni: $(ISTIO_OUT)/istio-cni tools/deb/istio-iptables.sh \
 		deployments/kubernetes/install/scripts/install-cni.sh \
 		deployments/kubernetes/install/scripts/istio-cni.conf.default \
-		deployments/kubernetes/Dockerfile.install-cni
+		deployments/kubernetes/Dockerfile.install-cni \
+		deployments/kubernetes/install/scripts/filter.jq
 	mkdir -p $(ISTIO_DOCKER)/install-cni
 	cp $^ $(ISTIO_DOCKER)/install-cni
 	time (cd $(ISTIO_DOCKER)/install-cni && \

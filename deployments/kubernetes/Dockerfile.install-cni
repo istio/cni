@@ -9,6 +9,7 @@ RUN apk --update add jq && \
 ADD istio-cni /opt/cni/bin/
 ADD istio-iptables.sh /opt/cni/bin/
 ADD install-cni.sh /install-cni.sh
+ADD filter.jq /filter.jq
 ADD istio-cni.conf.default /istio-cni.conf.tmp
 
 ENV PATH=$PATH:/opt/cni/bin
