@@ -76,6 +76,7 @@ of hosted Kubernetes environments and whether `istio-cni` has been trialed in th
 | IKS (IBM cloud) | Y | Y (on k8s 1.10) |
 | EKS (AWS) | Y | N |
 | AKS (Azure) | Y | N |
+| Red Hat OpenShift 3.10| Y | Y |
 
 #### GKE Setup
 
@@ -101,6 +102,20 @@ of hosted Kubernetes environments and whether `istio-cni` has been trialed in th
 ### IKS Setup
 
 No special set up is required for IKS, as it is currently use the default `cni-conf-dir` and `cni-bin-dir`.
+
+### Red Hat OpenShift Setup
+
+1. Run the DaemonSet container as privileged so that it has proper write permission in the host filesystem: Modify [istio-cni.yaml](deployments/kubernetes/install/manifests/istio-cni.yaml#L105) adding this section within the `install-cni` container:
+```yaml
+securityContext:
+  privileged: true
+```
+
+2. Grant privileged permission to `istio-cni` service account:
+```sh
+$ oc adm policy add-scc-to-user privileged -z istio-cni -n kube-system
+```
+
 
 ## Build
 
