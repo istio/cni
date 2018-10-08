@@ -28,13 +28,34 @@ The following are the steps to install and use the CNI plugin.
 
 1. Install Istio control-plane
 
-1. Modify [istio-cni.yaml](deployments/kubernetes/install/manifests/istio-cni.yaml)
+1. (Manual Option) Modify [istio-cni.yaml](deployments/kubernetes/install/manifests/istio-cni.yaml)
    1. set `CNI_CONF_NAME` to the filename for your k8s cluster's CNI config file in `/etc/cni/net.d`
    1. set `exclude_namespaces` to include the namespace the Istio control-plane is installed in
    1. set `cni_bin_dir` to your kubernetes install's CNI bin location (the value of kubelet's `--cni-bin-dir`)
       1. default is `/opt/cni/bin`
 
-1. Install `istio-cni`: `kubectl apply -f deployments/kubernetes/install/manifests/istio-cni.yaml`
+1. (Helm Option) Construct a `helm template` or `helm install` command for your Kubernetes environment
+
+   1. `helm template deployments/kubernetes/install/helm --values deployments/kubernetes/install/helm/values.yaml --namespace kube-system --set hub=$HUB --set tag=$TAG > $HOME/istio-cni.yaml`
+   
+      | Environment | helm values |
+      |-------------|-------------|
+      | default kubeadm | [values.yaml](deployments/kubernetes/install/helm/values.yaml) |
+      | GKE | [values_gke.yaml](deployments/kubernetes/install/helm/values_gke.yaml) |
+
+   1. helm chart params
+   
+      | Option | Values | Description |
+      |--------|--------|-------------|
+      | hub | | The container registry to pull the `install-cni` container from. |
+      | tag | | The container tag to use to pull the `install-cni` container. |
+      | logLevel | panic, fatal, error, warn, info, debug | Logging level for CNI binary |
+      | excludeNamespaces | `[]string` | list of namespaces to exclude from Istio pod check |
+      | cniBinDir | | Use this to set to the environment's `--cni-bin-dir` setting (kubelet param) |
+      | cniConfDir | | Use this to set to the environment's `--cni-conf-dir` setting (kubelet param) |
+      | cniConfFileName | | Use this to set to the environment's CNI config filename in the `cni-conf-dir`.  Leave unset to auto-find the first file in the `cni-conf-dir`. |
+
+1. Install `istio-cni`: `kubectl apply -f $HOME/istio-cni.yaml`
 
 1. remove the `initContainers` section from the result of helm template's rendering of
    istio/templates/sidecar-injector-configmap.yaml and apply it to replace the
