@@ -141,7 +141,7 @@ sed -i s~__KUBECONFIG_FILEPATH__~${HOST_CNI_NET_DIR}/istio-cni-kubeconfig~g $TMP
 sed -i s~__LOG_LEVEL__~${LOG_LEVEL:-warn}~g $TMP_CONF
 
 # default to first file in `ls` output
-CNI_CONF_NAME=${CNI_CONF_NAME:-$(ls | head -n 1)}
+CNI_CONF_NAME=${CNI_CONF_NAME:-$(ls -1 /host/etc/cni/net.d/ | grep -v 'istio-cni-kubeconfig' | head -n 1)}
 CNI_CONF_NAME=${CNI_CONF_NAME:-10-calico.conflist}
 CNI_OLD_CONF_NAME=${CNI_OLD_CONF_NAME:-${CNI_CONF_NAME}}
 
