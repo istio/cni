@@ -15,8 +15,7 @@
 #-----------------------------------------------------------------------------
 # Global Variables
 #-----------------------------------------------------------------------------
-ISTIO_CNI_RELPATH ?= github.com/tiswanso/istio-cni
-#ISTIO_CNI_RELPATH ?= github.com/tiswanso/istio-cni
+ISTIO_CNI_RELPATH ?= istio.io/cni
 
 ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
