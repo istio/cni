@@ -78,6 +78,8 @@ ${CNI_NETWORK_CONFIG}
 EOF
 fi
 
+KUBECFG_FILE_NM=${KUBECFG_FILE_NM:-ZZZ-istio-cni-kubeconfig}
+
 SERVICE_ACCOUNT_PATH=/var/run/secrets/kubernetes.io/serviceaccount
 KUBE_CA_FILE=${KUBE_CA_FILE:-$SERVICE_ACCOUNT_PATH/ca.crt}
 SKIP_TLS_VERIFY=${SKIP_TLS_VERIFY:-false}
@@ -104,9 +106,9 @@ if [ -f "$SERVICE_ACCOUNT_PATH/token" ]; then
   # to skip TLS verification for now.  We should eventually support
   # writing more complete kubeconfig files. This is only used
   # if the provided CNI network config references it.
-  touch /host/etc/cni/net.d/istio-cni-kubeconfig
-  chmod ${KUBECONFIG_MODE:-600} /host/etc/cni/net.d/istio-cni-kubeconfig
-  cat > /host/etc/cni/net.d/istio-cni-kubeconfig <<EOF
+  touch /host/etc/cni/net.d/${KUBECFG_FILE_NM}
+  chmod ${KUBECONFIG_MODE:-600} /host/etc/cni/net.d/${KUBECFG_FILE_NM}
+  cat > /host/etc/cni/net.d/${KUBECFG_FILE_NM} <<EOF
 # Kubeconfig file for Istio CNI plugin.
 apiVersion: v1
 kind: Config
@@ -134,14 +136,14 @@ fi
 grep "__KUBERNETES_SERVICE_HOST__" $TMP_CONF && sed -i s/__KUBERNETES_SERVICE_HOST__/${KUBERNETES_SERVICE_HOST}/g $TMP_CONF
 grep "__KUBERNETES_SERVICE_PORT__" $TMP_CONF && sed -i s/__KUBERNETES_SERVICE_PORT__/${KUBERNETES_SERVICE_PORT}/g $TMP_CONF
 sed -i s/__KUBERNETES_NODE_NAME__/${KUBERNETES_NODE_NAME:-$(hostname)}/g $TMP_CONF
-sed -i s/__KUBECONFIG_FILENAME__/istio-cni-kubeconfig/g $TMP_CONF
+sed -i s/__KUBECONFIG_FILENAME__/${KUBECFG_FILE_NM}/g $TMP_CONF
 
 # Use alternative command character "~", since these include a "/".
-sed -i s~__KUBECONFIG_FILEPATH__~${HOST_CNI_NET_DIR}/istio-cni-kubeconfig~g $TMP_CONF
+sed -i s~__KUBECONFIG_FILEPATH__~${HOST_CNI_NET_DIR}/${KUBECFG_FILE_NM}~g $TMP_CONF
 sed -i s~__LOG_LEVEL__~${LOG_LEVEL:-warn}~g $TMP_CONF
 
 # default to first file in `ls` output
-CNI_CONF_NAME=${CNI_CONF_NAME:-$(ls | head -n 1)}
+CNI_CONF_NAME=${CNI_CONF_NAME:-$(ls /host/etc/cni/net.d | head -n 1)}
 CNI_CONF_NAME=${CNI_CONF_NAME:-10-calico.conflist}
 CNI_OLD_CONF_NAME=${CNI_OLD_CONF_NAME:-${CNI_CONF_NAME}}
 
