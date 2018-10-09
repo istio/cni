@@ -8,10 +8,30 @@
 # Ensure all variables are defined, and that the script fails when an error is hit.
 set -u -e
 
-# Capture the usual signals and exit from the script
-#trap 'echo "SIGINT received, simply exiting..."; exit 0' SIGINT
-#trap 'echo "SIGTERM received, simply exiting..."; exit 0' SIGTERM
-#trap 'echo "SIGHUP received, simply exiting..."; exit 0' SIGHUP
+# Helper function for raising errors
+# Usage:
+# some_command || exit_with_error "some_command_failed: maybe try..."
+exit_with_error(){
+  echo $1
+  exit 1
+}
+
+function rm_bin_files() {
+  echo "Removing existing binaries"
+  rm -f /host/opt/cni/bin/istio-cni /host/opt/cni/bin/istio-iptables.sh
+}
+
+# The directory on the host where CNI networks are installed. Defaults to
+# /etc/cni/net.d, but can be overridden by setting CNI_NET_DIR.  This is used
+# for populating absolute paths in the CNI network config to assets
+# which are installed in the CNI network config directory.
+HOST_CNI_NET_DIR=${CNI_NET_DIR:-/etc/cni/net.d}
+MOUNTED_CNI_NET_DIR=${MOUNTED_CNI_NET_DIR:-/host/etc/cni/net.d}
+
+# default to first file in `ls` output
+CNI_CONF_NAME=${CNI_CONF_NAME:-$(ls ${MOUNTED_CNI_NET_DIR} | head -n 1)}
+CNI_CONF_NAME=${CNI_CONF_NAME:-10-calico.conflist}
+KUBECFG_FILE_NAME=${KUBECFG_FILE_NAME:-ZZZ-istio-cni-kubeconfig}
 
 function cleanup() {
   echo "Cleaning up and exiting."
@@ -25,28 +45,14 @@ function cleanup() {
     echo "Removing istio-cni kubeconfig file: ${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}"
     rm ${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}
   fi
+  rm_bin_files
   echo "Exiting."
 }
 
 trap cleanup EXIT
 
-# Helper function for raising errors
-# Usage:
-# some_command || exit_with_error "some_command_failed: maybe try..."
-exit_with_error(){
-  echo $1
-  exit 1
-}
-
-# The directory on the host where CNI networks are installed. Defaults to
-# /etc/cni/net.d, but can be overridden by setting CNI_NET_DIR.  This is used
-# for populating absolute paths in the CNI network config to assets
-# which are installed in the CNI network config directory.
-HOST_CNI_NET_DIR=${CNI_NET_DIR:-/etc/cni/net.d}
-MOUNTED_CNI_NET_DIR=${MOUNTED_CNI_NET_DIR:-/host/etc/cni/net.d}
-
-# Clean up any existing binaries / config / assets.
-rm -f /host/opt/cni/bin/istio-cni
+# Clean up any existiang binaries / config / assets.
+rm_bin_files
 
 # Choose which default cni binaries should be copied
 SKIP_CNI_BINARIES=${SKIP_CNI_BINARIES:-""}
@@ -96,7 +102,6 @@ ${CNI_NETWORK_CONFIG}
 EOF
 fi
 
-KUBECFG_FILE_NAME=${KUBECFG_FILE_NAME:-ZZZ-istio-cni-kubeconfig}
 
 SERVICE_ACCOUNT_PATH=/var/run/secrets/kubernetes.io/serviceaccount
 KUBE_CA_FILE=${KUBE_CA_FILE:-$SERVICE_ACCOUNT_PATH/ca.crt}
@@ -160,9 +165,6 @@ sed -i s/__KUBECONFIG_FILENAME__/${KUBECFG_FILE_NAME}/g $TMP_CONF
 sed -i s~__KUBECONFIG_FILEPATH__~${HOST_CNI_NET_DIR}/${KUBECFG_FILE_NAME}~g $TMP_CONF
 sed -i s~__LOG_LEVEL__~${LOG_LEVEL:-warn}~g $TMP_CONF
 
-# default to first file in `ls` output
-CNI_CONF_NAME=${CNI_CONF_NAME:-$(ls ${MOUNTED_CNI_NET_DIR} | head -n 1)}
-CNI_CONF_NAME=${CNI_CONF_NAME:-10-calico.conflist}
 CNI_OLD_CONF_NAME=${CNI_OLD_CONF_NAME:-${CNI_CONF_NAME}}
 
 # Log the config file before inserting service account token.
