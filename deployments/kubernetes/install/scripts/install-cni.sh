@@ -26,6 +26,7 @@ exit_with_error(){
 # for populating absolute paths in the CNI network config to assets
 # which are installed in the CNI network config directory.
 HOST_CNI_NET_DIR=${CNI_NET_DIR:-/etc/cni/net.d}
+MOUNTED_CNI_NET_DIR=${MOUNTED_CNI_NET_DIR:-/host/etc/cni/net.d}
 
 # Clean up any existing binaries / config / assets.
 rm -f /host/opt/cni/bin/istio-cni
@@ -106,9 +107,9 @@ if [ -f "$SERVICE_ACCOUNT_PATH/token" ]; then
   # to skip TLS verification for now.  We should eventually support
   # writing more complete kubeconfig files. This is only used
   # if the provided CNI network config references it.
-  touch /host/etc/cni/net.d/${KUBECFG_FILE_NAME}
-  chmod ${KUBECONFIG_MODE:-600} /host/etc/cni/net.d/${KUBECFG_FILE_NAME}
-  cat > /host/etc/cni/net.d/${KUBECFG_FILE_NAME} <<EOF
+  touch ${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}
+  chmod ${KUBECONFIG_MODE:-600} ${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}
+  cat > ${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME} <<EOF
 # Kubeconfig file for Istio CNI plugin.
 apiVersion: v1
 kind: Config
@@ -143,7 +144,7 @@ sed -i s~__KUBECONFIG_FILEPATH__~${HOST_CNI_NET_DIR}/${KUBECFG_FILE_NAME}~g $TMP
 sed -i s~__LOG_LEVEL__~${LOG_LEVEL:-warn}~g $TMP_CONF
 
 # default to first file in `ls` output
-CNI_CONF_NAME=${CNI_CONF_NAME:-$(ls /host/etc/cni/net.d | head -n 1)}
+CNI_CONF_NAME=${CNI_CONF_NAME:-$(ls ${MOUNTED_CNI_NET_DIR} | head -n 1)}
 CNI_CONF_NAME=${CNI_CONF_NAME:-10-calico.conflist}
 CNI_OLD_CONF_NAME=${CNI_OLD_CONF_NAME:-${CNI_CONF_NAME}}
 
@@ -153,8 +154,8 @@ echo "CNI config: $(cat ${TMP_CONF})"
 
 sed -i s/__SERVICEACCOUNT_TOKEN__/${SERVICEACCOUNT_TOKEN:-}/g $TMP_CONF
 
-CNI_CONF_FILE=/host/etc/cni/net.d/${CNI_CONF_NAME}
-if [ -e "/host/etc/cni/net.d/${CNI_CONF_NAME}" ]; then
+CNI_CONF_FILE=${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}
+if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
     # This section overwrites an existing plugins list entry to for istio-cni
     CNI_TMP_CONF_DATA=$(cat ${TMP_CONF})
     CNI_CONF_DATA=$(cat ${CNI_CONF_FILE} | jq 'del( .plugins[]? | select(.type == "istio-cni"))' | jq ".plugins += [${CNI_TMP_CONF_DATA}]")
@@ -163,10 +164,10 @@ fi
 
 # Delete old CNI config files for upgrades.
 if [ "${CNI_CONF_NAME}" != "${CNI_OLD_CONF_NAME}" ]; then
-    rm -f "/host/etc/cni/net.d/${CNI_OLD_CONF_NAME}"
+    rm -f "${MOUNTED_CNI_NET_DIR}/${CNI_OLD_CONF_NAME}"
 fi
 # Move the temporary CNI config into place.
-mv $TMP_CONF /host/etc/cni/net.d/${CNI_CONF_NAME} || \
+mv $TMP_CONF ${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME} || \
   exit_with_error "Failed to mv files. This may be caused by selinux configuration on the host, or something else."
 
 echo "Created CNI config ${CNI_CONF_NAME}"
