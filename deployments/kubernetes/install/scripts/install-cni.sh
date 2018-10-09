@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Script to install Istio CNI on a Kubernetes host.
 # - Expects the host CNI binary path to be mounted at /host/opt/cni/bin.
@@ -9,9 +9,26 @@
 set -u -e
 
 # Capture the usual signals and exit from the script
-trap 'echo "SIGINT received, simply exiting..."; exit 0' SIGINT
-trap 'echo "SIGTERM received, simply exiting..."; exit 0' SIGTERM
-trap 'echo "SIGHUP received, simply exiting..."; exit 0' SIGHUP
+#trap 'echo "SIGINT received, simply exiting..."; exit 0' SIGINT
+#trap 'echo "SIGTERM received, simply exiting..."; exit 0' SIGTERM
+#trap 'echo "SIGHUP received, simply exiting..."; exit 0' SIGHUP
+
+function cleanup() {
+  echo "Cleaning up and exiting."
+
+  if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
+    echo "Removing istio-cni config from CNI chain config in ${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}"
+    CNI_CONF_DATA=$(cat ${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME} | jq 'del( .plugins[]? | select(.type == "istio-cni"))')
+    echo "${CNI_CONF_DATA}" > ${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}
+  fi
+  if [ -e "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}" ]; then
+    echo "Removing istio-cni kubeconfig file: ${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}"
+    rm ${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}
+  fi
+  echo "Exiting."
+}
+
+trap cleanup EXIT
 
 # Helper function for raising errors
 # Usage:

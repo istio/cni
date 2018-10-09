@@ -101,7 +101,7 @@ spec:
       serviceAccountName: istio-cni
       # Minimize downtime during a rolling upgrade or deletion; tell Kubernetes to do a "force
       # deletion": https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods.
-      terminationGracePeriodSeconds: 0
+      terminationGracePeriodSeconds: 5
       containers:
         # This container installs the Istio CNI binaries
         # and CNI network config file on each node.
