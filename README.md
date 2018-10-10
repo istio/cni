@@ -119,10 +119,23 @@ $ oc adm policy add-scc-to-user privileged -z istio-cni -n kube-system
 
 ## Build
 
+First, clone this repository under `$GOPATH/src/istio.io/`.
+
 For linux targets:
 
-```
+```sh
 $ GOOS=linux make build
+```
+
+You can also build the project from a non-standard location like so:
+
+```sh
+$ ISTIO_CNI_RELPATH=github.com/some/cni GOOS=linux make build
+```
+
+To push the Docker image:
+
+```sh
 $ export HUB=docker.io/tiswanso
 $ export TAG=dev
 $ GOOS=linux make docker.push
