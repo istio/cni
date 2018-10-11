@@ -89,7 +89,7 @@ function do_test() {
     echo "--------------------------------------------------"
 
     # Don't set the CNI conf file env var if $pre_conf not set
-    if [[ "${pre_conf}" != "" ]]; then
+    if [[ "${pre_conf}" != "NONE" ]]; then
         export CNI_CONF_NAME=${pre_conf}
     else
         pre_conf=${result_filename}
@@ -145,13 +145,7 @@ EOF
 )
 
 
-# Test default case where it finds the first file (10-calico.conflist)
-do_test 1 "" 10-calico.conflist ${WD}/data/expected/10-calico.conflist-istioconfig
-
-# Test default case where it passes a file 10-calico.conflist
-do_test 2 10-calico.conflist 10-calico.conflist ${WD}/data/expected/10-calico.conflist-istioconfig
-
-# Test default case where it finds the first file (10-calico.conflist)
-do_test 3 minikube_cni.conf minikube_cni.conflist ${WD}/data/expected/minikube_cni.conflist.expected ${WD}/data/expected/minikube_cni.conflist.clean
+# run the test
+do_test $@
 
 exit $HAS_FAILED

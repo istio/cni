@@ -215,6 +215,18 @@ To make use of the `istio-cni` chart from another chart:
       be made independent charts in the directory at the same level as the main `istio` chart
       (https://github.com/istio/istio/pull/9306).
 
+### Pre-commit Testing
+
+```
+make test
+```
+
+#### Current Tests
+1. install-test (`make install-test`)
+   1. Requires docker
+   1. docker runs the `install-cni` container with test dirs mounted and env vars set to known Kubernetes settings
+   1. does file compares to determine if the results match the expected configuration
+
 ## Implementation Details
 
 **TODOs**
