@@ -158,14 +158,21 @@ CNI_CONF_FILE=${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}
 if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
     # This section overwrites an existing plugins list entry to for istio-cni
     CNI_TMP_CONF_DATA=$(cat ${TMP_CONF})
-    CNI_CONF_DATA=$(cat ${CNI_CONF_FILE} | jq 'del( .plugins[]? | select(.type == "istio-cni"))' | jq ".plugins += [${CNI_TMP_CONF_DATA}]")
+    CNI_CONF_DATA=$(cat ${CNI_CONF_FILE} | jq --argjson CNI_TMP_CONF_DATA "$CNI_TMP_CONF_DATA" -f /filter.jq)
     echo "${CNI_CONF_DATA}" > ${TMP_CONF}
+fi
+
+# If the old config filename ends with .conf, rename it to .conflist, because it has changed to be a list
+if [ "${CNI_CONF_NAME: -5}" == ".conf" ]; then
+    echo "Renaming ${CNI_CONF_NAME} extension to .conflist"
+    CNI_CONF_NAME="${CNI_CONF_NAME}list"
 fi
 
 # Delete old CNI config files for upgrades.
 if [ "${CNI_CONF_NAME}" != "${CNI_OLD_CONF_NAME}" ]; then
     rm -f "${MOUNTED_CNI_NET_DIR}/${CNI_OLD_CONF_NAME}"
 fi
+
 # Move the temporary CNI config into place.
 mv $TMP_CONF ${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME} || \
   exit_with_error "Failed to mv files. This may be caused by selinux configuration on the host, or something else."
