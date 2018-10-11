@@ -2,7 +2,8 @@ FROM amd64/alpine:3.8
 
 LABEL maintainer "Tim Swanson <tiswanso@cisco.com"
 
-RUN apk --update add jq && \
+# add bash to allow install-cni.sh to trap process signals
+RUN apk --update add jq bash && \
     rm -rf /var/lib/apt/lists/* && \
     rm /var/cache/apk/*
 
@@ -15,4 +16,4 @@ ADD istio-cni.conf.default /istio-cni.conf.tmp
 ENV PATH=$PATH:/opt/cni/bin
 VOLUME /opt/cni
 WORKDIR /opt/cni/bin
-CMD ["/opt/cni/bin/istio-cni"]
+CMD ["/install-cni.sh"]
