@@ -51,9 +51,9 @@ The following are the steps to install and use the CNI plugin.
       | tag | | The container tag to use to pull the `install-cni` container. |
       | logLevel | panic, fatal, error, warn, info, debug | Logging level for CNI binary |
       | excludeNamespaces | `[]string` | list of namespaces to exclude from Istio pod check |
-      | cniBinDir | | Use this to set to the environment's `--cni-bin-dir` setting (kubelet param) |
-      | cniConfDir | | Use this to set to the environment's `--cni-conf-dir` setting (kubelet param) |
-      | cniConfFileName | | Use this to set to the environment's CNI config filename in the `cni-conf-dir`.  Leave unset to auto-find the first file in the `cni-conf-dir`. |
+      | cniBinDir | | Must be the same as the environment's `--cni-bin-dir` setting (kubelet param) |
+      | cniConfDir | | Must be the same as the environment's `--cni-conf-dir` setting (kubelet param) |
+      | cniConfFileName | | Leave unset to auto-find the first file in the `cni-conf-dir` (as kubelet does).  Primarily used for testing `install-cni` plugin config.  If set, `install-cni` will inject the plugin config into this file in the `cni-conf-dir` |
 
 1. Install `istio-cni`: `kubectl apply -f $HOME/istio-cni.yaml`
 
