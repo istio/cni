@@ -36,24 +36,24 @@ The following are the steps to install and use the CNI plugin.
 
 1. (Helm Option) Construct a `helm template` or `helm install` command for your Kubernetes environment
 
-   1. `helm template deployments/kubernetes/install/helm --values deployments/kubernetes/install/helm/values.yaml --namespace kube-system --set hub=$HUB --set tag=$TAG > $HOME/istio-cni.yaml`
+   1. `helm template deployments/kubernetes/install/helm/istio-cni --values deployments/kubernetes/install/helm/istio-cni/values.yaml --namespace kube-system --set hub=$HUB --set tag=$TAG > $HOME/istio-cni.yaml`
    
       | Environment | helm values |
       |-------------|-------------|
-      | default kubeadm | [values.yaml](deployments/kubernetes/install/helm/values.yaml) |
-      | GKE | [values_gke.yaml](deployments/kubernetes/install/helm/values_gke.yaml) |
+      | default kubeadm | [values.yaml](deployments/kubernetes/install/helm/istio-cni/values.yaml) |
+      | GKE | [values_gke.yaml](deployments/kubernetes/install/helm/istio-cni/values_gke.yaml) |
 
    1. helm chart params
    
-      | Option | Values | Description |
-      |--------|--------|-------------|
-      | hub | | The container registry to pull the `install-cni` container from. |
-      | tag | | The container tag to use to pull the `install-cni` container. |
-      | logLevel | panic, fatal, error, warn, info, debug | Logging level for CNI binary |
-      | excludeNamespaces | `[]string` | list of namespaces to exclude from Istio pod check |
-      | cniBinDir | | Must be the same as the environment's `--cni-bin-dir` setting (kubelet param) |
-      | cniConfDir | | Must be the same as the environment's `--cni-conf-dir` setting (kubelet param) |
-      | cniConfFileName | | Leave unset to auto-find the first file in the `cni-conf-dir` (as kubelet does).  Primarily used for testing `install-cni` plugin config.  If set, `install-cni` will inject the plugin config into this file in the `cni-conf-dir` |
+      | Option | Values | Default | Description |
+      |--------|--------|---------|-------------|
+      | hub | | | The container registry to pull the `install-cni` container from. |
+      | tag | | | The container tag to use to pull the `install-cni` container. |
+      | logLevel | panic, fatal, error, warn, info, debug | `warn` | Logging level for CNI binary |
+      | excludeNamespaces | `[]string` | `[ istio-system ]` | list of namespaces to exclude from Istio pod check |
+      | cniBinDir | | `/opt/cni/bin` | Must be the same as the environment's `--cni-bin-dir` setting (kubelet param) |
+      | cniConfDir | | `/etc/cni/net.d` | Must be the same as the environment's `--cni-conf-dir` setting (kubelet param) |
+      | cniConfFileName | | None | Leave unset to auto-find the first file in the `cni-conf-dir` (as kubelet does).  Primarily used for testing `install-cni` plugin config.  If set, `install-cni` will inject the plugin config into this file in the `cni-conf-dir` |
 
 1. Install `istio-cni`: `kubectl apply -f $HOME/istio-cni.yaml`
 
@@ -163,6 +163,44 @@ $ GOOS=linux make docker.push
 ```
 
 **NOTE:** Set HUB and TAG per your docker registry.
+
+### Helm
+
+The helm package tarfile can be created via
+
+```
+helm package $GOPATH/src/istio.io/deployments/kubernetes/install/helm/istio-cni
+```
+
+#### Serve Helm Repo
+
+An example for hosting a test repo for the helm istio-cni package:
+1. Create package tarfile with `helm package $GOPATH/src/istio.io/deployments/kubernetes/install/helm/istio-cni`
+1. copy tarfile to dir to serve the repo from
+1. Run `helm serve --repo-path <dir where helm tarfile is>`
+   1. The repo URL will be output (`http://127.0.0.1:8879`)
+
+To use this repo via `helm install`:
+1. `helm repo add local_istio http://127.0.0.1:8879`
+1. `helm repo update`
+
+At this point the `istio-cni` chart is ready for use by `helm install`.
+
+To make use of the `istio-cni` chart from another chart:
+1. Add the following to the other chart's `requirements.yaml`:
+
+   ```
+   - name: istio-cni
+     version: ">=0.0.1"
+     repository: http://127.0.0.1:8879/
+     condition: istio-cni.enabled
+   ```
+
+1. Run `helm dependency update <chart>` on the chart that needs to depend on istio-cni.
+   1. NOTE: for [istio/istio](https://github.com/istio/istio/tree/master/install/kubernetes/helm/istio) the charts
+      need to be reorganized to make `helm dependency update` work.  The child charts (pilot, galley, etc) need to
+      be made independent charts in the directory at the same level as the main `istio` chart
+      (https://github.com/istio/istio/pull/9306).
 
 ## Implementation Details
 
