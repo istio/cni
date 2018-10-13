@@ -15,13 +15,15 @@
 package main
 
 import (
+	"strconv"
+
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"strconv"
 )
 
+// NewK8sClient returns a Kubernetes client
 func NewK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset, error) {
 	// Some config can be passed in a kubeconfig file
 	kubeconfig := conf.Kubernetes.Kubeconfig
@@ -34,18 +36,20 @@ func NewK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset,
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig},
 		configOverrides).ClientConfig()
 	if err != nil {
-		logger.Debugf("Failed setting up kubernetes client with kubeconfig %s", kubeconfig)
+		logger.Infof("Failed setting up kubernetes client with kubeconfig %s", kubeconfig)
 		return nil, err
 	}
 
-	logger.Debugf("Set up kubernetes client with kubeconfig %s", kubeconfig)
-	logger.Debugf("Kubernetes config %v", config)
+	logger.Infof("Set up kubernetes client with kubeconfig %s", kubeconfig)
+	logger.Infof("Kubernetes config %v", config)
 
 	// Create the clientset
 	return kubernetes.NewForConfig(config)
 }
 
-func GetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string, labels map[string]string, annotations map[string]string, ports []string, err error) {
+// GetK8sPodInfo returns information of a POD
+func GetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
+	labels map[string]string, annotations map[string]string, ports []string, err error) {
 	pod, err := client.CoreV1().Pods(string(podNamespace)).Get(podName, metav1.GetOptions{})
 	logrus.Infof("pod info %+v", pod)
 	if err != nil {
@@ -55,7 +59,7 @@ func GetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 	containers = make([]string, len(pod.Spec.Containers))
 	for containerIdx, container := range pod.Spec.Containers {
 		logrus.WithFields(logrus.Fields{
-			"pod": podName,
+			"pod":       podName,
 			"container": container.Name,
 		}).Debug("Inspecting container")
 		containers[containerIdx] = container.Name
@@ -66,15 +70,15 @@ func GetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 		}
 		for _, containerPort := range container.Ports {
 			logrus.WithFields(logrus.Fields{
-				"pod": podName,
+				"pod":       podName,
 				"container": container.Name,
-				"port": containerPort,
+				"port":      containerPort,
 			}).Debug("Added pod port")
 
 			ports = append(ports, strconv.Itoa(int(containerPort.ContainerPort)))
 			logrus.WithFields(logrus.Fields{
-				"ports": ports,
-				"pod": podName,
+				"ports":     ports,
+				"pod":       podName,
 				"container": container.Name,
 			}).Debug("port")
 		}

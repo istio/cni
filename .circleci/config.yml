@@ -1,0 +1,32 @@
+version: 2
+
+# Docker environment.
+defaults: &defaults
+  working_directory: /go/src/istio.io/istio
+  docker:
+    - image: istio/ci:go1.10-k8s1.10.4-helm2.7.2-minikube0.25
+  environment:
+    GOPATH: /go
+    SKIP_CLEANUP: true
+
+jobs:
+  build:
+    <<: *defaults
+    steps:
+      - checkout
+      - run: GOOS=linux make build
+
+  lint:
+    <<: *defaults
+    steps:
+      - checkout
+      - run: make lint
+
+workflows:
+  version: 2
+
+  all:
+    jobs:
+      - lint
+      - build
+
