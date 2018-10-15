@@ -28,7 +28,7 @@ export GOPATH
 export PATH=$GOPATH/bin:$PATH
 
 # Install tools we need, but only from vendor/...
-go install istio.io/istio/vendor/github.com/client9/misspell/cmd/misspell
+go get -u github.com/client9/misspell/cmd/misspell
 
 # Spell checking
 # All the skipping files are defined in bin/.spelling_failures
