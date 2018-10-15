@@ -2,7 +2,7 @@ version: 2
 
 # Docker environment.
 defaults: &defaults
-  working_directory: /go/src/istio.io/istio
+  working_directory: /go/src/istio.io/cni
   docker:
     - image: istio/ci:go1.10-k8s1.10.4-helm2.7.2-minikube0.25
   environment:
