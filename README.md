@@ -30,10 +30,10 @@ The following are the steps to install and use the CNI plugin.
 
 1. Create Istio CNI installation manifest--either manually or via Helm:
    1. (Manual Option) Modify [istio-cni.yaml](deployments/kubernetes/install/manifests/istio-cni.yaml)
-      1. set `CNI_CONF_NAME` to the filename for your k8s cluster's CNI config file in `/etc/cni/net.d`
-      1. set `exclude_namespaces` to include the namespace the Istio control-plane is installed in
-      1. set `cni_bin_dir` to your kubernetes install's CNI bin location (the value of kubelet's `--cni-bin-dir`)
-         1. default is `/opt/cni/bin`
+      1. Set `CNI_CONF_NAME` to the filename for your k8s cluster's CNI config file in `/etc/cni/net.d`
+      1. Set `exclude_namespaces` to include the namespace the Istio control-plane is installed in
+      1. Set `cni_bin_dir` to your kubernetes install's CNI bin location (the value of kubelet's `--cni-bin-dir`)
+         1. Default is `/opt/cni/bin`
 
    1. (Helm Option) Construct a `helm template` or `helm install` command for your Kubernetes environment
    
@@ -120,7 +120,7 @@ of hosted Kubernetes environments and whether `istio-cni` has been trialed in th
 
 1. Install Istio
 
-1. remove the `initContainers` section from the result of Helm template's rendering of
+1. Remove the `initContainers` section from the result of Helm template's rendering of
    istio/templates/sidecar-injector-configmap.yaml and apply it to replace the
    `istio-sidecar-injector` configmap.  --e.g. pull the `istio-sidecar-injector` configmap from
    `istio.yaml` and remove the `initContainers` section and `kubectl apply -f <configmap.yaml>`
@@ -195,7 +195,6 @@ To use this repo via `helm install`:
 $ helm repo add local_istio http://127.0.0.1:8879
 $ helm repo update
 ```
-
 
 At this point the `istio-cni` chart is ready for use by `helm install`.
 
