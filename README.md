@@ -186,8 +186,9 @@ $ helm package $GOPATH/src/istio.io/cni/deployments/kubernetes/install/helm/isti
 An example for hosting a test repo for the Helm istio-cni package:
 1. Create package tarfile with `helm package $GOPATH/src/istio.io/cni/deployments/kubernetes/install/helm/istio-cni`
 1. Copy tarfile to dir to serve the repo from
-1. Run `helm serve --repo-path <dir where helm tarfile is>`
+1. Run `helm serve --repo-path <dir where helm tarfile is> &`
    1. The repo URL will be output (`http://127.0.0.1:8879`)
+   1. (optional) Use the `--address <IP>:<port>` option to bind the server to a specific address/port
 
 To use this repo via `helm install`:
 
