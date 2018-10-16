@@ -217,7 +217,15 @@ To make use of the `istio-cni` chart from another chart:
 
 ### Pre-commit Testing
 
+The following locally runs precommit lint, spelling, and copyright checks:
+
+```sh
+make precommit
 ```
+
+Additionally, available unit and functional testing is run via the following:
+
+```sh
 make test
 ```
 
