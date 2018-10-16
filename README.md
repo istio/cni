@@ -28,15 +28,45 @@ The following are the steps to install and use the CNI plugin.
 
 1. Install Istio control-plane
 
-1. Modify [istio-cni.yaml](deployments/kubernetes/install/manifests/istio-cni.yaml)
-   1. set `CNI_CONF_NAME` to the filename for your k8s cluster's CNI config file in `/etc/cni/net.d`
-   1. set `exclude_namespaces` to include the namespace the Istio control-plane is installed in
-   1. set `cni_bin_dir` to your kubernetes install's CNI bin location (the value of kubelet's `--cni-bin-dir`)
-      1. default is `/opt/cni/bin`
+1. Create Istio CNI installation manifest--either manually or via Helm:
+   1. (Manual Option) Modify [istio-cni.yaml](deployments/kubernetes/install/manifests/istio-cni.yaml)
+      1. Set `CNI_CONF_NAME` to the filename for your k8s cluster's CNI config file in `/etc/cni/net.d`
+      1. Set `exclude_namespaces` to include the namespace the Istio control-plane is installed in
+      1. Set `cni_bin_dir` to your kubernetes install's CNI bin location (the value of kubelet's `--cni-bin-dir`)
+         1. Default is `/opt/cni/bin`
 
-1. Install `istio-cni`: `kubectl apply -f deployments/kubernetes/install/manifests/istio-cni.yaml`
+   1. (Helm Option) Construct a `helm template` or `helm install` command for your Kubernetes environment
+   
+      ```sh
+      $ helm template deployments/kubernetes/install/helm/istio-cni --values deployments/kubernetes/install/helm/istio-cni/values.yaml --namespace kube-system --set hub=$HUB --set tag=$TAG > $HOME/istio-cni.yaml`
+      ```
 
-1. remove the `initContainers` section from the result of helm template's rendering of
+      1. Prebuilt helm "profiles" (`values.yaml` files)
+
+         | Environment | Helm values |
+         |-------------|-------------|
+         | default kubeadm | [values.yaml](deployments/kubernetes/install/helm/istio-cni/values.yaml) |
+         | GKE | [values_gke.yaml](deployments/kubernetes/install/helm/istio-cni/values_gke.yaml) |
+
+      1. Helm chart params
+
+         | Option | Values | Default | Description |
+         |--------|--------|---------|-------------|
+         | hub | | | The container registry to pull the `install-cni` image. |
+         | tag | | | The container tag to use to pull the `install-cni` image. |
+         | logLevel | `panic`, `fatal`, `error`, `warn`, `info`, `debug` | `warn` | Logging level for CNI binary |
+         | excludeNamespaces | `[]string` | `[ istio-system ]` | List of namespaces to exclude from Istio pod check |
+         | cniBinDir | | `/opt/cni/bin` | Must be the same as the environment's `--cni-bin-dir` setting (kubelet param) |
+         | cniConfDir | | `/etc/cni/net.d` | Must be the same as the environment's `--cni-conf-dir` setting (kubelet param) |
+         | cniConfFileName | | None | Leave unset to auto-find the first file in the `cni-conf-dir` (as kubelet does).  Primarily used for testing `install-cni` plugin config.  If set, `install-cni` will inject the plugin config into this file in the `cni-conf-dir` |
+
+1. Install `istio-cni`:
+
+   ```sh
+   $ kubectl apply -f $HOME/istio-cni.yaml
+   ```
+
+1. Remove the `initContainers` section from the result of Helm template's rendering of
    istio/templates/sidecar-injector-configmap.yaml and apply it to replace the
    `istio-sidecar-injector` configmap.  --e.g. pull the `istio-sidecar-injector` configmap from
    `istio.yaml` and remove the `initContainers` section and `kubectl apply -f <configmap.yaml>`
@@ -90,7 +120,7 @@ of hosted Kubernetes environments and whether `istio-cni` has been trialed in th
 
 1. Install Istio
 
-1. remove the `initContainers` section from the result of helm template's rendering of
+1. Remove the `initContainers` section from the result of Helm template's rendering of
    istio/templates/sidecar-injector-configmap.yaml and apply it to replace the
    `istio-sidecar-injector` configmap.  --e.g. pull the `istio-sidecar-injector` configmap from
    `istio.yaml` and remove the `initContainers` section and `kubectl apply -f <configmap.yaml>`
@@ -143,13 +173,55 @@ $ GOOS=linux make docker.push
 
 **NOTE:** Set HUB and TAG per your docker registry.
 
+### Helm
+
+The Helm package tarfile can be created via
+
+```sh
+$ helm package $GOPATH/src/istio.io/cni/deployments/kubernetes/install/helm/istio-cni
+```
+
+#### Serve Helm Repo
+
+An example for hosting a test repo for the Helm istio-cni package:
+1. Create package tarfile with `helm package $GOPATH/src/istio.io/cni/deployments/kubernetes/install/helm/istio-cni`
+1. Copy tarfile to dir to serve the repo from
+1. Run `helm serve --repo-path <dir where helm tarfile is> &`
+   1. The repo URL will be output (`http://127.0.0.1:8879`)
+   1. (optional) Use the `--address <IP>:<port>` option to bind the server to a specific address/port
+
+To use this repo via `helm install`:
+
+```sh
+$ helm repo add local_istio http://127.0.0.1:8879
+$ helm repo update
+```
+
+At this point the `istio-cni` chart is ready for use by `helm install`.
+
+To make use of the `istio-cni` chart from another chart:
+1. Add the following to the other chart's `requirements.yaml`:
+
+   ```yaml
+   - name: istio-cni
+     version: ">=0.0.1"
+     repository: http://127.0.0.1:8879/
+     condition: istio-cni.enabled
+   ```
+
+1. Run `helm dependency update <chart>` on the chart that needs to depend on istio-cni.
+   1. NOTE: for [istio/istio](https://github.com/istio/istio/tree/master/install/kubernetes/helm/istio) the charts
+      need to be reorganized to make `helm dependency update` work.  The child charts (pilot, galley, etc) need to
+      be made independent charts in the directory at the same level as the main `istio` chart
+      (https://github.com/istio/istio/pull/9306).
+
 ## Implementation Details
 
 **TODOs**
-- Figure out any CNI version specific semantics.
-- Add plugin parameters for included/exclude IP CIDRs
-- Add plugin parameters for proxy params, ie. listen port, UID, etc.
-- Make `istio-cni.yaml` into a helm chart
+- [ ] Figure out any CNI version specific semantics.
+- [ ] Add plugin parameters for included/exclude IP CIDRs
+- [ ] Add plugin parameters for proxy params, ie. listen port, UID, etc.
+- [X] Make `istio-cni.yaml` into a Helm chart
 
 ### Overview
 
