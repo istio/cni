@@ -29,6 +29,7 @@ initWorkingDir: &initWorkingDir
     sudo mkdir -p /go/src/istio.io/cni
     sudo chown -R circleci /go
     sudo mkdir -p /go/src/istio.io/istio
+    sudo chown -R circleci /go
     mkdir -p /go/out/tests
     mkdir -p /go/out/logs
     mkdir -p /home/circleci/logs
@@ -113,8 +114,31 @@ jobs:
       - <<: *markJobStartsOnGCS
       - run: make sync
       - run: make build
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/istio-cni ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build
+            fi
+            make docker.all
       - run: docker images
-      - run: make dummy_test
+      - run:
+          name: Get Istio
+          shell: /bin/bash
+          working_directory: /go/src/istio.io/istio
+          command: |
+            git clone https://github.com/tiswanso/istio.git .
+            git checkout istio-cni_helm
+      - run: /go/src/istio.io/istio/bin/testEnvRootMinikube.sh start
+      - run: /go/src/istio.io/istio/bin/testEnvRootMinikube.sh wait
+      - run: docker pull gcr.io/istio-release/galley:master-latest-daily
+      - run: docker images
+      - run:
+          name: Run Istio e2e_simple
+          shell: /bin/bash
+          working_directory: /go/src/istio.io/istio
+          command: |
+            HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=true make test/local/auth/e2e_simple
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS
@@ -137,5 +161,8 @@ workflows:
       - install-cni:
           requires:
             - build
-      - e2e-simple-cni
+      - e2e-simple-cni:
+          requires:
+            - build
+
 
