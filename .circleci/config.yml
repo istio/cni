@@ -148,10 +148,17 @@ jobs:
       - run: docker pull gcr.io/istio-release/galley:master-latest-daily
       - run: docker images
       - run:
+          name: Apply Istio CRDs
+          shell: /bin/bash
+          working_directory: /go/src/istio.io/istio
+          command: |
+            kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
+      - run:
           name: Run Istio e2e_simple
           shell: /bin/bash
           working_directory: /go/src/istio.io/istio
           command: |
+            HUB=gcr.io/istio-release TAG=master-latest-daily make istioctl
             HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=true make test/local/auth/e2e_simple
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
