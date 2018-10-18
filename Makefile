@@ -267,3 +267,37 @@ clean.go: ; $(info $(H) cleaning...)
 
 # for now docker is limited to Linux compiles - why ?
 include tools/istio-cni-docker.mk
+
+
+#-----------------------------------------------------------------------------
+# Target: test
+#-----------------------------------------------------------------------------
+.PHONY: test
+
+JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
+
+${ISTIO_BIN}/go-junit-report:
+	@echo "go-junit-report not found. Installing it now..."
+	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
+
+# Run coverage tests
+JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
+ifeq ($(WHAT),)
+       TEST_OBJ = install-test
+else
+       TEST_OBJ = selected-pkg-test
+endif
+test: | $(JUNIT_REPORT)
+	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
+	set -o pipefail; \
+	$(MAKE) --keep-going $(TEST_OBJ) \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
+
+.PHONY: install-test
+# May want to make this depend on push but it will always push at the moment:  install-test: docker.push
+install-test:
+	HUB=${HUB} TAG=${TAG} go test -v ${T} ./test/...
+
+.PHONY: selected-pkg-test
+selected-pkg-test:
+	find ${WHAT} -name "*_test.go"|xargs -i dirname {}|uniq|xargs -i go test ${T} {}
