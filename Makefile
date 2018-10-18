@@ -301,3 +301,22 @@ install-test:
 .PHONY: selected-pkg-test
 selected-pkg-test:
 	find ${WHAT} -name "*_test.go"|xargs -i dirname {}|uniq|xargs -i go test ${T} {}
+
+#-----------------------------------------------------------------------------
+# Target: sync
+#-----------------------------------------------------------------------------
+
+# TODO need to build a make chain to merge master with the associated PR and necessary checks.
+
+# Sync target will pull from master and sync the modules. It is the first step of the
+# circleCI build, developers should call it periodically.
+sync: git.pullmaster
+
+# Merge master. To be used in CI or by developers, assumes the
+# remote is called 'origin' (git default). Will fail on conflicts
+# Note: in a branch, this will get the latest from master. In master it has no effect.
+# This should be run after a 'git fetch' (typically done in the checkout step in CI)
+git.pullmaster:
+	git merge master
+
+dummy_test:
