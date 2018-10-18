@@ -95,14 +95,13 @@ function do_test() {
         pre_conf=${result_filename}
     fi
 
-    c_id=$(docker run --name test-istio-cni-install -v "$PWD":/usr/src/project-config -v ${TMP_CNICONFDIR}:/host/etc/cni/net.d -v ${TMP_CNIBINDIR}:/host/opt/cni/bin -v ${TMP_K8S_SVCACCTDIR}:/var/run/secrets/kubernetes.io/serviceaccount --env-file ${WD}/data/env_vars.sh -d -e CNI_NETWORK_CONFIG ${CNI_CONF_NAME:+ -e CNI_CONF_NAME} ${HUB}/install-cni:${TAG} /install-cni.sh)
-
-    echo "container ID: ${c_id}"
+    c_id=$(docker run --name test-istio-cni-install -v "$PWD":/usr/src/project-config -v ${TMP_CNICONFDIR}:/host/etc/cni/net.d -v ${TMP_CNIBINDIR}:/host/opt/cni/bin -v ${TMP_K8S_SVCACCTDIR}:/var/run/secrets/kubernetes.io/serviceaccount --env-file ${WD}/data/env_vars.sh -d -e CNI_NETWORK_CONFIG ${CNI_CONF_NAME:+ -e CNI_CONF_NAME} ${HUB}/install-cni:${TAG} /install-cni.sh 2> ${TMP_CNICONFDIR}/docker_run_stderr)
 
     if [ $? -ne 0 ] ; then
-        echo "Test #${test_num} ERROR:  failed to start docker container under-test: $?"
-        exit $?
+        echo "Test #${test_num} ERROR:  failed to start docker container '${HUB}/install-cni:${TAG}', see ${TMP_CNICONFDIR}/docker_run_stderr"
+        exit 1
     fi
+    echo "container ID: ${c_id}"
 
     sleep 10
 

@@ -296,7 +296,7 @@ test: | $(JUNIT_REPORT)
 .PHONY: install-test
 # May want to make this depend on push but it will always push at the moment:  install-test: docker.push
 install-test:
-	go test ${T} ./test/...
+	HUB=${HUB} TAG=${TAG} go test -v ${T} ./test/...
 
 .PHONY: selected-pkg-test
 selected-pkg-test:

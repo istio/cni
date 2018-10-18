@@ -44,6 +44,7 @@ func doTest(tc testCase, t *testing.T) {
 	cmd := exec.Command(TestWorkDir+"/../deployments/kubernetes/install/test/test-install-cni.sh",
 		"1", tc.preConfFile, tc.resultFileName, tc.expectedOutputFile, tc.expectedPostCleanFile)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("HUB=%s", Hub), fmt.Sprintf("TAG=%s", Tag))
+	t.Logf("Running test-install-cni.sh with HUB=%s, TAG=%s", Hub, Tag)
 	output, err := cmd.Output()
 	if err != nil {
 		t.Errorf("Error code: %v", err)
@@ -61,6 +62,7 @@ func TestInstall(t *testing.T) {
 	if envTag != "" {
 		Tag = envTag
 	}
+	t.Logf("HUB=%s, TAG=%s", Hub, Tag)
 	testDataDir := TestWorkDir + "/../deployments/kubernetes/install/test/data"
 	cases := []testCase{
 		{
@@ -87,7 +89,7 @@ func TestInstall(t *testing.T) {
 	}
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, c.name), func(t *testing.T) {
-			t.Logf("Test preconf %s, expected %s", c.preConfFile, c.expectedOutputFile)
+			t.Logf("%s: Test preconf %s, expected %s", c.name, c.preConfFile, c.expectedOutputFile)
 			doTest(c, t)
 		})
 	}
