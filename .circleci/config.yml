@@ -9,6 +9,29 @@ defaults: &defaults
     GOPATH: /go
     SKIP_CLEANUP: true
 
+# VM environment. Includes docker.
+integrationDefaults: &integrationDefaults
+  machine: true
+  working_directory: /go/src/istio.io/cni #same as docker
+  environment:
+    - CHANGE_MINIKUBE_NONE_USER: true
+    - GOPATH: /go
+    - SKIP_CLEANUP: true
+    - KUBECONFIG: /go/out/minikube.conf
+    - TEST_ENV: minikube-none
+
+# Common procedure to initialize working directory
+initWorkingDir: &initWorkingDir
+  type: shell
+  name: Initialize Working Directory
+  pwd: /
+  command: |
+    sudo mkdir -p /go/src/istio.io/cni
+    sudo chown -R circleci /go
+    mkdir -p /go/out/tests
+    mkdir -p /go/out/logs
+    mkdir -p /home/circleci/logs
+
 jobs:
   build:
     <<: *defaults
@@ -22,6 +45,30 @@ jobs:
       - checkout
       - run: make lint
 
+  install-cni:
+    <<: *integrationDefaults
+    environment:
+            - GOPATH: /go
+    steps:
+      - <<: *initWorkingDir
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/istio-cni ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build
+            fi
+            make docker.all
+      - run: make test
+      - store_artifacts:
+          path: /home/circleci/logs
+      - store_artifacts:
+          path: /tmp
+      - store_test_results:
+          path: /go/out/tests
+
 workflows:
   version: 2
 
@@ -29,4 +76,6 @@ workflows:
     jobs:
       - lint
       - build
-
+      - install-cni:
+          requires:
+            - build
