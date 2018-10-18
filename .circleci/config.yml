@@ -47,8 +47,6 @@ jobs:
 
   install-cni:
     <<: *integrationDefaults
-    environment:
-            - GOPATH: /go
     steps:
       - <<: *initWorkingDir
       - checkout
