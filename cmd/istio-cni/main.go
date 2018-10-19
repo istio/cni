@@ -217,10 +217,8 @@ func cmdAdd(args *skel.CmdArgs) error {
 			if k8sErr != nil {
 				logger.Warnf("Error geting Pod data %v", k8sErr)
 			}
-			//for _, container := range containers {
-			//if container == "istio-proxy" {
 			logger.Infof("Found containers %v", containers)
-			if len(containers) >= 1 {
+			if len(containers) > 1 {
 				logrus.WithFields(logrus.Fields{
 					"ContainerID": args.ContainerID,
 					"netns":       args.Netns,
@@ -228,12 +226,12 @@ func cmdAdd(args *skel.CmdArgs) error {
 					"Namespace":   string(k8sArgs.K8S_POD_NAMESPACE),
 					"ports":       ports,
 					"annotations": annotations,
-				}).Infof("Updating iptables redirect for Istio proxy")
+				}).Infof("Checking annotations prior to redirect for Istio proxy")
 				if val, ok := annotations[injectAnnotationKey]; ok {
 					logrus.Infof("Pod %s contains inject annotation: %s", string(k8sArgs.K8S_POD_NAME), val)
-					if b, err := strconv.ParseBool(val); err == nil {
-						if !b {
-							logrus.Infof("Pod excluded due to annotations")
+					if injectEnabled, err := strconv.ParseBool(val); err == nil {
+						if !injectEnabled {
+							logrus.Infof("Pod excluded due to inject-disabled annotation")
 							excludePod = true
 						}
 					}
@@ -243,8 +241,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 					_ = setupRedirect(args.Netns, ports)
 				}
 			}
-			//}
-			//}
 		} else {
 			logger.Infof("Pod excluded")
 		}
