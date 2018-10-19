@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/containernetworking/cni/pkg/skel"
@@ -41,6 +42,7 @@ var (
 	redirectIPCidr        = "*"
 	redirectExcludeIPCidr = ""
 	redirectExcludePort   = "15020"
+	injectAnnotationKey   = "sidecar.istio.io/inject"
 )
 
 // Kubernetes a K8s specific struct to hold config
@@ -77,12 +79,13 @@ type PluginConf struct {
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
+// The field names need to match exact keys in kubelet args for unmarshalling
 type K8sArgs struct {
 	types.CommonArgs
-	IP                   net.IP
-	K8sPodName           types.UnmarshallableString
-	K8sPodNamespace      types.UnmarshallableString
-	K8sPodInfraContainer types.UnmarshallableString
+	IP                         net.IP
+	K8S_POD_NAME               types.UnmarshallableString // nolint: golint
+	K8S_POD_NAMESPACE          types.UnmarshallableString // nolint: golint
+	K8S_POD_INFRA_CONTAINER_ID types.UnmarshallableString // nolint: golint
 }
 
 func setupRedirect(netns string, ports []string) error {
@@ -182,7 +185,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
 		return err
 	}
-	logrus.Infof("Getting WEP identifiers with arguments: %s", args.Args)
+	logrus.Infof("Getting identifiers with arguments: %s", args.Args)
 	logrus.Infof("Loaded k8s arguments: %v", k8sArgs)
 	if conf.Kubernetes.CniBinDir != "" {
 		nsSetupBinDir = conf.Kubernetes.CniBinDir
@@ -191,15 +194,15 @@ func cmdAdd(args *skel.CmdArgs) error {
 	var logger *logrus.Entry
 	logger = logrus.WithFields(logrus.Fields{
 		"ContainerID": args.ContainerID,
-		"Pod":         string(k8sArgs.K8sPodName),
-		"Namespace":   string(k8sArgs.K8sPodNamespace),
+		"Pod":         string(k8sArgs.K8S_POD_NAME),
+		"Namespace":   string(k8sArgs.K8S_POD_NAMESPACE),
 	})
 
 	// Check if the workload is running under Kubernetes.
-	if string(k8sArgs.K8sPodNamespace) != "" && string(k8sArgs.K8sPodName) != "" {
+	if string(k8sArgs.K8S_POD_NAMESPACE) != "" && string(k8sArgs.K8S_POD_NAME) != "" {
 		excludePod := false
 		for _, excludeNs := range conf.Kubernetes.ExcludeNamespaces {
-			if string(k8sArgs.K8sPodNamespace) == excludeNs {
+			if string(k8sArgs.K8S_POD_NAMESPACE) == excludeNs {
 				excludePod = true
 				break
 			}
@@ -210,26 +213,34 @@ func cmdAdd(args *skel.CmdArgs) error {
 				return err
 			}
 			logrus.WithField("client", client).Debug("Created Kubernetes client")
-			containers, _, _, ports, k8sErr := GetK8sPodInfo(client, string(k8sArgs.K8sPodName), string(k8sArgs.K8sPodNamespace))
+			containers, _, annotations, ports, k8sErr := GetK8sPodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
 			if k8sErr != nil {
 				logger.Warnf("Error geting Pod data %v", k8sErr)
 			}
-			//for _, container := range containers {
-			//if container == "istio-proxy" {
 			logger.Infof("Found containers %v", containers)
-			if len(containers) >= 1 {
+			if len(containers) > 1 {
 				logrus.WithFields(logrus.Fields{
 					"ContainerID": args.ContainerID,
 					"netns":       args.Netns,
-					"pod":         string(k8sArgs.K8sPodName),
-					"Namespace":   string(k8sArgs.K8sPodNamespace),
+					"pod":         string(k8sArgs.K8S_POD_NAME),
+					"Namespace":   string(k8sArgs.K8S_POD_NAMESPACE),
 					"ports":       ports,
-				}).Infof("Updating iptables redirect for Istio proxy")
-
-				_ = setupRedirect(args.Netns, ports)
+					"annotations": annotations,
+				}).Infof("Checking annotations prior to redirect for Istio proxy")
+				if val, ok := annotations[injectAnnotationKey]; ok {
+					logrus.Infof("Pod %s contains inject annotation: %s", string(k8sArgs.K8S_POD_NAME), val)
+					if injectEnabled, err := strconv.ParseBool(val); err == nil {
+						if !injectEnabled {
+							logrus.Infof("Pod excluded due to inject-disabled annotation")
+							excludePod = true
+						}
+					}
+				}
+				if !excludePod {
+					logrus.Infof("setting up redirect")
+					_ = setupRedirect(args.Netns, ports)
+				}
 			}
-			//}
-			//}
 		} else {
 			logger.Infof("Pod excluded")
 		}
