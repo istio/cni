@@ -127,8 +127,8 @@ jobs:
           shell: /bin/bash
           working_directory: /go/src/istio.io/istio
           command: |
-            git clone https://github.com/tiswanso/istio.git .
-            git checkout istio-cni_helm
+            git clone https://github.com/john-a-joyce/istio.git .
+            git checkout cni_e2e_wip
       - run: /go/src/istio.io/istio/bin/testEnvRootMinikube.sh start
       - run: /go/src/istio.io/istio/bin/testEnvRootMinikube.sh wait
       - run: docker pull gcr.io/istio-release/galley:master-latest-daily
@@ -145,7 +145,7 @@ jobs:
           working_directory: /go/src/istio.io/istio
           command: |
             HUB=gcr.io/istio-release TAG=master-latest-daily make istioctl
-            HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=true EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.tag=v0.1-dev" E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector" make test/local/auth/e2e_simple
+            HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=true EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.tag=$CIRCLE_SHA1" E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector --istio_cni_tag=$CIRCLE_SHA1 --istio_cni_hub=istio" make test/local/auth/e2e_simple
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS
