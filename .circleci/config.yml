@@ -145,7 +145,7 @@ jobs:
           working_directory: /go/src/istio.io/istio
           command: |
             HUB=gcr.io/istio-release TAG=master-latest-daily make istioctl
-            HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=true E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector" make test/local/auth/e2e_simple
+            HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=true EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.tag=v0.1-dev" E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector" make test/local/auth/e2e_simple
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS
