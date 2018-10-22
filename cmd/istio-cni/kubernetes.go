@@ -23,8 +23,14 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// NewK8sClient returns a Kubernetes client
-func NewK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset, error) {
+// newKubeClient is a unit test override variable for interface create.
+var newKubeClient = newK8sClient
+
+// getKubePodInfo is a unit test override variable for interface create.
+var getKubePodInfo = getK8sPodInfo
+
+// newK8sClient returns a Kubernetes client
+func newK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset, error) {
 	// Some config can be passed in a kubeconfig file
 	kubeconfig := conf.Kubernetes.Kubeconfig
 
@@ -47,8 +53,8 @@ func NewK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset,
 	return kubernetes.NewForConfig(config)
 }
 
-// GetK8sPodInfo returns information of a POD
-func GetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
+// getK8sPodInfo returns information of a POD
+func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
 	labels map[string]string, annotations map[string]string, ports []string, err error) {
 	pod, err := client.CoreV1().Pods(string(podNamespace)).Get(podName, metav1.GetOptions{})
 	logrus.Infof("pod info %+v", pod)
