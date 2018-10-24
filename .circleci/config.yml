@@ -11,8 +11,7 @@ defaults: &defaults
 
 # VM environment. Includes docker.
 integrationDefaults: &integrationDefaults
-  machine:
-    image: circleci/classic:edge
+  machine: true
   working_directory: /go/src/istio.io/cni #same as docker
   environment:
     - CHANGE_MINIKUBE_NONE_USER: true
