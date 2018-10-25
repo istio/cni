@@ -122,7 +122,7 @@ func resetGlobalTestVariables() {
 	testAnnotations = map[string]string{}
 	testPorts = []string{"9080"}
 
-	setupRedirect = nsenterRedirect
+	setupRedirect = nil
 }
 
 func testSetArgs(stdinData string) *skel.CmdArgs {
