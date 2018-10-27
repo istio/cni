@@ -121,19 +121,19 @@ var (
 	// knownUnknownLicenses are either missing or unknown to licensee, but were manually copied and /or reviewed
 	// and are considered ok, so the tool will not complain about these.
 	knownUnknownLicenses = map[string]bool{
-		"github.com/jmespath/go-jmespath":                                         true,
-		"github.com/alicebob/gopher-json":                                         true,
-		"istio.io/istio/vendor/github.com/dchest/siphash":                         true,
-		"istio.io/istio/vendor/github.com/signalfx/com_signalfx_metrics_protobuf": true,
+		"github.com/jmespath/go-jmespath":                                       true,
+		"github.com/alicebob/gopher-json":                                       true,
+		"istio.io/cni/vendor/github.com/dchest/siphash":                         true,
+		"istio.io/cni/vendor/github.com/signalfx/com_signalfx_metrics_protobuf": true,
 	}
 	// Ignore package paths that don't start with this.
 	mustStartWith = []string{
-		"istio.io/istio/vendor",
+		"istio.io/cni/vendor",
 		"vendor",
 	}
 	// After ignoring anything not in mustStartWith, further exclude anything with prefix below.
 	skipPrefixes = []string{
-		"istio.io/istio/vendor/github.com/gogo",
+		"istio.io/cni/vendor/github.com/gogo",
 		"vendor/golang_org",
 	}
 	// root is the root of Go src code.
