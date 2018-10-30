@@ -19,9 +19,10 @@ package install_test
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"testing"
+
 	//"github.com/nsf/jsondiff"
+	"istio.io/cni/deployments/kubernetes/install/test"
 )
 
 var (
@@ -40,17 +41,11 @@ type testCase struct {
 	expectedPostCleanFile string
 }
 
-func doTest(tc testCase, t *testing.T) {
-	cmd := exec.Command(TestWorkDir+"/../deployments/kubernetes/install/test/test-install-cni.sh",
-		"1", tc.preConfFile, tc.resultFileName, tc.expectedOutputFile, tc.expectedPostCleanFile)
-	cmd.Env = append(os.Environ(), fmt.Sprintf("HUB=%s", Hub), fmt.Sprintf("TAG=%s", Tag))
-	t.Logf("Running test-install-cni.sh with HUB=%s, TAG=%s", Hub, Tag)
-	output, err := cmd.Output()
-	if err != nil {
-		t.Errorf("Error code: %v", err)
-		t.Errorf("Failed test result: %s", output)
-		t.Fail()
-	}
+func doTest(testNum int, tc testCase, t *testing.T) {
+	os.Setenv("HUB", Hub)
+	os.Setenv("TAG", Tag)
+	t.Logf("Running install CNI test with HUB=%s, TAG=%s", Hub, Tag)
+	test.RunInstallCNITest(testNum, tc.preConfFile, tc.resultFileName, tc.expectedOutputFile, tc.expectedPostCleanFile, t)
 }
 
 func TestInstall(t *testing.T) {
@@ -90,7 +85,7 @@ func TestInstall(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, c.name), func(t *testing.T) {
 			t.Logf("%s: Test preconf %s, expected %s", c.name, c.preConfFile, c.expectedOutputFile)
-			doTest(c, t)
+			doTest(i, c, t)
 		})
 	}
 }
