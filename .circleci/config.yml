@@ -114,5 +114,3 @@ workflows:
     jobs:
     - nightly:
         context: org-global
-        requires:
-          - build
