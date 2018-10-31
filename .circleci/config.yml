@@ -109,7 +109,7 @@ workflows:
           branches:
             only:
             - master
-  jobs:
+    jobs:
     - lint
     - build
     - nightly:

@@ -8,6 +8,6 @@ keywords:
   - istio-cni
   - istio
 sources:
-  - http://github.com/istio-ecosystem/cni
+  - http://github.com/istio/cni
 engine: gotpl
 icon: https://istio.io/favicons/android-192x192.png
