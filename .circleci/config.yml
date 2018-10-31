@@ -77,9 +77,11 @@ jobs:
     steps:
       - <<: *initWorkingDir
       - checkout
-      - run: GOOS=linux make build
       - attach_workspace:
           at:  /go
+      - run: GOOS=linux make build
+      - run: make lint
+      - run: make test
       - run:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
@@ -104,14 +106,12 @@ workflows:
   nightly:
     triggers:
     - schedule:
-        cron: "41 * * * *"
+        cron: "30 23 * * *"
         filters:
           branches:
             only:
             - master
     jobs:
-    - lint
-    - build
     - nightly:
         context: org-global
         requires:
