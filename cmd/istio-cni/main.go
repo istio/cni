@@ -238,7 +238,9 @@ func cmdAdd(args *skel.CmdArgs) error {
 				}
 				if !excludePod {
 					logrus.Infof("setting up redirect")
-					_ = setupRedirect(args.Netns, ports)
+					if err := setupRedirect(args.Netns, ports); err != nil {
+						return err
+					}
 				}
 			}
 		} else {
