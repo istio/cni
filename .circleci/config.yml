@@ -73,11 +73,11 @@ jobs:
           path: /go/out/tests
 
   nightly:
-    <<: *defaults
+    <<: *integrationDefaults
     steps:
       - checkout
       - run: GOOS=linux make build
-     - run:
+      - run:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
               echo "Pushing docker images"
