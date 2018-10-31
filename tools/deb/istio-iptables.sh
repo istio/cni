@@ -204,6 +204,34 @@ set -o nounset
 set -o pipefail
 set -x # echo on
 
+# Maximum time to wait for an iptables call to succeed when populating the redirection rules.
+# During that time, iptables call will be attempted for every one second.
+IPTABLES_WAIT=30
+# The iptables command path
+IPTABLES_CMD=`which iptables`
+
+# Make sure this function is placed after the iptables calls to cleanup
+# the existing redirection rules and before any iptables call to populate
+# the iptables for traffic redirection.
+function iptables {
+    local iptables_wait=$IPTABLES_WAIT
+    set +o errexit
+    while true; do
+        $IPTABLES_CMD $@
+        local err_code=$?
+        if [[ $err_code == 0 ]]; then
+            break
+        fi
+        iptables_wait=$(( iptables_wait - 1 ))
+        if (( $iptables_wait > 0 )); then
+            sleep 1
+        else
+            exit $err_code
+        fi
+    done
+    set -o errexit
+}
+
 # Create a new chain for redirecting outbound traffic to the common Envoy port.
 # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
 # redirects to Envoy.
