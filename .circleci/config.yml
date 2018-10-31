@@ -75,8 +75,11 @@ jobs:
   nightly:
     <<: *integrationDefaults
     steps:
+      - <<: *initWorkingDir
       - checkout
       - run: GOOS=linux make build
+      - attach_workspace:
+          at:  /go
       - run:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
