@@ -69,16 +69,19 @@ jobs:
 
   nightly:
     <<: *integrationDefaults
+    environment:
+      - TAG: nightly-${CIRCLE_BRANCH}
     steps:
       - <<: *initWorkingDir
       - checkout
       - run: GOOS=linux make build
+      - run: make docker.all
       - run: make test
       - run:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
               echo "Pushing docker images"
-              export TAG=nightly-${CIRCLE_BRANCH}
+
               docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
               make docker.push
             fi
