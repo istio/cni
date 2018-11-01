@@ -43,11 +43,6 @@ jobs:
     steps:
       - checkout
       - run: GOOS=linux make build
-
-  lint:
-    <<: *defaults
-    steps:
-      - checkout
       - run: make lint
 
   install-cni:
@@ -74,18 +69,19 @@ jobs:
 
   nightly:
     <<: *integrationDefaults
+    environment:
+      - TAG: nightly-${CIRCLE_BRANCH}
     steps:
       - <<: *initWorkingDir
       - checkout
-      - attach_workspace:
-          at:  /go
       - run: GOOS=linux make build
+      - run: make docker.all
       - run: make test
       - run:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
               echo "Pushing docker images"
-              export TAG=nightly-${CIRCLE_BRANCH}
+
               docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
               make docker.push
             fi
@@ -95,7 +91,6 @@ workflows:
 
   all:
     jobs:
-      - lint
       - build
       - install-cni:
           requires:
@@ -111,6 +106,8 @@ workflows:
             only:
             - master
     jobs:
-    - lint
+    - build
     - nightly:
         context: org-global
+        requires:
+          - build
