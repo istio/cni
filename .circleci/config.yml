@@ -80,7 +80,6 @@ jobs:
       - attach_workspace:
           at:  /go
       - run: GOOS=linux make build
-      - run: make lint
       - run: make test
       - run:
           command: |
@@ -112,5 +111,6 @@ workflows:
             only:
             - master
     jobs:
+    - lint
     - nightly:
         context: org-global
