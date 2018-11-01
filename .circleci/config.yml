@@ -72,6 +72,24 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
+  nightly:
+    <<: *integrationDefaults
+    steps:
+      - <<: *initWorkingDir
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - run: GOOS=linux make build
+      - run: make test
+      - run:
+          command: |
+            if [ ! -z "${DOCKER_USER}" ] ; then
+              echo "Pushing docker images"
+              export TAG=nightly-${CIRCLE_BRANCH}
+              docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
+              make docker.push
+            fi
+
 workflows:
   version: 2
 
@@ -82,3 +100,17 @@ workflows:
       - install-cni:
           requires:
             - build
+
+  # Nightly publish
+  nightly:
+    triggers:
+    - schedule:
+        cron: "30 * * * *"
+        filters:
+          branches:
+            only:
+            - master
+    jobs:
+    - lint
+    - nightly:
+        context: org-global
