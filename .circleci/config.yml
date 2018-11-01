@@ -43,11 +43,6 @@ jobs:
     steps:
       - checkout
       - run: GOOS=linux make build
-
-  lint:
-    <<: *defaults
-    steps:
-      - checkout
       - run: make lint
 
   install-cni:
@@ -77,8 +72,6 @@ jobs:
     steps:
       - <<: *initWorkingDir
       - checkout
-      - attach_workspace:
-          at:  /go
       - run: GOOS=linux make build
       - run: make test
       - run:
@@ -95,7 +88,6 @@ workflows:
 
   all:
     jobs:
-      - lint
       - build
       - install-cni:
           requires:
@@ -111,6 +103,8 @@ workflows:
             only:
             - master
     jobs:
-    - lint
+    - build
     - nightly:
         context: org-global
+        requires:
+          - build
