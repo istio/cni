@@ -120,6 +120,7 @@ jobs:
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
             - GOPATH: /go
+            - TAG: ${CIRCLE_SHA1}
     steps:
       - <<: *initWorkingDir
       - checkout
@@ -159,7 +160,7 @@ jobs:
           working_directory: /go/src/istio.io/istio
           command: |
             HUB=gcr.io/istio-release TAG=master-latest-daily make istioctl
-            HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=true EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.tag=v0.1-dev" E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector" make test/local/auth/e2e_simple
+            HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=true EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.hub=istio --set istio-cni.tag=${CIRCLE_SHA1} --set istio-cni.pullPolicy=IfNotPresent" E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector" make test/local/auth/e2e_simple
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS
