@@ -33,21 +33,21 @@ To run the Istio e2e test first, clone the Istio repo in your local environment.
 
 1. Run the Istio make target  
 ```console
-sh make e2e_simple_cni
+make e2e_simple_cni
 ```
 
 2. Run any of the Istio e2e targets after setting up a few environment variables:
 ```console
 export ENABLE_ISTIO_CNI=true
 export E2E_ARGS=--kube_inject_configmap=istio-sidecar-injector
-export EXTRA_HELM_SETTINGS=--set istio-cni.excludeNamespaces={}  --set istio-cni.tag=$YOUR_CNI_TAG) --set istio-cni.hub=$YOUR_CNI_HUB
+export EXTRA_HELM_SETTINGS=--set istio-cni.excludeNamespaces={} --set istio-cni.tag=$YOUR_CNI_TAG --set istio-cni.hub=$YOUR_CNI_HUB
 ```
-The value for EXTRA_HELM_SETTINGS will depend on your specific environment.
+The value for `EXTRA_HELM_SETTINGS` will depend on your specific environment.
 
-The tag ($YOUR_CNI_TAG) should be set to the $TAG value you used when you build your CNI image.
-The hub ($YOUR_CNI_HUB) should be set to the location you used when you build your CNI image.
-Istio in most cases runs the e2e tests in the ```istio-system``` namespace and therefore the excludedNamespaces must be set to NULL.
-The e2e tests normally use ```istioctl``` to inject the sidecar and it is necessary to use a ConfigMap without the initContianers section.
-Depending on your environment you may need to override other default settings.  Any additional override settings can be added via the ```EXTRA_HELM_SETTINGS```
+The tag `$YOUR_CNI_TAG` should be set to the `$TAG` value you used when you built your CNI image.
+The hub `$YOUR_CNI_HUB` should be set to the location you used when you built your CNI image.
+Istio in most cases runs the e2e tests in the `istio-system` namespace and therefore the `excludeNamespaces` must be set to `NULL`.
+The e2e tests normally use `istioctl` to inject the sidecar and it is necessary to use a `ConfigMap` without the `initContainers` section.
+Depending on your environment you may need to override other default settings.  Any additional override settings can be added via the `EXTRA_HELM_SETTINGS`
 
-If the tag and hub is not set, the test will use the latest hub and tag values checked into the istio/cni repository.
+If the `tag` and `hub` is not set, the test will use the latest hub and tag values checked into the istio/cni repository.  The default `tag` and `hub` values are fine to use if you do not want to build your own CNI images.
