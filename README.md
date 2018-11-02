@@ -1,4 +1,4 @@
-# Istio CNI plugin (WIP/PoC)
+# Istio CNI plugin
 
 For application pods in the Istio service mesh, all traffic to/from the pods needs to go through the
 sidecar proxies (istio-proxy containers).  This `istio-cni` CNI plugin PoC will set up the
