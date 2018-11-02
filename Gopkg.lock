@@ -20,6 +20,12 @@
   version = "v0.7.0-alpha1"
 
 [[projects]]
+  name = "github.com/containernetworking/plugins"
+  packages = ["pkg/testutils"]
+  revision = "19f2f28178aa88772f69c4eeb3793d4a63c244b0"
+  version = "v0.7.3"
+
+[[projects]]
   name = "github.com/ghodss/yaml"
   packages = ["."]
   revision = "0ca9ea5df5451ffdf184b4428c902747c2c11cd7"
@@ -357,6 +363,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1337086f3160cf4bf5590f28392ad4418d564a23baeace8c000985509628c188"
+  inputs-digest = "f2a50e85c3e3d952155b308d6f220662a1b1c60cfae55c6cac9041da501b5c86"
   solver-name = "gps-cdcl"
   solver-version = 1

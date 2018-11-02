@@ -45,6 +45,9 @@ var (
 	injectAnnotationKey   = "sidecar.istio.io/inject"
 )
 
+// execCommand is a unit test override variable.
+var execCommand = exec.Command
+
 // Kubernetes a K8s specific struct to hold config
 type Kubernetes struct {
 	K8sAPIRoot        string   `json:"k8s_api_root"`
@@ -105,7 +108,7 @@ func setupRedirect(netns string, ports []string) error {
 	logrus.WithFields(logrus.Fields{
 		"nsenterArgs": nsenterArgs,
 	}).Infof("nsenter args")
-	out, err := exec.Command("nsenter", nsenterArgs...).CombinedOutput()
+	out, err := execCommand("nsenter", nsenterArgs...).CombinedOutput()
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"out": string(out[:]),
@@ -208,12 +211,12 @@ func cmdAdd(args *skel.CmdArgs) error {
 			}
 		}
 		if !excludePod {
-			client, err := NewK8sClient(*conf, logger)
+			client, err := newKubeClient(*conf, logger)
 			if err != nil {
 				return err
 			}
 			logrus.WithField("client", client).Debug("Created Kubernetes client")
-			containers, _, annotations, ports, k8sErr := GetK8sPodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
+			containers, _, annotations, ports, k8sErr := getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
 			if k8sErr != nil {
 				logger.Warnf("Error geting Pod data %v", k8sErr)
 			}
@@ -254,6 +257,12 @@ func cmdAdd(args *skel.CmdArgs) error {
 	return types.PrintResult(conf.PrevResult, conf.CNIVersion)
 }
 
+func cmdGet(args *skel.CmdArgs) error {
+	logrus.Info("cmdGet not implemented")
+	// TODO: implement
+	return fmt.Errorf("not implemented")
+}
+
 // cmdDel is called for DELETE requests
 func cmdDel(args *skel.CmdArgs) error {
 	logrus.Info("istio-cni cmdDel parsing config")
@@ -278,10 +287,4 @@ func main() {
 
 	// TODO: implement plugin version
 	skel.PluginMain(cmdAdd, cmdGet, cmdDel, version.All, "istio-cni")
-}
-
-func cmdGet(args *skel.CmdArgs) error {
-	logrus.Info("cmdGet not implemented")
-	// TODO: implement
-	return fmt.Errorf("not implemented")
 }

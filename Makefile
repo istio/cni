@@ -283,7 +283,7 @@ ${ISTIO_BIN}/go-junit-report:
 # Run coverage tests
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 ifeq ($(WHAT),)
-       TEST_OBJ = install-test
+       TEST_OBJ = install-test cmd-test
 else
        TEST_OBJ = selected-pkg-test
 endif
@@ -301,3 +301,7 @@ install-test:
 .PHONY: selected-pkg-test
 selected-pkg-test:
 	find ${WHAT} -name "*_test.go"|xargs -i dirname {}|uniq|xargs -i go test ${T} {}
+
+.PHONY: cmd-test
+cmd-test:
+	go test ./cmd/...
