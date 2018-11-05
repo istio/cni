@@ -3,9 +3,11 @@
 ## Test install-cni.sh
 
 ### Run
+
+```console
+$ go test -v install_cni_test.go -args -preconf=... -resultfilename=... -expectedconf=... -expectedclean=...
 ```
-./test-install-cni.sh
-```
+
 ### Description
 
 1. invoke container standalone in raw docker with
