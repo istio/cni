@@ -45,8 +45,8 @@ var (
 	injectAnnotationKey   = "sidecar.istio.io/inject"
 )
 
-// execCommand is a unit test override variable.
-var execCommand = exec.Command
+// setupRedirect is a unit test override variable.
+var setupRedirect = nsenterRedirect
 
 // Kubernetes a K8s specific struct to hold config
 type Kubernetes struct {
@@ -91,7 +91,7 @@ type K8sArgs struct {
 	K8S_POD_INFRA_CONTAINER_ID types.UnmarshallableString // nolint: golint
 }
 
-func setupRedirect(netns string, ports []string) error {
+func nsenterRedirect(netns string, ports []string) error {
 	netnsArg := fmt.Sprintf("--net=%s", netns)
 	nsSetupExecutable := fmt.Sprintf("%s/%s", nsSetupBinDir, nsSetupProg)
 	nsenterArgs := []string{
@@ -108,7 +108,7 @@ func setupRedirect(netns string, ports []string) error {
 	logrus.WithFields(logrus.Fields{
 		"nsenterArgs": nsenterArgs,
 	}).Infof("nsenter args")
-	out, err := execCommand("nsenter", nsenterArgs...).CombinedOutput()
+	out, err := exec.Command("nsenter", nsenterArgs...).CombinedOutput()
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"out": string(out[:]),
