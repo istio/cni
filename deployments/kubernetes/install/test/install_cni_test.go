@@ -1,4 +1,4 @@
-// Copyright 2018 Istio authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ var (
 	expectedCleanFlag  = flag.String("expectedclean", "", "expected_clean")
 )
 
+// TestInstallCNI consumes CLI flags and runs the install CNI test.
 func TestInstallCNI(t *testing.T) {
 	RunInstallCNITest(1, *preConfFlag, *resultFileNameFlag, *expectedConfFlag, *expectedCleanFlag, t)
 }

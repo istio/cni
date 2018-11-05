@@ -1,4 +1,4 @@
-// Copyright 2018 Istio authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -103,6 +103,8 @@ func rm(dir string, t *testing.T) {
 	}
 }
 
+// populateTempDirs populates temporary test directories with golden files and
+// other related configuration.
 func populateTempDirs(wd, tempCNIConfDir, tempK8sSvcAcctDir string, t *testing.T) {
 	t.Logf("Pre-populating working dirs")
 	for _, f := range ls(wd+cniConfSubDir, t) {
@@ -116,12 +118,14 @@ func populateTempDirs(wd, tempCNIConfDir, tempK8sSvcAcctDir string, t *testing.T
 	t.Logf("Finished pre-populating working dirs")
 }
 
+// startDocker starts a test Docker container and runs the install-cni.sh script.
 func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
 	tempK8sSvcAcctDir string, t *testing.T) string {
 
 	dockerImage := env("HUB", "") + "/install-cni:" + env("TAG", "")
 	errFileName := tempCNIConfDir + "/docker_run_stderr"
 
+	// Build arguments list by picking whatever is necessary from the environment.
 	args := []string{"run", "-d",
 		"--name", "test-istio-cni-install",
 		"-v", env("PWD", "") + ":/usr/src/project-config",
@@ -137,11 +141,11 @@ func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
 	args = append(args, dockerImage)
 	args = append(args, "/install-cni.sh")
 
+	// Create a temporary log file to write docker command error log.
 	errFile, err := os.Create(errFileName)
 	if err != nil {
 		t.Fatalf("Couldn't create docker stderr file, err: %v", err)
 	}
-
 	defer func() {
 		errClose := errFile.Close()
 		if errClose != nil {
@@ -149,6 +153,7 @@ func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
 		}
 	}()
 
+	// Run the docker command and write errors to a temporary file.
 	cmd := exec.Command("docker", args...)
 	cmd.Stderr = errFile
 
@@ -161,6 +166,7 @@ func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
 	return strings.Trim(string(containerID), "\n")
 }
 
+// docker runs the given docker command on the given container ID.
 func docker(cmd, containerID string, t *testing.T) {
 	out, err := exec.Command("docker", cmd, containerID).CombinedOutput()
 	if err != nil {
@@ -169,6 +175,7 @@ func docker(cmd, containerID string, t *testing.T) {
 	t.Logf("docker %s %s - out: %s", cmd, containerID, out)
 }
 
+// compareConfResult does a string compare of 2 test files.
 func compareConfResult(testWorkRootDir, tempCNIConfDir, result, expected string, t *testing.T) {
 	tempResult := tempCNIConfDir + "/" + result
 	resultFile, err := ioutil.ReadFile(tempResult)
@@ -191,26 +198,27 @@ func compareConfResult(testWorkRootDir, tempCNIConfDir, result, expected string,
 	}
 }
 
+// checkBinDir verifies the presence/absence of test files.
 func checkBinDir(t *testing.T, tempCNIBinDir, op string, files ...string) {
-	if op == "add" {
-		for _, f := range files {
-			if _, err := os.Stat(tempCNIBinDir + "/" + f); !os.IsNotExist(err) {
+	for _, f := range files {
+		if _, err := os.Stat(tempCNIBinDir + "/" + f); !os.IsNotExist(err) {
+			if op == "add" {
 				t.Logf("PASS: File %v was added to %v", f, tempCNIBinDir)
-			} else {
-				t.Fatalf("FAIL: File %v was not added to %v", f, tempCNIBinDir)
-			}
-		}
-	} else if op == "del" {
-		for _, f := range files {
-			if _, err := os.Stat(tempCNIBinDir + "/" + f); !os.IsNotExist(err) {
+			} else if op == "del" {
 				t.Fatalf("FAIL: File %v was not removed from %v", f, tempCNIBinDir)
-			} else {
+			}
+		} else {
+			if op == "add" {
+				t.Fatalf("FAIL: File %v was not added to %v", f, tempCNIBinDir)
+			} else if op == "del" {
 				t.Logf("PASS: File %v was removed from %v", f, tempCNIBinDir)
 			}
 		}
 	}
 }
 
+// doTest sets up necessary environment variables, runs the Docker installation
+// container and verifies output file correctness.
 func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
 	expectedPostCleanFile, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir,
 	testWorkRootDir string, t *testing.T) {
@@ -246,7 +254,12 @@ func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
 	docker("rm", containerID, t)
 }
 
-// RunInstallCNITest runs the install CNI test.
+// RunInstallCNITest sets up temporary directories and runs the test.
+//
+// Doing a go test install_cni.go by itself will not execute the test as the
+// file doesn't have a _test.go suffix, and this func doesn't start with a Test
+// prefix. This func is only meant to be invoked programmatically. A separate
+// install_cni_test.go file exists for executing this test.
 func RunInstallCNITest(testNum int, preConfFile, resultFileName, expectedOutputFile,
 	expectedPostCleanFile string, t *testing.T) {
 
