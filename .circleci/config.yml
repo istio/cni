@@ -176,10 +176,15 @@ jobs:
           working_directory: /go/src/istio.io/istio
           command: |
             GOOS=linux HUB=gcr.io/istio-release TAG=master-latest-daily make istioctl
-            HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=true EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.tag=v0.1-dev-mapann --set istio-cni.pullPolicy=IfNotPresent" E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector" make test/local/auth/e2e_simple
+            # setup port forwarding for kubectl to work with KDC cluster
+            DIND_ROOT=~/kubeadm-dind-cluster
+            apiserver_port="$( "${DIND_ROOT}/dind-cluster.sh" apiserver-port )"
+            "${DIND_ROOT}/build/portforward.sh" -wait "$apiserver_port"
+            HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=false EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.hub=istio --set istio-cni.tag=${CIRCLE_SHA1} --set istio-cni.pullPolicy=IfNotPresent" E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector" make test/local/auth/e2e_simple
 
       - run:
           name: Display cluster status (2)
+          when: always
           <<: *dind-display_cluster_state
       - run:
           name: Dump cluster state (2)
