@@ -9,6 +9,61 @@ defaults: &defaults
     GOPATH: /go
     SKIP_CLEANUP: true
 
+# dind docker env
+dind-defaults: &dind-defaults
+  docker:
+    - image: istio/ci:go1.10-k8s1.10.4-helm2.7.2-minikube0.25
+  environment:
+    GOPATH: /go
+    SKIP_CLEANUP: true
+  working_directory: ~/kubeadm-dind-cluster
+
+dind-env: &dind-env
+  DOCKER_VERSION: "17.03.0-ce"
+
+dind-setup: &dind-setup
+  name: Set up the environment
+  command: |
+    apt-get -qq update
+    apt-get install -y curl ca-certificates git liblz4-tool rsync socat tzdata
+    curl -sSL -o "/tmp/docker-${DOCKER_VERSION}.tgz" "https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION}.tgz"
+    tar -xz -C /tmp -f "/tmp/docker-${DOCKER_VERSION}.tgz"
+    mv /tmp/docker/* /usr/bin
+    # Start port forwarder
+    "${PWD}/build/portforward.sh" start
+
+dind-display_cluster_state: &dind-display_cluster_state
+  command: |
+    DIND_ROOT="$PWD"
+
+    kubectl="kubectl"
+    if [[ ${K8S_SRC:-} ]]; then
+      cd kubernetes
+      kubectl="cluster/kubectl.sh"
+    fi
+
+    apiserver_port="$( "${DIND_ROOT}/dind-cluster.sh" apiserver-port )"
+    "${DIND_ROOT}/build/portforward.sh" -wait "$apiserver_port"
+
+    "${kubectl}" "--server=:${apiserver_port}" version
+    "${kubectl}" "--server=:${apiserver_port}" get all --all-namespaces -o wide
+    "${kubectl}" "--server=:${apiserver_port}" get nodes
+
+dind-dump_cluster: &dind-dump_cluster
+  command: |
+    mkdir -p /tmp/cluster_state
+    out="/tmp/cluster_state/dump-1.gz"
+    if [[ -f ${out} ]]; then
+      out="/tmp/cluster_state/dump-2.gz"
+    fi
+    if [[ ${K8S_SRC:-} ]]; then
+      cd kubernetes
+      ../dind-cluster.sh dump | gzip >"${out}"
+    else
+      ./dind-cluster.sh dump | gzip >"${out}"
+    fi
+
+
 # VM environment. Includes docker.
 integrationDefaults: &integrationDefaults
   machine: true
@@ -84,6 +139,64 @@ jobs:
               TAG=nightly-${CIRCLE_BRANCH} make docker.push
             fi
 
+  e2e-dind:
+    <<: *dind-defaults
+    environment:
+      <<: *dind-env
+    steps:
+      - setup_remote_docker
+      - run:
+          name: Get KDC
+          working_directory: ~/kubeadm-dind-cluster
+          command: |
+            git clone https://github.com/kubernetes-sigs/kubeadm-dind-cluster .
+      - run:
+          <<: *dind-setup
+      - run:
+          name: Start kubeadm in DinD (KDC)
+          command: |
+            export DIND_PORT_FORWARDER_WAIT=1
+            export DIND_PORT_FORWARDER="${PWD}/build/portforward.sh"
+            ./fixed/dind-cluster-v1.10.sh up
+      - run:
+          name: Display cluster status (1)
+          <<: *dind-display_cluster_state
+      - run:
+          name: Dump cluster state (1)
+          when: always
+          <<: *dind-dump_cluster
+      - run:
+          name: Get Istio
+          shell: /bin/bash
+          working_directory: /go/src/istio.io/istio
+          command: |
+            git clone https://github.com/tiswanso/istio.git .
+      - run:
+          name: Run Istio e2e_simple
+          shell: /bin/bash
+          working_directory: /go/src/istio.io/istio
+          command: |
+            HUB=gcr.io/istio-release TAG=master-latest-daily make istioctl
+            HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=true EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.tag=v0.1-dev-mapann --set istio-cni.pullPolicy=IfNotPresent" E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector" make test/local/auth/e2e_simple
+
+      - run:
+          name: Display cluster status (2)
+          <<: *dind-display_cluster_state
+      - run:
+          name: Dump cluster state (2)
+          when: always
+          <<: *dind-dump_cluster
+      - store_artifacts:
+          path: /tmp/cluster_state
+      - run:
+          name: Bring down the cluster
+          command: |
+            ./dind-cluster.sh down
+      - run:
+          name: Clean the cluster
+          command: |
+            ./dind-cluster.sh clean
+
 workflows:
   version: 2
 
@@ -93,6 +206,7 @@ workflows:
       - install-cni:
           requires:
             - build
+      - e2e-dind
 
   # Nightly publish
   nightly:
