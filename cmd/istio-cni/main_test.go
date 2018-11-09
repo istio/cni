@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 	"testing"
 
@@ -37,7 +36,7 @@ var (
 	excludeNamespace = "testExcludeNS"
 
 	getKubePodInfoCalled = false
-	execCommandCalled    = false
+	nsenterFuncCalled    = false
 
 	testContainers  = []string{"mockContainer"}
 	testLabels      = map[string]string{}
@@ -90,20 +89,9 @@ var conf = `{
     }
     }`
 
-func mockExecCommand(name string, arg ...string) *exec.Cmd {
-	if name != "nsenter" {
-		logrus.Errorf("expected name 'nsenter', got: %s", name)
-		execCommandCalled = false // set to false to make unit test fail
-	} else {
-		execCommandCalled = true
-	}
-
-	cmd := &exec.Cmd{
-		Path: name,
-		Args: append([]string{name}, arg...),
-	}
-
-	return cmd
+func mockNsenterRedirect(netns string, ports []string) error {
+	nsenterFuncCalled = true
+	return nil
 }
 
 func mocknewK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset, error) {
@@ -127,12 +115,14 @@ func mockgetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace strin
 
 func resetGlobalTestVariables() {
 	getKubePodInfoCalled = false
-	execCommandCalled = false
+	nsenterFuncCalled = false
 
 	testContainers = []string{"mockContainer"}
 	testLabels = map[string]string{}
 	testAnnotations = map[string]string{}
 	testPorts = []string{"9080"}
+
+	setupRedirect = nsenterRedirect
 }
 
 func testSetArgs(stdinData string) *skel.CmdArgs {
@@ -215,16 +205,14 @@ func TestCmdAddTwoContainersWithAnnotation(t *testing.T) {
 func TestCmdAddTwoContainers(t *testing.T) {
 	defer resetGlobalTestVariables()
 
-	execCommand = mockExecCommand
+	setupRedirect = mockNsenterRedirect
 	testAnnotations[injectAnnotationKey] = "true"
-	execCommandCalled = false
-
 	testContainers = []string{"mockContainer", "mockContainer2"}
 
 	testCmdAdd(t)
 
-	if !execCommandCalled {
-		t.Fatalf("expected exec.Command to be called")
+	if !nsenterFuncCalled {
+		t.Fatalf("expected nsenterFunc to be called")
 	}
 }
 
