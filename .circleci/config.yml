@@ -144,6 +144,13 @@ jobs:
     <<: *dind-defaults
     steps:
       - setup_remote_docker
+      - checkout:
+          path: /go/src/istio.io/cni
+      - run:
+          name: Build test-e2e container
+          working_directory: /go/src/istio.io/cni
+          command: |
+            docker build -t e2e-runner:latest .circleci
       - run:
           name: Get KDC
           working_directory: ~/kubeadm-dind-cluster
@@ -165,23 +172,9 @@ jobs:
           when: always
           <<: *dind-dump_cluster
       - run:
-          name: Get Istio
-          shell: /bin/bash
-          working_directory: /go/src/istio.io/istio
+          name: Run e2e test
           command: |
-            git clone https://github.com/istio/istio.git .
-      - run:
-          name: Run Istio e2e_simple
-          shell: /bin/bash
-          working_directory: /go/src/istio.io/istio
-          command: |
-            GOOS=linux HUB=gcr.io/istio-release TAG=master-latest-daily make istioctl
-            # setup port forwarding for kubectl to work with KDC cluster
-            DIND_ROOT=~/kubeadm-dind-cluster
-            apiserver_port="$( "${DIND_ROOT}/dind-cluster.sh" apiserver-port )"
-            "${DIND_ROOT}/build/portforward.sh" -wait "$apiserver_port"
-            HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=false EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.hub=istio --set istio-cni.tag=${CIRCLE_SHA1} --set istio-cni.pullPolicy=IfNotPresent" E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector" make test/local/auth/e2e_simple
-
+            docker run --name=istio-e2e --network=container:kube-master -t -e CNI_TAG='v0.1-dev-mapann' e2e-runner:latest /go/run_e2e.sh
       - run:
           name: Display cluster status (2)
           when: always
