@@ -69,23 +69,19 @@ jobs:
 
   nightly:
     <<: *integrationDefaults
-    environment:
-      - TAG: nightly-${CIRCLE_BRANCH}
     steps:
       - <<: *initWorkingDir
       - checkout
-      - attach_workspace:
-          at:  /go
       - run: GOOS=linux make build
-      - run: make docker.all
-      - run: make test
+      - run: TAG=nightly-${CIRCLE_BRANCH} make docker.all
+      - run: TAG=nightly-${CIRCLE_BRANCH} make test
       - run:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
               echo "Pushing docker images"
 
               docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
-              make docker.push
+              TAG=nightly-${CIRCLE_BRANCH} make docker.push
             fi
 
 workflows:
