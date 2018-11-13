@@ -28,9 +28,6 @@ dind-setup: &dind-setup
   command: |
     sudo apt-get -qq update
     sudo apt-get install -y curl ca-certificates git liblz4-tool rsync socat tzdata
-    #curl -sSL -o "/tmp/docker-${DOCKER_VERSION}.tgz" "https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION}.tgz"
-    #tar -xz -C /tmp -f "/tmp/docker-${DOCKER_VERSION}.tgz"
-    #sudo mv /tmp/docker/* /usr/bin
     # Start port forwarder
     "${PWD}/build/portforward.sh" start
 
@@ -99,7 +96,19 @@ jobs:
     <<: *defaults
     steps:
       - checkout
-      - run: GOOS=linux make build
+      - setup_remote_docker
+      - run:
+          name: Build docker images
+          command: |
+            TAG=${CIRCLE_SHA1} GOOS=linux make build
+            TAG=${CIRCLE_SHA1} GOOS=linux make docker
+            images_to_save+=("docker.io/istio/install-cni:${CIRCLE_SHA1}")
+            mkdir -p _save
+            docker save "${images_to_save[@]}" >_save/images.tar
+      - persist_to_workspace:
+          root: _save
+          paths:
+          - images.tar
       - run: make lint
 
   install-cni:
@@ -147,12 +156,8 @@ jobs:
       - setup_remote_docker
       - checkout:
           path: /go/src/istio.io/cni
-      - run:
-          name: Build istio-cni
-          working_directory: /go/src/istio.io/cni
-          command: |
-            GOOS=linux make build
-            TAG=${CIRCLE_SHA1} GOOS=linux make docker.all
+      - attach_workspace:
+          at: /go/src/_save
       - run:
           name: Build test-e2e container
           working_directory: /go/src/istio.io/cni
@@ -179,9 +184,17 @@ jobs:
           when: always
           <<: *dind-dump_cluster
       - run:
+          name: Restore built images
+          command: |
+            for node in kube-master kube-node-1 kube-node-2; do
+              docker cp /go/src/_save/images.tar $node:/images.tar
+              docker exec -t $node sh -c "docker load -i /images.tar"
+              docker exec -t $node sh -c "docker images"
+            done
+      - run:
           name: Run e2e test
           command: |
-            docker run --name=istio-e2e --network=container:kube-master -t -e CNI_TAG=${CIRCLE_SHA1} -e CNI_HUB='istio' -e HUB='gcr.io/istio-release' -e TAG='master-latest-daily' -e SKIP_CLEAN='1' e2e-runner:latest /go/run_e2e.sh
+            docker run --name=istio-e2e --network=container:kube-master -t -e CNI_TAG=${CIRCLE_SHA1} -e CNI_HUB='docker.io/istio' -e HUB='gcr.io/istio-release' -e TAG='master-latest-daily' -e SKIP_CLEAN='1' e2e-runner:latest /go/run_e2e.sh
       - run:
           name: Display cluster status (2)
           when: always
