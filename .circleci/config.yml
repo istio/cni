@@ -148,6 +148,12 @@ jobs:
       - checkout:
           path: /go/src/istio.io/cni
       - run:
+          name: Build istio-cni
+          working_directory: /go/src/istio.io/cni
+          command: |
+            GOOS=linux make build
+            TAG=${CIRCLE_SHA1} GOOS=linux make docker.all
+      - run:
           name: Build test-e2e container
           working_directory: /go/src/istio.io/cni
           command: |
@@ -175,7 +181,7 @@ jobs:
       - run:
           name: Run e2e test
           command: |
-            docker run --name=istio-e2e --network=container:kube-master -t -e CNI_TAG='v0.1-dev-mapann_rebase' -e CNI_HUB='docker.io/tiswanso' -e HUB='gcr.io/istio-release' -e TAG='master-latest-daily' -e SKIP_CLEAN='1' e2e-runner:latest /go/run_e2e.sh
+            docker run --name=istio-e2e --network=container:kube-master -t -e CNI_TAG=${CIRCLE_SHA1} -e CNI_HUB='istio' -e HUB='gcr.io/istio-release' -e TAG='master-latest-daily' -e SKIP_CLEAN='1' e2e-runner:latest /go/run_e2e.sh
       - run:
           name: Display cluster status (2)
           when: always
@@ -204,7 +210,9 @@ workflows:
       - install-cni:
           requires:
             - build
-      - e2e-dind
+      - e2e-dind:
+          requires:
+            - build
 
   # Nightly publish
   nightly:
