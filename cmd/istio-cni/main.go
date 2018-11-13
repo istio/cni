@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -34,19 +33,14 @@ import (
 )
 
 var (
-	nsSetupBinDir         = "/opt/cni/bin"
-	nsSetupProg           = "istio-iptables.sh"
-	redirectToPort        = "15001"
-	noRedirectUID         = "1337"
-	redirectMode          = "REDIRECT" // other Option TPROXY
-	redirectIPCidr        = "*"
-	redirectExcludeIPCidr = ""
-	redirectExcludePort   = "15020"
-	injectAnnotationKey   = "sidecar.istio.io/inject"
+	nsSetupBinDir = "/opt/cni/bin"
+	nsSetupProg   = "istio-iptables.sh"
+
+	injectAnnotationKey = "sidecar.istio.io/inject"
 )
 
 // setupRedirect is a unit test override variable.
-var setupRedirect = nsenterRedirect
+var setupRedirect func(string, []string) error
 
 // Kubernetes a K8s specific struct to hold config
 type Kubernetes struct {
@@ -89,36 +83,6 @@ type K8sArgs struct {
 	K8S_POD_NAME               types.UnmarshallableString // nolint: golint
 	K8S_POD_NAMESPACE          types.UnmarshallableString // nolint: golint
 	K8S_POD_INFRA_CONTAINER_ID types.UnmarshallableString // nolint: golint
-}
-
-func nsenterRedirect(netns string, ports []string) error {
-	netnsArg := fmt.Sprintf("--net=%s", netns)
-	nsSetupExecutable := fmt.Sprintf("%s/%s", nsSetupBinDir, nsSetupProg)
-	nsenterArgs := []string{
-		netnsArg,
-		nsSetupExecutable,
-		"-p", redirectToPort,
-		"-u", noRedirectUID,
-		"-m", redirectMode,
-		"-i", redirectIPCidr,
-		"-b", strings.Join(ports, ","),
-		"-d", redirectExcludePort,
-		"-x", redirectExcludeIPCidr,
-	}
-	logrus.WithFields(logrus.Fields{
-		"nsenterArgs": nsenterArgs,
-	}).Infof("nsenter args")
-	out, err := exec.Command("nsenter", nsenterArgs...).CombinedOutput()
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"out": string(out[:]),
-			"err": err,
-		}).Errorf("nsenter failed: %v", err)
-		logrus.Infof("nsenter out: %s", out)
-	} else {
-		logrus.Infof("nsenter done: %s", out)
-	}
-	return err
 }
 
 // parseConfig parses the supplied configuration (and prevResult) from stdin.
@@ -241,8 +205,14 @@ func cmdAdd(args *skel.CmdArgs) error {
 				}
 				if !excludePod {
 					logrus.Infof("setting up redirect")
-					if err := setupRedirect(args.Netns, ports); err != nil {
-						return err
+					if redirect, redirErr := NewRedirect(ports, annotations, logger); redirErr != nil {
+						logger.Errorf("Pod redirect failed due to bad params: %v", redirErr)
+					} else {
+						if setupRedirect != nil {
+							_ = setupRedirect(args.Netns, ports)
+						} else if err := redirect.doRedirect(args.Netns); err != nil {
+							return err
+						}
 					}
 				}
 			}
