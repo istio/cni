@@ -11,6 +11,7 @@ defaults: &defaults
 
 dind-env: &dind-env
   DOCKER_VERSION: "17.03.0-ce"
+  CNI_PLUGIN: flannel
 
 # dind docker env
 dind-defaults: &dind-defaults
@@ -174,7 +175,7 @@ jobs:
       - run:
           name: Run e2e test
           command: |
-            docker run --name=istio-e2e --network=container:kube-master -t -e CNI_TAG='v0.1-dev-mapann_rebase' -e CNI_HUB='docker.io/tiswanso' -e HUB='docker.io/tiswanso' -e TAG='nov12' -e SKIP_CLEAN='1' e2e-runner:latest /go/run_e2e.sh
+            docker run --name=istio-e2e --network=container:kube-master -t -e CNI_TAG='v0.1-dev-mapann_rebase' -e CNI_HUB='docker.io/tiswanso' -e HUB='gcr.io/istio-release' -e TAG='master-latest-daily' -e SKIP_CLEAN='1' e2e-runner:latest /go/run_e2e.sh
       - run:
           name: Display cluster status (2)
           when: always
