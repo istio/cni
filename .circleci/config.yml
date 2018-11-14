@@ -133,6 +133,10 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
+  # nightly test & publish
+  # NOTE: publish only happens for CircleCI orgs with DOCKER_USER & DOCKER_PASS set.
+  #       Istio currently does not use CircleCI to publish nightly.  Nightly artifacts
+  #       are published by istio/istio/release tooling & go to gcr.io/istio-release.
   nightly:
     <<: *integrationDefaults
     steps:
@@ -227,11 +231,12 @@ workflows:
           requires:
             - build
 
-  # Nightly publish
+  # Nightly test
   nightly:
     triggers:
     - schedule:
-        cron: "30 * * * *"
+        # run at 09:45:00 UTC to try to pickup Istio's nightly
+        cron: "45 9 * * *"
         filters:
           branches:
             only:
@@ -240,5 +245,8 @@ workflows:
     - build
     - nightly:
         context: org-global
+        requires:
+          - build
+    - e2e-dind:
         requires:
           - build
