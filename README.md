@@ -1,7 +1,7 @@
 # Istio CNI plugin
 
 For application pods in the Istio service mesh, all traffic to/from the pods needs to go through the
-sidecar proxies (istio-proxy containers).  This `istio-cni` CNI plugin PoC will set up the
+sidecar proxies (istio-proxy containers).  This `istio-cni` CNI plugin will set up the
 pods' networking to fulfill this requirement in place of the current Istio injected pod `initContainers`
 `istio-init` approach.
 
@@ -215,33 +215,11 @@ To make use of the `istio-cni` chart from another chart:
       be made independent charts in the directory at the same level as the main `istio` chart
       (https://github.com/istio/istio/pull/9306).
 
-### Pre-commit Testing
+## Testing
 
-The following locally runs precommit lint, spelling, and copyright checks:
-
-```sh
-make precommit
-```
-
-Additionally, available unit and functional testing is run via the following:
-
-```sh
-make test
-```
-
-#### Current Tests
-1. install-test (`make install-test`)
-   1. Requires docker
-   1. docker runs the `install-cni` container with test dirs mounted and env vars set to known Kubernetes settings
-   1. does file compares to determine if the results match the expected configuration
+The Istio CNI testing strategy and execution details are explained [here](test/README.md).
 
 ## Implementation Details
-
-**TODOs**
-- [ ] Figure out any CNI version specific semantics.
-- [ ] Add plugin parameters for included/exclude IP CIDRs
-- [ ] Add plugin parameters for proxy params, ie. listen port, UID, etc.
-- [X] Make `istio-cni.yaml` into a Helm chart
 
 ### Overview
 
