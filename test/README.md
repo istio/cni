@@ -6,7 +6,7 @@ This page describes the testing strategy for the Istio CNI plugin and how to run
 
 The CNI has the following tests available.
 
-1. Unit, Functional, and lint tests
+1. Unit, functional, and lint tests
 
 1. Istio e2e tests triggered on a istio/cni change
 
@@ -41,13 +41,13 @@ using the [kubeadm-dind-cluster (KDC)](https://github.com/kubernetes-sigs/kubead
 project.  Each node in the Kubernetes cluster is actually a docker container
 hosted on the CircleCI job's "remote" docker instance.  In order to run the
 Istio e2e_simple tests against that environment, a e2e_runner container is
-run within the same network namespace as the kubernetes master node
+run within the same network namespace as the Kubernetes master node
 container.  The e2e_runner image is based on the Istio circleci image containing
 golang, helm, kubectl, the istio/istio repo, and a simple script that runs
 the e2e_simple job with the Istio CNI enabled.
 
 The following illustrates the CircleCI job container relationship with the
-"remote" docker containers--kubernetes on DinD cluster containers and the
+"remote" docker containers--Kubernetes on DinD cluster containers and the
 e2e_runner container.
 
 ![CircleCI e2e_dind job](images/istio_cni_circleci_e2e_test.svg)
@@ -60,13 +60,13 @@ The "e2e_dind" job flow is as follows:
 
 1. The e2e_dind job creates the e2e_runner image with the latest istio/istio content.
 
-1. The e2e_dind job brings up a DinD kubernetes cluster with flannel as the main CNI plugin type.
+1. The e2e_dind job brings up a DinD Kubernetes cluster with Flannel as the main CNI plugin type.
 
 1. The e2e_dind job populates the docker cache with the persisted "install-cni" image
-   for each kubernetes node.
+   for each Kubernetes node.
 
 1. The e2e_dind job runs the e2e_runner container on the same docker network as the
-   kubernetes cluster's kube-master node.
+   Kubernetes cluster's kube-master node.
 
    1. The e2e_simple test is run by the e2e_runner exec script.
 
@@ -84,7 +84,9 @@ e2e_simple_cni.  The test wrapper script is added via PR [9557](https://github.c
 The "mason" component of istio/test-infra has been modified to create GKE clusters with
 the [network policy](https://cloud.google.com/kubernetes-engine/docs/how-to/network-policy)
 feature enabled which is a requirement for GKE to enable the CNI network-plugin
-in the installed kubelets.  This has already been merged into istio/test-infra.
+in the installed kubelets.  This has already been merged into istio/test-infra.  The
+GKE network policy is enabled by "mason" for prow jobs that call "mason_client"
+with `--type=gke-e2e-test-latest` (a.k.a. resource type).
 
 ## Test Execution
 
