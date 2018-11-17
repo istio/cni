@@ -13,12 +13,13 @@ removes the need for a privileged, `NET_ADMIN` container in the Istio users' app
 
 ## Usage
 
-The [Istio helm charts](https://github.com/istio/istio/tree/master/install/kubernetes/helm/istio) integrate
-the option to install the Istio CNI.  The [Istio Installation with Helm](https://preliminary.istio.io/docs/setup/kubernetes/helm-install/) procedure with the addition of the setting `--set istio_cni.enabled=true` enables the Istio CNI for
+The [Istio Helm charts](https://github.com/istio/istio/tree/master/install/kubernetes/helm/istio) integrate
+the option to install the Istio CNI.  The [Istio Installation with Helm](https://preliminary.istio.io/docs/setup/kubernetes/helm-install/)
+procedure with the addition of the setting `--set istio_cni.enabled=true` enables the Istio CNI for
 the Istio installation.
 
 For most Kubernetes environments the `istio-cni` [helm parameters' defaults](deployments/kubernetes/install/helm/istio-cni/values.yaml) will configure the Istio CNI plugin in a manner compatible with the Kubernetes installation.  Refer to
-the "Hosted Kubernetes Usage" section for Kubernetes environment specific procedures.
+the [Hosted Kubernetes Usage](#hosted-kubernetes-usage) section for Kubernetes environment specific procedures.
 
 **Helm chart params**
 
@@ -28,13 +29,13 @@ the "Hosted Kubernetes Usage" section for Kubernetes environment specific proced
 | tag | | | The container tag to use to pull the `install-cni` image. |
 | logLevel | `panic`, `fatal`, `error`, `warn`, `info`, `debug` | `warn` | Logging level for CNI binary |
 | excludeNamespaces | `[]string` | `[ istio-system ]` | List of namespaces to exclude from Istio pod check |
-| cniBinDir | | `/opt/cni/bin` | Must be the same as the environment's `--cni-bin-dir` setting (kubelet param) |
-| cniConfDir | | `/etc/cni/net.d` | Must be the same as the environment's `--cni-conf-dir` setting (kubelet param) |
-| cniConfFileName | | None | Leave unset to auto-find the first file in the `cni-conf-dir` (as kubelet does).  Primarily used for testing `install-cni` plugin config.  If set, `install-cni` will inject the plugin config into this file in the `cni-conf-dir` |
+| cniBinDir | | `/opt/cni/bin` | Must be the same as the environment's `--cni-bin-dir` setting (`kubelet` param) |
+| cniConfDir | | `/etc/cni/net.d` | Must be the same as the environment's `--cni-conf-dir` setting (`kubelet` param) |
+| cniConfFileName | | None | Leave unset to auto-find the first file in the `cni-conf-dir` (as `kubelet` does).  Primarily used for testing `install-cni` plugin config.  If set, `install-cni` will inject the plugin config into this file in the `cni-conf-dir` |
 
 ### Hosted Kubernetes Usage
 
-Not all hosted Kubernetes clusters are created with the kubelet configured to use the CNI plugin so
+Not all hosted Kubernetes clusters are created with the `kubelet` configured to use the CNI plugin so
 compatibility with this `istio-cni` solution is not ubiquitous.  The `istio-cni` plugin is expected
 to work with any hosted kubernetes leveraging CNI plugins.  The below table indicates the known CNI status
 of hosted Kubernetes environments and whether `istio-cni` has been trialed in the cluster type.
@@ -65,22 +66,24 @@ No special set up is required for IKS, as it is currently use the default `cni-c
 #### Red Hat OpenShift Setup
 
 1. Run the DaemonSet container as privileged so that it has proper write permission in the host filesystem: Modify [istio-cni.yaml](deployments/kubernetes/install/manifests/istio-cni.yaml#L105) adding this section within the `install-cni` container:
+
 ```yaml
 securityContext:
   privileged: true
 ```
 
 2. Grant privileged permission to `istio-cni` service account:
-```sh
+
+```console
 $ oc adm policy add-scc-to-user privileged -z istio-cni -n kube-system
 ```
 
-
 ### Istio CNI Install Decoupled from Istio Installation
 
-The following are the steps use the CNI plugin via a separate installation process from Istio.
+The following steps show installation of the CNI plugin as a separate installation process from
+the [Istio Installation with Helm](https://preliminary.istio.io/docs/setup/kubernetes/helm-install/) procedure.
 
-1. clone this repo
+1. Clone this repo
 
 1. Install Istio control-plane
 
@@ -88,11 +91,11 @@ The following are the steps use the CNI plugin via a separate installation proce
 
    1. (Helm Option) Construct a `helm template` or `helm install` command for your Kubernetes environment
    
-      ```sh
+      ```console
       $ helm template deployments/kubernetes/install/helm/istio-cni --values deployments/kubernetes/install/helm/istio-cni/values.yaml --namespace kube-system --set hub=$HUB --set tag=$TAG > $HOME/istio-cni.yaml`
       ```
 
-      1. Prebuilt helm "profiles" (`values.yaml` files)
+      1. Prebuilt Helm "profiles" (`values.yaml` files)
 
          | Environment | Helm values |
          |-------------|-------------|
@@ -102,12 +105,12 @@ The following are the steps use the CNI plugin via a separate installation proce
    1. (Manual Option) Modify [istio-cni.yaml](deployments/kubernetes/install/manifests/istio-cni.yaml)
       1. Set `CNI_CONF_NAME` to the filename for your k8s cluster's CNI config file in `/etc/cni/net.d`
       1. Set `exclude_namespaces` to include the namespace the Istio control-plane is installed in
-      1. Set `cni_bin_dir` to your kubernetes install's CNI bin location (the value of kubelet's `--cni-bin-dir`)
+      1. Set `cni_bin_dir` to your kubernetes install's CNI bin location (the value of `kubelet`'s `--cni-bin-dir`)
          1. Default is `/opt/cni/bin`
 
 1. Install `istio-cni`:
 
-   ```sh
+   ```console
    $ kubectl apply -f $HOME/istio-cni.yaml
    ```
 
@@ -126,19 +129,19 @@ First, clone this repository under `$GOPATH/src/istio.io/`.
 
 For linux targets:
 
-```sh
+```console
 $ GOOS=linux make build
 ```
 
 You can also build the project from a non-standard location like so:
 
-```sh
+```console
 $ ISTIO_CNI_RELPATH=github.com/some/cni GOOS=linux make build
 ```
 
 To push the Docker image:
 
-```sh
+```console
 $ export HUB=docker.io/tiswanso
 $ export TAG=dev
 $ GOOS=linux make docker.push
@@ -150,7 +153,7 @@ $ GOOS=linux make docker.push
 
 The Helm package tarfile can be created via
 
-```sh
+```console
 $ helm package $GOPATH/src/istio.io/cni/deployments/kubernetes/install/helm/istio-cni
 ```
 
@@ -165,7 +168,7 @@ An example for hosting a test repo for the Helm istio-cni package:
 
 To use this repo via `helm install`:
 
-```sh
+```console
 $ helm repo add local_istio http://127.0.0.1:8879
 $ helm repo update
 ```
@@ -197,15 +200,17 @@ The Istio CNI testing strategy and execution details are explained [here](test/R
 ### Validate the iptables are modified
 
 1. Collect your pod's container id using kubectl.
-```sh
+
+```console
 $ ns=test-istio
 $ podnm=reviews-v1-6b7f6db5c5-59jhf
 $ container_id=$(kubectl get pod -n ${ns} ${podnm} -o jsonpath="{.status.containerStatuses[?(@.name=='istio-proxy')].containerID}" | sed -n 's/docker:\/\/\(.*\)/\1/p')
 ```
 
-2. SSH into the Kubernetes' worker node that runs your pod.
+2. SSH into the Kubernetes worker node that runs your pod.
 
 3. Use `nsenter` to view the iptables.
+
 ```
 $ cpid=$(docker inspect --format '{{ .State.Pid }}' $container_id)
 $ nsenter -t $cpid -n iptables -L -t nat -n -v --line-numbers -x
@@ -213,11 +218,11 @@ $ nsenter -t $cpid -n iptables -L -t nat -n -v --line-numbers -x
 
 ### Collecting Logs
 
-The CNI plugins are executed by threads in the kubelet process.  The CNI plugins logs end up the syslog
-under the kubelet process.  On systems with `journalctl` the following is an example command line
-to view the last 1000 kubelet logs via the `less` utility to allow for `vi`-style searching:
+The CNI plugins are executed by threads in the `kubelet` process.  The CNI plugins logs end up the syslog
+under the `kubelet` process.  On systems with `journalctl` the following is an example command line
+to view the last 1000 `kubelet` logs via the `less` utility to allow for `vi`-style searching:
 
-```sh
+```console
 $ journalctl -t kubelet -n 1000 | less
 ```
 
@@ -227,9 +232,9 @@ Each GKE cluster's will have many categories of logs collected by Stackdriver.  
 the project's [log viewer](https://cloud.google.com/logging/docs/view/overview) and/or the `gcloud logging read`
 capability.
 
-The following example grabs the last 10 kubelet logs containing the string "cmdAdd" in the log message.
+The following example grabs the last 10 `kubelet` logs containing the string "cmdAdd" in the log message.
 
-```sh
+```console
 $ gcloud logging read "resource.type=gce_instance AND jsonPayload.SYSLOG_IDENTIFIER=kubelet AND jsonPayload.MESSAGE:cmdAdd" --limit 10 --format json
 ```
 
@@ -303,13 +308,13 @@ config.  It creates or modifies the file from the configmap created by the Kuber
 Workflow:
 1.  Check k8s pod namespace against exclusion list (plugin config)
     1.  Config must exclude namespace that Istio control-plane is installed in
-    1.  if excluded, ignore the pod and return prevResult
+    1.  If excluded, ignore the pod and return prevResult
 1.  Get k8s pod info
-    1.  determine containerPort list
+    1.  Determine containerPort list
 1.  Determine if the pod needs to be setup for Istio sidecar proxy
-    1.  if pod has a container named `istio-proxy` AND pod has more than 1 container
-        1.  if pod has annotation with key `sidecar.istio.io/inject` with value `false` then skip redirect
-        1.  else do redirect
+    1.  If pod has a container named `istio-proxy` AND pod has more than 1 container
+        1.  If pod has annotation with key `sidecar.istio.io/inject` with value `false` then skip redirect
+        1.  Else, do redirect
 1.  Setup iptables with the required port list
     1.  `nsenter --net=<k8s pod netns> /opt/cni/bin/istio-iptables.sh ...`
 1.  Return prevResult
@@ -320,7 +325,7 @@ other features.
    with these options.
 
 ##### cmdDel
-Anything needed?  The netns is destroyed by kubelet so ideally this is a NOOP.
+Anything needed?  The netns is destroyed by `kubelet` so ideally this is a NOOP.
 
 ##### Logging
 The plugin leverages `logrus` & directly utilizes some Calico logging lib util functions.
