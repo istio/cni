@@ -12,7 +12,7 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
-.PHONY: docker
+.PHONY: docker docker.save
 
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
@@ -65,3 +65,25 @@ docker.push: $(DOCKER_PUSH_TARGETS)
 # This target will package all docker images used in test and release, without re-building
 # go binaries. It is intended for CI/CD systems where the build is done in separate job.
 docker.all: $(DOCKER_TARGETS)
+
+# create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
+DOCKER_TAR_TARGETS:=
+$(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) ; \
+   time (docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(TAG) && \
+         gzip ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT)).tar)))
+
+# create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix DOCKER_TAR_TARGETS:=
+$(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
+
+# this target saves a tar.gz of each docker image to ${ISTIO_OUT}/docker/
+docker.save: $(DOCKER_TAR_TARGETS)
+
+# for each docker.XXX target create a push.docker.XXX target that pushes
+# the local docker image to another hub
+# a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
+$(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
+        time (docker push $(HUB)/$(subst docker.,,$(TGT)):$(TAG))))
+
+# create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
+DOCKER_PUSH_TARGETS:=
+$(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
