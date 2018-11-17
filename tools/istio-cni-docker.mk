@@ -12,8 +12,7 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
-.PHONY: docker
-.PHONY: docker.save
+.PHONY: docker docker.save
 
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
@@ -88,4 +87,3 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
 # create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
 DOCKER_PUSH_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
-
