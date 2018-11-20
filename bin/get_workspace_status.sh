@@ -46,9 +46,9 @@ if [[ -n ${ISTIO_DOCKER_HUB} ]]; then
 fi
 
 # used by bin/gobuild.sh
-echo "github.com/tiswanso/istio-cni/pkg/version.buildVersion=${VERSION}"
-echo "github.com/tiswanso/istio-cni/pkg/version.buildGitRevision=${BUILD_GIT_REVISION}"
-echo "github.com/tiswanso/istio-cni/pkg/version.buildUser=$(whoami)"
-echo "github.com/tiswanso/istio-cni/pkg/version.buildHost=$(hostname -f)"
-echo "github.com/tiswanso/istio-cni/pkg/version.buildDockerHub=${DOCKER_HUB}"
-echo "github.com/tiswanso/istio-cni/pkg/version.buildStatus=${tree_status}"
+echo "istio.io/cni/pkg/version.buildVersion=${VERSION}"
+echo "istio.io/cni/pkg/version.buildGitRevision=${BUILD_GIT_REVISION}"
+echo "istio.io/cni/pkg/version.buildUser=$(whoami)"
+echo "istio.io/cni/pkg/version.buildHost=$(hostname -f)"
+echo "istio.io/cni/pkg/version.buildDockerHub=${DOCKER_HUB}"
+echo "istio.io/cni/pkg/version.buildStatus=${tree_status}"

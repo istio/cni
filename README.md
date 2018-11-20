@@ -54,8 +54,8 @@ of hosted Kubernetes environments and whether `istio-cni` has been trialed in th
 1. Enable [network-policy](https://cloud.google.com/kubernetes-engine/docs/how-to/network-policy) in your cluster.  NOTE: for existing clusters this redeploys the nodes.
 
 1. Make sure your kubectl user (service-account) has a ClusterRoleBinding to the `cluster-admin` role.  This is also a typical pre-requisite for installing Istio on GKE.
-   1. `kubectl create clusterrolebinding cni-cluster-admin-binding --clusterrole=cluster-admin --user=tiswanso@gmail.com`
-      1. User `tiswanso@gmail.com` is an admin user associated with the gcloud GKE cluster
+   1. `kubectl create clusterrolebinding cni-cluster-admin-binding --clusterrole=cluster-admin --user=istio-user@gmail.com`
+      1. User `istio-user@gmail.com` is an admin user associated with the gcloud GKE cluster
 
 1. Install Istio via Helm including these options `--set istio_cni.enabled=true --set istio-cni.cniBinDir=/home/kubernetes/bin`
 
@@ -142,7 +142,7 @@ $ ISTIO_CNI_RELPATH=github.com/some/cni GOOS=linux make build
 To push the Docker image:
 
 ```console
-$ export HUB=docker.io/tiswanso
+$ export HUB=docker.io/myuser
 $ export TAG=dev
 $ GOOS=linux make docker.push
 ```

@@ -1,6 +1,6 @@
 FROM amd64/alpine:3.8
 
-LABEL maintainer "Tim Swanson <tiswanso@cisco.com"
+LABEL description="Istio CNI plugin installer."
 
 # add bash to allow install-cni.sh to trap process signals
 RUN apk --update add jq bash && \
