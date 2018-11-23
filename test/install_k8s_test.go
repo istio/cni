@@ -29,8 +29,8 @@ var (
 	PreConfDir      = "data/pre"
 	ExpectedConfDir = "data/expected"
 	TestWorkDir, _  = os.Getwd()
-	Hub             = "docker.io/tiswanso"
-	Tag             = "v0.1-cleanup"
+	Hub             = "gcr.io/istio-release"
+	Tag             = "master-latest-daily"
 )
 
 type testCase struct {
