@@ -269,6 +269,36 @@ jobs:
       ISTIO_TAG: release-1.1-latest-daily
     <<: *e2e-dind-test
 
+  e2e-dind-calico:
+    <<: *dind-defaults
+    environment:
+      <<: *dind-env
+      CNI_PLUGIN: calico
+      ISTIO_BRANCH: master
+      ISTIO_HUB: gcr.io/istio-release
+      ISTIO_TAG: master-latest-daily
+    <<: *e2e-dind-test
+
+  e2e-dind-weave:
+    <<: *dind-defaults
+    environment:
+      <<: *dind-env
+      CNI_PLUGIN: weave
+      ISTIO_BRANCH: master
+      ISTIO_HUB: gcr.io/istio-release
+      ISTIO_TAG: master-latest-daily
+    <<: *e2e-dind-test
+
+  e2e-dind-calico_kdd:
+    <<: *dind-defaults
+    environment:
+      <<: *dind-env
+      CNI_PLUGIN: calico-kdd
+      ISTIO_BRANCH: master
+      ISTIO_HUB: gcr.io/istio-release
+      ISTIO_TAG: master-latest-daily
+    <<: *e2e-dind-test
+
 workflows:
   version: 2
 
@@ -293,6 +323,16 @@ workflows:
       - e2e-dind-istio1.1-calico_kdd:
           requires:
             - build
+      - e2e-dind-calico:
+          requires:
+            - build
+      - e2e-dind-weave:
+          requires:
+            - build
+      - e2e-dind-calico_kdd:
+          requires:
+            - build
+
 
   # Nightly test
   nightly:
@@ -314,5 +354,23 @@ workflows:
         requires:
           - build
     - e2e-dind-istio1.1:
+        requires:
+          - build
+    - e2e-dind-istio1.1-calico:
+        requires:
+          - build
+    - e2e-dind-istio1.1-weave:
+        requires:
+          - build
+    - e2e-dind-istio1.1-calico_kdd:
+        requires:
+          - build
+    - e2e-dind-calico:
+        requires:
+          - build
+    - e2e-dind-weave:
+        requires:
+          - build
+    - e2e-dind-calico_kdd:
         requires:
           - build
