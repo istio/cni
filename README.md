@@ -61,7 +61,7 @@ of hosted Kubernetes environments and whether `istio-cni` has been trialed in th
 
 #### IKS Setup
 
-No special set up is required for IKS, as it is currently use the default `cni-conf-dir` and `cni-bin-dir`.
+No special set up is required for IKS, as it currently uses the default `cni-conf-dir` and `cni-bin-dir`.
 
 #### Red Hat OpenShift Setup
 
