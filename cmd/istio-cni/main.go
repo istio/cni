@@ -70,7 +70,7 @@ type PluginConf struct {
 	RawPrevResult *map[string]interface{} `json:"prevResult"`
 	PrevResult    *current.Result         `json:"-"`
 
-	// Add plugin-specifc flags here
+	// Add plugin-specific flags here
 	LogLevel   string     `json:"log_level"`
 	Kubernetes Kubernetes `json:"kubernetes"`
 }
