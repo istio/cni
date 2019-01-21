@@ -207,6 +207,7 @@ func TestCmdAddTwoContainers(t *testing.T) {
 
 	setupRedirect = mockNsenterRedirect
 	testAnnotations[injectAnnotationKey] = "true"
+	testAnnotations[injectIstioKey] = "true"
 	testContainers = []string{"mockContainer", "mockContainer2"}
 
 	testCmdAdd(t)
@@ -214,6 +215,13 @@ func TestCmdAddTwoContainers(t *testing.T) {
 	if !nsenterFuncCalled {
 		t.Fatalf("expected nsenterFunc to be called")
 	}
+}
+
+func TestCmdAddTwoContainersWithoutSideCar(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	testContainers = []string{"mockContainer", "mockContainer2"}
+	testCmdAdd(t)
 }
 
 func TestCmdAddExcludePod(t *testing.T) {

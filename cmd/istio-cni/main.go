@@ -37,6 +37,7 @@ var (
 	nsSetupProg   = "istio-iptables.sh"
 
 	injectAnnotationKey = "sidecar.istio.io/inject"
+	injectIstioKey      = "sidecar.istio.io/status"
 )
 
 // setupRedirect is a unit test override variable.
@@ -202,6 +203,10 @@ func cmdAdd(args *skel.CmdArgs) error {
 							excludePod = true
 						}
 					}
+				}
+				if val, ok := annotations[injectIstioKey]; !ok {
+					logrus.Infof("Pod %s excluded due to not containing sidecar annotation: %s", string(k8sArgs.K8S_POD_NAME), val)
+					excludePod = true
 				}
 				if !excludePod {
 					logrus.Infof("setting up redirect")
