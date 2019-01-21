@@ -207,7 +207,7 @@ func TestCmdAddTwoContainers(t *testing.T) {
 
 	setupRedirect = mockNsenterRedirect
 	testAnnotations[injectAnnotationKey] = "true"
-	testAnnotations[injectIstioKey] = "true"
+	testAnnotations[sidecarStatusKey] = "true"
 	testContainers = []string{"mockContainer", "mockContainer2"}
 
 	testCmdAdd(t)

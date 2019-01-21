@@ -43,20 +43,18 @@ const (
 
 	sidecarInterceptModeKey = "sidecar.istio.io/interceptionMode"
 	sidecarPortListKey      = "status.sidecar.istio.io/port"
-	sidecarStatusKey        = "sidecar.istio.io/status"
 )
 
 var (
 	annotationRegistry = map[string]*annotationParam{
-		"inject":          {injectAnnotationKey, "", alwaysValidFunc},
-		"injectNoSidecar": {injectIstioKey, "", alwaysValidFunc},
-		"status":          {sidecarStatusKey, "", alwaysValidFunc},
-		"redirectMode":    {sidecarInterceptModeKey, defaultRedirectMode, validateInterceptionMode},
-		"ports":           {sidecarPortListKey, "", validatePortList},
-		"includeIPCidrs":  {includeIPCidrsKey, defaultRedirectIPCidr, validateCIDRListWithWildcard},
-		"excludeIPCidrs":  {excludeIPCidrsKey, defaultRedirectExcludeIPCidr, validateCIDRList},
-		"includePorts":    {includePortsKey, "", validatePortListWithWildcard},
-		"excludePorts":    {excludePortsKey, defaultRedirectExcludePort, validatePortList},
+		"inject":         {injectAnnotationKey, "", alwaysValidFunc},
+		"status":         {sidecarStatusKey, "", alwaysValidFunc},
+		"redirectMode":   {sidecarInterceptModeKey, defaultRedirectMode, validateInterceptionMode},
+		"ports":          {sidecarPortListKey, "", validatePortList},
+		"includeIPCidrs": {includeIPCidrsKey, defaultRedirectIPCidr, validateCIDRListWithWildcard},
+		"excludeIPCidrs": {excludeIPCidrsKey, defaultRedirectExcludeIPCidr, validateCIDRList},
+		"includePorts":   {includePortsKey, "", validatePortListWithWildcard},
+		"excludePorts":   {excludePortsKey, defaultRedirectExcludePort, validatePortList},
 	}
 )
 
