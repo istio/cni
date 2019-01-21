@@ -48,14 +48,15 @@ const (
 
 var (
 	annotationRegistry = map[string]*annotationParam{
-		"inject":         {injectAnnotationKey, "", alwaysValidFunc},
-		"status":         {sidecarStatusKey, "", alwaysValidFunc},
-		"redirectMode":   {sidecarInterceptModeKey, defaultRedirectMode, validateInterceptionMode},
-		"ports":          {sidecarPortListKey, "", validatePortList},
-		"includeIPCidrs": {includeIPCidrsKey, defaultRedirectIPCidr, validateCIDRListWithWildcard},
-		"excludeIPCidrs": {excludeIPCidrsKey, defaultRedirectExcludeIPCidr, validateCIDRList},
-		"includePorts":   {includePortsKey, "", validatePortListWithWildcard},
-		"excludePorts":   {excludePortsKey, defaultRedirectExcludePort, validatePortList},
+		"inject":          {injectAnnotationKey, "", alwaysValidFunc},
+		"injectNoSidecar": {injectIstioKey, "", alwaysValidFunc},
+		"status":          {sidecarStatusKey, "", alwaysValidFunc},
+		"redirectMode":    {sidecarInterceptModeKey, defaultRedirectMode, validateInterceptionMode},
+		"ports":           {sidecarPortListKey, "", validatePortList},
+		"includeIPCidrs":  {includeIPCidrsKey, defaultRedirectIPCidr, validateCIDRListWithWildcard},
+		"excludeIPCidrs":  {excludeIPCidrsKey, defaultRedirectExcludeIPCidr, validateCIDRList},
+		"includePorts":    {includePortsKey, "", validatePortListWithWildcard},
+		"excludePorts":    {excludePortsKey, defaultRedirectExcludePort, validatePortList},
 	}
 )
 
