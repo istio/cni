@@ -123,6 +123,7 @@ func resetGlobalTestVariables() {
 	testPorts = []string{"9080"}
 
 	setupRedirect = nil
+	testAnnotations[sidecarStatusKey] = "true"
 }
 
 func testSetArgs(stdinData string) *skel.CmdArgs {
@@ -207,7 +208,6 @@ func TestCmdAddTwoContainers(t *testing.T) {
 
 	setupRedirect = mockNsenterRedirect
 	testAnnotations[injectAnnotationKey] = "true"
-	testAnnotations[sidecarStatusKey] = "true"
 	testContainers = []string{"mockContainer", "mockContainer2"}
 
 	testCmdAdd(t)
@@ -220,8 +220,13 @@ func TestCmdAddTwoContainers(t *testing.T) {
 func TestCmdAddTwoContainersWithoutSideCar(t *testing.T) {
 	defer resetGlobalTestVariables()
 
+	testAnnotations = nil
 	testContainers = []string{"mockContainer", "mockContainer2"}
 	testCmdAdd(t)
+
+	if nsenterFuncCalled {
+		t.Fatalf("Didnt Expect nsenterFunc to be called, this pod does not contain a sidecar")
+	}
 }
 
 func TestCmdAddExcludePod(t *testing.T) {
