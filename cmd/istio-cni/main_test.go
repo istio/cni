@@ -123,6 +123,7 @@ func resetGlobalTestVariables() {
 	testPorts = []string{"9080"}
 
 	setupRedirect = nil
+	testAnnotations[sidecarStatusKey] = "true"
 }
 
 func testSetArgs(stdinData string) *skel.CmdArgs {
@@ -213,6 +214,18 @@ func TestCmdAddTwoContainers(t *testing.T) {
 
 	if !nsenterFuncCalled {
 		t.Fatalf("expected nsenterFunc to be called")
+	}
+}
+
+func TestCmdAddTwoContainersWithoutSideCar(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	delete(testAnnotations, sidecarStatusKey)
+	testContainers = []string{"mockContainer", "mockContainer2"}
+	testCmdAdd(t)
+
+	if nsenterFuncCalled {
+		t.Fatalf("Didnt Expect nsenterFunc to be called because this pod does not contain a sidecar")
 	}
 }
 

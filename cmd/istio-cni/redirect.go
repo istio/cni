@@ -43,7 +43,6 @@ const (
 
 	sidecarInterceptModeKey = "sidecar.istio.io/interceptionMode"
 	sidecarPortListKey      = "status.sidecar.istio.io/port"
-	sidecarStatusKey        = "sidecar.istio.io/status"
 )
 
 var (
