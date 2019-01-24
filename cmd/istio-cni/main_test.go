@@ -225,7 +225,7 @@ func TestCmdAddTwoContainersWithoutSideCar(t *testing.T) {
 	testCmdAdd(t)
 
 	if nsenterFuncCalled {
-		t.Fatalf("Didnt Expect nsenterFunc to be called, this pod does not contain a sidecar")
+		t.Fatalf("Didnt Expect nsenterFunc to be called because this pod does not contain a sidecar")
 	}
 }
 
