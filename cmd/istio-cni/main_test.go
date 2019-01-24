@@ -220,7 +220,7 @@ func TestCmdAddTwoContainers(t *testing.T) {
 func TestCmdAddTwoContainersWithoutSideCar(t *testing.T) {
 	defer resetGlobalTestVariables()
 
-	testAnnotations = nil
+	delete(testAnnotations, sidecarStatusKey)
 	testContainers = []string{"mockContainer", "mockContainer2"}
 	testCmdAdd(t)
 
