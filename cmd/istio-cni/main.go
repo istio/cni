@@ -42,6 +42,7 @@ var (
 
 // setupRedirect is a unit test override variable.
 var setupRedirect func(string, []string) error
+var setupProxy func(string, []string) error
 
 // Kubernetes a K8s specific struct to hold config
 type Kubernetes struct {
@@ -159,17 +160,24 @@ func cmdAdd(args *skel.CmdArgs) error {
 		nsSetupBinDir = conf.Kubernetes.CniBinDir
 	}
 
+	podName := string(k8sArgs.K8S_POD_NAME)
+	podNamespace := string(k8sArgs.K8S_POD_NAMESPACE)
+	podIP := conf.PrevResult.IPs[0].Address.IP.String()
+	infraContainerID := string(k8sArgs.K8S_POD_INFRA_CONTAINER_ID)
+
 	logger := logrus.WithFields(logrus.Fields{
-		"ContainerID": args.ContainerID,
-		"Pod":         string(k8sArgs.K8S_POD_NAME),
-		"Namespace":   string(k8sArgs.K8S_POD_NAMESPACE),
+		"ContainerID":      args.ContainerID,
+		"Pod":              podName,
+		"Namespace":        podNamespace,
+		"PodIP":            podIP,
+		"InfraContainerID": infraContainerID,
 	})
 
 	// Check if the workload is running under Kubernetes.
-	if string(k8sArgs.K8S_POD_NAMESPACE) != "" && string(k8sArgs.K8S_POD_NAME) != "" {
+	if podNamespace != "" && podName != "" {
 		excludePod := false
 		for _, excludeNs := range conf.Kubernetes.ExcludeNamespaces {
-			if string(k8sArgs.K8S_POD_NAMESPACE) == excludeNs {
+			if podNamespace == excludeNs {
 				excludePod = true
 				break
 			}
@@ -180,43 +188,55 @@ func cmdAdd(args *skel.CmdArgs) error {
 				return err
 			}
 			logrus.WithField("client", client).Debug("Created Kubernetes client")
-			containers, _, annotations, ports, k8sErr := getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
+			containers, labels, annotations, ports, k8sErr := getKubePodInfo(client, podName, podNamespace)
 			if k8sErr != nil {
 				logger.Warnf("Error geting Pod data %v", k8sErr)
 			}
 			logger.Infof("Found containers %v", containers)
-			if len(containers) > 1 {
-				logrus.WithFields(logrus.Fields{
-					"ContainerID": args.ContainerID,
-					"netns":       args.Netns,
-					"pod":         string(k8sArgs.K8S_POD_NAME),
-					"Namespace":   string(k8sArgs.K8S_POD_NAMESPACE),
-					"ports":       ports,
-					"annotations": annotations,
-				}).Infof("Checking annotations prior to redirect for Istio proxy")
-				if val, ok := annotations[injectAnnotationKey]; ok {
-					logrus.Infof("Pod %s contains inject annotation: %s", string(k8sArgs.K8S_POD_NAME), val)
-					if injectEnabled, err := strconv.ParseBool(val); err == nil {
-						if !injectEnabled {
-							logrus.Infof("Pod excluded due to inject-disabled annotation")
-							excludePod = true
-						}
+
+			logrus.WithFields(logrus.Fields{
+				"ContainerID": args.ContainerID,
+				"netns":       args.Netns,
+				"pod":         podName,
+				"Namespace":   podNamespace,
+				"ports":       ports,
+				"annotations": annotations,
+			}).Infof("Checking annotations prior to redirect for Istio proxy")
+			if val, ok := annotations[injectAnnotationKey]; ok {
+				logrus.Infof("Pod %s contains inject annotation: %s", podName, val)
+				if injectEnabled, err := strconv.ParseBool(val); err == nil {
+					if !injectEnabled {
+						logrus.Infof("Pod excluded due to inject-disabled annotation")
+						excludePod = true
 					}
 				}
-				if _, ok := annotations[sidecarStatusKey]; !ok {
-					logrus.Infof("Pod %s excluded due to not containing sidecar annotation", string(k8sArgs.K8S_POD_NAME))
-					excludePod = true
+			}
+			if !excludePod {
+				logrus.Infof("setting up redirect")
+				if redirect, redirErr := NewRedirect(ports, annotations, logger); redirErr != nil {
+					logger.Errorf("Pod redirect failed due to bad params: %v", redirErr)
+				} else {
+					if setupRedirect != nil {
+						_ = setupRedirect(args.Netns, ports)
+					} else if err := redirect.doRedirect(args.Netns); err != nil {
+						return err
+					}
 				}
-				if !excludePod {
-					logrus.Infof("setting up redirect")
-					if redirect, redirErr := NewRedirect(ports, annotations, logger); redirErr != nil {
-						logger.Errorf("Pod redirect failed due to bad params: %v", redirErr)
-					} else {
-						if setupRedirect != nil {
-							_ = setupRedirect(args.Netns, ports)
-						} else if err := redirect.doRedirect(args.Netns); err != nil {
-							return err
-						}
+
+				logger.Infof("Geting Secret %s in namespace %s", "istio.default", podNamespace)
+				secretData, k8sErr := getKubeSecret(client, "istio.default", podNamespace) // TODO: get secret name
+				if k8sErr != nil {
+					logger.Warnf("Error geting Secret data %v", k8sErr)
+				}
+
+				logger.Info("Creating Proxy")
+				if proxy, redirErr := NewProxy(logger); redirErr != nil {
+					logger.Errorf("Creating proxy failed due to bad params: %v", redirErr)
+				} else {
+					logger.Info("Running Proxy")
+					if err := proxy.runProxy(podName, podNamespace, podIP, infraContainerID, secretData, labels, annotations); err != nil {
+						logger.Errorf("Running proxy failed: %v", err)
+						return err
 					}
 				}
 			}
@@ -245,7 +265,24 @@ func cmdDel(args *skel.CmdArgs) error {
 		return err
 	}
 	ConfigureLogging(conf.LogLevel)
-	_ = conf
+
+	// Determine if running under k8s by checking the CNI args
+	k8sArgs := K8sArgs{}
+	if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
+		return err
+	}
+	podName := string(k8sArgs.K8S_POD_NAME)
+
+	// TODO: do we need to delete the proxy container or will the kubelet's GC delete it?
+	if proxy, redirErr := NewProxy(logrus.NewEntry(logrus.StandardLogger())); redirErr != nil {
+		logrus.Errorf("Calling NewProxy failed due to bad params: %v", redirErr)
+	} else {
+		logrus.Info("Stopping Proxy")
+		if err := proxy.stopProxy(podName); err != nil {
+			logrus.Errorf("Stopping proxy failed: %v", err)
+			return err
+		}
+	}
 
 	// Do your delete here
 

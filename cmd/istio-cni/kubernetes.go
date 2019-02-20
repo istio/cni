@@ -29,6 +29,9 @@ var newKubeClient = newK8sClient
 // getKubePodInfo is a unit test override variable for interface create.
 var getKubePodInfo = getK8sPodInfo
 
+// getKubeSecret is a unit test override variable for interface create.
+var getKubeSecret = getK8sSecret
+
 // newK8sClient returns a Kubernetes client
 func newK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset, error) {
 	// Some config can be passed in a kubeconfig file
@@ -91,4 +94,15 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 	}
 
 	return containers, pod.Labels, pod.Annotations, ports, nil
+}
+
+func getK8sSecret(client *kubernetes.Clientset, secretName, secretNamespace string) (data map[string][]byte, err error) {
+	secret, err := client.CoreV1().Secrets(string(secretNamespace)).Get(secretName, metav1.GetOptions{})
+	logrus.Info("returned from client")
+	if err != nil {
+		return nil, err
+	}
+
+	logrus.Infof("secret info: %+v", secret)
+	return secret.Data, nil
 }
