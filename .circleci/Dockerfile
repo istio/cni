@@ -5,3 +5,4 @@ RUN  git clone --branch $istio_branch https://github.com/istio/istio.git /go/src
 
 ADD  run_e2e.sh /go/
 
+ADD  helm /go/helm
