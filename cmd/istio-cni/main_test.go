@@ -33,7 +33,6 @@ var (
 	currentVersion   = "0.3.0"
 	k8Args           = "K8S_POD_NAMESPACE=istio-system;K8S_POD_NAME=testPodName"
 	invalidVersion   = "0.1.0"
-	excludeNamespace = "testExcludeNS"
 
 	getKubePodInfoCalled = false
 	nsenterFuncCalled    = false

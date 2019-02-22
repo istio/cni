@@ -26,11 +26,9 @@ import (
 )
 
 var (
-	PreConfDir      = "data/pre"
-	ExpectedConfDir = "data/expected"
-	TestWorkDir, _  = os.Getwd()
-	Hub             = "gcr.io/istio-release"
-	Tag             = "master-latest-daily"
+	TestWorkDir, _ = os.Getwd()
+	Hub            = "gcr.io/istio-release"
+	Tag            = "master-latest-daily"
 )
 
 type testCase struct {
@@ -42,8 +40,8 @@ type testCase struct {
 }
 
 func doTest(testNum int, tc testCase, t *testing.T) {
-	os.Setenv("HUB", Hub)
-	os.Setenv("TAG", Tag)
+	_ = os.Setenv("HUB", Hub)
+	_ = os.Setenv("TAG", Tag)
 	t.Logf("Running install CNI test with HUB=%s, TAG=%s", Hub, Tag)
 	test.RunInstallCNITest(testNum, tc.preConfFile, tc.resultFileName, tc.expectedOutputFile, tc.expectedPostCleanFile, t)
 }
