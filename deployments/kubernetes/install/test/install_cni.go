@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 	"testing"
 	"time"
@@ -123,7 +124,7 @@ func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
 	tempK8sSvcAcctDir string, t *testing.T) string {
 
 	dockerImage := env("HUB", "") + "/install-cni:" + env("TAG", "")
-	errFileName := tempCNIConfDir + "/docker_run_stderr"
+	errFileName := path.Dir(tempCNIConfDir) + "/docker_run_stderr"
 
 	// Build arguments list by picking whatever is necessary from the environment.
 	args := []string{"run", "-d",
@@ -193,7 +194,12 @@ func compareConfResult(testWorkRootDir, tempCNIConfDir, result, expected string,
 	} else {
 		tempFail := mktemp(testWorkRootDir, result+".fail.XXXX", t)
 		t.Errorf("FAIL: result doesn't match expected: %v v. %v", tempResult, expected)
-		cp(tempResult, tempFail, t)
+		cp(tempResult, tempFail+"/"+"failResult", t)
+		cmd := exec.Command("diff", tempResult, expected)
+		diffOutput, derr := cmd.Output()
+		if derr != nil {
+			t.Logf("Diff output:\n %s", diffOutput)
+		}
 		t.Fatalf("Check %v for diff contents", tempFail)
 	}
 }
