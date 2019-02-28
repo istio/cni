@@ -242,6 +242,25 @@ func TestCmdAddExcludePod(t *testing.T) {
 	}
 }
 
+func TestCmdAddWithKubevirtInterfaces(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	setupRedirect = mockNsenterRedirect
+	testAnnotations[kubevirtInterfacesKey] = "net1,net2"
+	testContainers = []string{"mockContainer"}
+
+	testCmdAdd(t)
+
+	value, ok := testAnnotations[kubevirtInterfacesKey]
+	if !ok {
+		t.Fatalf("expected kubevirtInterfaces annotation to exist")
+	}
+
+	if value != testAnnotations[kubevirtInterfacesKey] {
+		t.Fatalf(fmt.Sprintf("expected kubevirtInterfaces annotation to equals %s", testAnnotations[kubevirtInterfacesKey]))
+	}
+}
+
 func TestCmdAddInvalidK8sArgsKeyword(t *testing.T) {
 	defer resetGlobalTestVariables()
 
