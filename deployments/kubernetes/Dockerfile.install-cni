@@ -8,6 +8,7 @@ RUN apk --update add jq bash && \
     rm /var/cache/apk/*
 
 ADD istio-cni /opt/cni/bin/
+ADD istioproxyagent /opt/istioproxyagent
 ADD istio-iptables.sh /opt/cni/bin/
 ADD install-cni.sh /install-cni.sh
 ADD filter.jq /filter.jq

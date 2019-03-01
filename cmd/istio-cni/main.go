@@ -19,6 +19,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	proxyagentclient "istio.io/cni/pkg/istioproxyagent/client"
 	"net"
 	"os"
 	"strconv"
@@ -31,6 +32,8 @@ import (
 	"github.com/projectcalico/libcalico-go/lib/logutils"
 	"github.com/sirupsen/logrus"
 )
+
+const agentURL = "http://localhost:22222"
 
 var (
 	nsSetupBinDir = "/opt/cni/bin"
@@ -163,14 +166,14 @@ func cmdAdd(args *skel.CmdArgs) error {
 	podName := string(k8sArgs.K8S_POD_NAME)
 	podNamespace := string(k8sArgs.K8S_POD_NAMESPACE)
 	podIP := conf.PrevResult.IPs[0].Address.IP.String()
-	infraContainerID := string(k8sArgs.K8S_POD_INFRA_CONTAINER_ID)
+	podSandboxID := string(k8sArgs.K8S_POD_INFRA_CONTAINER_ID)
 
 	logger := logrus.WithFields(logrus.Fields{
-		"ContainerID":      args.ContainerID,
-		"Pod":              podName,
-		"Namespace":        podNamespace,
-		"PodIP":            podIP,
-		"InfraContainerID": infraContainerID,
+		"ContainerID":  args.ContainerID,
+		"Pod":          podName,
+		"Namespace":    podNamespace,
+		"PodIP":        podIP,
+		"PodSandboxID": podSandboxID,
 	})
 
 	// Check if the workload is running under Kubernetes.
@@ -188,7 +191,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 				return err
 			}
 			logrus.WithField("client", client).Debug("Created Kubernetes client")
-			containers, labels, annotations, ports, k8sErr := getKubePodInfo(client, podName, podNamespace)
+			containers, podUID, labels, annotations, ports, k8sErr := getKubePodInfo(client, podName, podNamespace)
 			if k8sErr != nil {
 				logger.Warnf("Error geting Pod data %v", k8sErr)
 			}
@@ -230,12 +233,12 @@ func cmdAdd(args *skel.CmdArgs) error {
 				}
 
 				logger.Info("Creating Proxy")
-				if proxy, redirErr := NewProxy(logger); redirErr != nil {
-					logger.Errorf("Creating proxy failed due to bad params: %v", redirErr)
+				if proxyAgent, redirErr := proxyagentclient.NewProxyAgentClient(agentURL); redirErr != nil {
+					logger.Errorf("Creating proxy agent client failed: %v", redirErr)
 				} else {
-					logger.Info("Running Proxy")
-					if err := proxy.runProxy(podName, podNamespace, podIP, infraContainerID, secretData, labels, annotations); err != nil {
-						logger.Errorf("Running proxy failed: %v", err)
+					logger.Info("Starting Proxy")
+					if err := proxyAgent.StartProxy(podName, podNamespace, podUID, podIP, podSandboxID, secretData, labels, annotations); err != nil {
+						logger.Errorf("Starting proxy failed: %v", err)
 						return err
 					}
 				}
@@ -272,13 +275,14 @@ func cmdDel(args *skel.CmdArgs) error {
 		return err
 	}
 	podName := string(k8sArgs.K8S_POD_NAME)
+	podSandboxID := string(k8sArgs.K8S_POD_INFRA_CONTAINER_ID)
 
 	// TODO: do we need to delete the proxy container or will the kubelet's GC delete it?
-	if proxy, redirErr := NewProxy(logrus.NewEntry(logrus.StandardLogger())); redirErr != nil {
-		logrus.Errorf("Calling NewProxy failed due to bad params: %v", redirErr)
+	if proxy, redirErr := proxyagentclient.NewProxyAgentClient(agentURL); redirErr != nil {
+		logrus.Errorf("Creating proxy agent client failed: %v", redirErr)
 	} else {
 		logrus.Info("Stopping Proxy")
-		if err := proxy.stopProxy(podName); err != nil {
+		if err := proxy.StopProxy(podName, podSandboxID); err != nil {
 			logrus.Errorf("Stopping proxy failed: %v", err)
 			return err
 		}

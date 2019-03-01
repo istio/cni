@@ -220,10 +220,12 @@ lint: buildcache
 .PHONY: istio-cni
 istio-cni ${ISTIO_OUT}/istio-cni:
 	bin/gobuild.sh ${ISTIO_OUT}/istio-cni ./cmd/istio-cni
+	bin/gobuild.sh ${ISTIO_OUT}/istioproxyagent ./cmd/istioproxyagent
 
 # Non-static istio-cnis. These are typically a build artifact.
 ${ISTIO_OUT}/istio-cni-linux: depend
 	STATIC=0 GOOS=linux   bin/gobuild.sh $@ ./cmd/istio-cni
+	STATIC=0 GOOS=linux   bin/gobuild.sh $@ ./cmd/istioproxyagent
 
 # Below is pattern for building for more platforms
 #${ISTIO_OUT}/istio-cni-osx: depend
@@ -245,6 +247,7 @@ istio-cni-all: ${ISTIO_OUT}/istio-cni-linux
 .PHONY: istio-cni-install
 istio-cni-install:
 	go install $(ISTIO_GO)/cmd/istio-cni
+	go install $(ISTIO_GO)/cmd/istioproxyagent
 
 #-----------------------------------------------------------------------------
 # Target: clean
