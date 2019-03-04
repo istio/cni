@@ -134,6 +134,12 @@ To run the Istio e2e test first, clone the Istio repo in your local environment.
 ```console
 make e2e_simple_cni
 ```
+This runs the `e2e_simple` with the latest nightly CNI image pushed to gcr.io/istio-release.  The HUB and TAG value can be overridden using the environement variables:
+```console
+export ISTIO_CNI_HUB=yourhub
+export ISTIO_CNI_TAG=yourtag
+```
+
 
 2. Run any of the Istio e2e targets after setting up a few environment variables:
 ```console
