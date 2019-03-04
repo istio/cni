@@ -90,6 +90,10 @@ func (p *DockerRuntime) StopProxy(request *api.StopRequest) error {
 	return p.runDockerCommand([]string{"stop", getContainerName(request.PodName)})
 }
 
+func (p *DockerRuntime) IsReady(request *api.ReadinessRequest) (bool, error) {
+	return true, nil
+}
+
 func getContainerName(podName string) string {
 	return podName + "-" + "istio-proxy"
 }

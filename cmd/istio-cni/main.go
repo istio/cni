@@ -19,18 +19,20 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	proxyagentclient "istio.io/cni/pkg/istioproxyagent/client"
-	"net"
-	"os"
-	"strconv"
-	"strings"
-
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/projectcalico/libcalico-go/lib/logutils"
 	"github.com/sirupsen/logrus"
+	proxyagentclient "istio.io/cni/pkg/istioproxyagent/client"
+	"net"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"time"
 )
 
 const agentURL = "http://localhost:22222"
@@ -241,6 +243,16 @@ func cmdAdd(args *skel.CmdArgs) error {
 						logger.Errorf("Starting proxy failed: %v", err)
 						return err
 					}
+
+					//ready := false
+					//for !ready {
+					//	ready, err = isReady(logger, podName, podNamespace, podIP, args.Netns)
+					//	if err != nil {
+					//		logger.Errorf("Could not perform readiness check: %v", err)
+					//		return err
+					//	}
+					//	time.Sleep(2 * time.Second) // TODO: give up after some time
+					//}
 				}
 			}
 		} else {
@@ -252,6 +264,38 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 	// Pass through the result for the next plugin
 	return types.PrintResult(conf.PrevResult, conf.CNIVersion)
+}
+
+func isReady(logger *logrus.Entry, podName, podNamespace, podIP, netNS string) (bool, error) {
+	ready := false
+
+	err := ns.WithNetNSPath(netNS, func(hostNS ns.NetNS) error {
+		//url := "http://" + request.PodIP + ":" + "15000" + "/server_info" // TODO: make port & path configurable
+		url := "http://" + "127.0.0.1" + ":" + "15000" + "/server_info" // TODO: make port & path configurable
+		req, err := http.NewRequest(http.MethodGet, url, nil)
+		if err != nil {
+			return err
+		}
+
+		httpClient := http.Client{
+			Timeout: 1 * time.Second,
+		}
+		response, err := httpClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer response.Body.Close()
+
+		if response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusBadRequest {
+			logger.Infof("Readiness probe succeeded for %s", podName)
+			ready = true
+			return nil
+		}
+		logger.Infof("Readiness probe failed for %s (%s): %v %s", podName, url, response.StatusCode, response.Status)
+		return nil
+	})
+
+	return ready, err
 }
 
 func cmdGet(args *skel.CmdArgs) error {

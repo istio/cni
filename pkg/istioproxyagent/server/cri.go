@@ -2,12 +2,15 @@ package server
 
 import (
 	"fmt"
+	"github.com/containernetworking/plugins/pkg/ns"
 	"istio.io/cni/pkg/istioproxyagent/api"
 	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/kubelet/apis/cri"
 	criapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 	"k8s.io/kubernetes/pkg/kubelet/remote"
+	"net/http"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -18,6 +21,7 @@ const (
 type CRIRuntime struct {
 	runtimeService cri.RuntimeService
 	imageService   cri.ImageManagerService
+	httpClient     http.Client
 }
 
 func NewCRIRuntime() (*CRIRuntime, error) {
@@ -34,6 +38,7 @@ func NewCRIRuntime() (*CRIRuntime, error) {
 	return &CRIRuntime{
 		runtimeService: runtimeService,
 		imageService:   imageService,
+		httpClient:     http.Client{},
 	}, nil
 }
 
@@ -48,7 +53,7 @@ func (p *CRIRuntime) StartProxy(request *api.StartRequest) error {
 
 	status, err := p.runtimeService.PodSandboxStatus(request.PodSandboxID)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error getting pod sandbox status: %v", err)
 	}
 
 	podSandboxConfig := criapi.PodSandboxConfig{
@@ -58,23 +63,23 @@ func (p *CRIRuntime) StartProxy(request *api.StartRequest) error {
 	klog.Info("Creating volumes")
 	secretDir, confDir, err := createVolumes()
 	if err != nil {
-		return err
+		return fmt.Errorf("Error creating volumes: %v", err)
 	}
 
 	klog.Infof("Writing secret data to %s", secretDir)
 	err = writeSecret(secretDir, request.SecretData)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error writing secret data: %v", err)
 	}
 
 	annotationsJSON, err := toJSON(request.Annotations)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error converting annotations to JSON: %v", err)
 	}
 
 	labelsJSON, err := toJSON(request.Labels)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error converting labels to JSON: %v", err)
 	}
 
 	containerConfig := criapi.ContainerConfig{
@@ -167,13 +172,13 @@ func (p *CRIRuntime) StartProxy(request *api.StartRequest) error {
 	klog.Infof("Creating proxy sidecar container for pod %s", request.PodName)
 	containerID, err := p.runtimeService.CreateContainer(request.PodSandboxID, &containerConfig, &podSandboxConfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error creating sidecar container: %v", err)
 	}
 	klog.Infof("Created proxy sidecar container: %s", containerID)
 
 	err = p.runtimeService.StartContainer(containerID)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error starting sidecar container: %v", err)
 	}
 	klog.Infof("Started proxy sidecar container: %s", containerID)
 
@@ -188,7 +193,7 @@ func (p *CRIRuntime) pullImageIfNecessary(config ProxyConfig) error {
 	}
 	imageStatus, err := p.imageService.ImageStatus(&imageSpec)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error getting image status: %v", err)
 	}
 
 	if imageStatus == nil {
@@ -196,7 +201,7 @@ func (p *CRIRuntime) pullImageIfNecessary(config ProxyConfig) error {
 		var authConfig *criapi.AuthConfig = nil // TODO: implement image pull authentication
 		imageRef, err := p.imageService.PullImage(&imageSpec, authConfig)
 		if err != nil {
-			return err
+			return fmt.Errorf("Error pulling image: %v", err)
 		}
 		klog.Infof("Successfully pulled image. Image ref: %s", imageRef)
 	} else {
@@ -232,6 +237,37 @@ func (p *CRIRuntime) StopProxy(request *api.StopRequest) error {
 	}
 
 	return nil
+}
+
+func (p *CRIRuntime) IsReady(request *api.ReadinessRequest) (bool, error) {
+	ready := false
+
+	netNS := strings.Replace(request.NetNS, "/proc/", "/hostproc/", 1) // we're running in a container; host's /proc/ is mapped to /hostproc/
+
+	err := ns.WithNetNSPath(netNS, func(hostNS ns.NetNS) error {
+		//url := "http://" + request.PodIP + ":" + "15000" + "/server_info" // TODO: make port & path configurable
+		url := "http://" + "localhost" + ":" + "15000" + "/server_info" // TODO: make port & path configurable
+		req, err := http.NewRequest(http.MethodGet, url, nil)
+		if err != nil {
+			return err
+		}
+
+		response, err := p.httpClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer response.Body.Close()
+
+		if response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusBadRequest {
+			klog.Infof("Readiness probe succeeded for %s", request.PodName)
+			ready = true
+			return nil
+		}
+		klog.Infof("Readiness probe failed for %s (%s): %v %s", request.PodName, url, response.StatusCode, response.Status)
+		return nil
+	})
+
+	return ready, err
 }
 
 func (p *CRIRuntime) findProxyContainerID(podSandboxId string) (string, error) {

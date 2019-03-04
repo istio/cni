@@ -29,17 +29,35 @@ func (p *proxyAgentClient) StartProxy(podName, podNamespace, podUID, podIP, infr
 		secretData,
 		labels,
 		annotations,
-	})
+	}, nil)
 }
 
 func (p *proxyAgentClient) StopProxy(podName, podSandboxID string) error {
 	return p.callAgent("/stop", api.StopRequest{
 		podName,
 		podSandboxID,
-	})
+	}, nil)
 }
 
-func (p *proxyAgentClient) callAgent(path string, request interface{}) error {
+func (p *proxyAgentClient) IsReady(podName string, podNamespace string, podIP string, netNS string) (bool, error) {
+
+	readinessResponse := api.ReadinessResponse{}
+
+	err := p.callAgent("/readiness", api.ReadinessRequest{
+		podName,
+		podNamespace,
+		podIP,
+		netNS,
+	}, &readinessResponse)
+
+	if err != nil {
+		return false, err
+	}
+
+	return readinessResponse.Ready, nil
+}
+
+func (p *proxyAgentClient) callAgent(path string, request interface{}, responseObj interface{}) error {
 	b, err := json.Marshal(request)
 	if err != nil {
 		return err
@@ -51,11 +69,16 @@ func (p *proxyAgentClient) callAgent(path string, request interface{}) error {
 	}
 
 	response, err := p.httpClient.Do(req)
-	defer response.Body.Close()
 	if err != nil {
 		return err
 	}
+	defer response.Body.Close()
 
+	if responseObj != nil {
+		decoder := json.NewDecoder(response.Body)
+		return decoder.Decode(responseObj)
+	}
+
+	// TODO: return error on HTTP error codes
 	return nil
-
 }
