@@ -13,10 +13,15 @@ removes the need for a privileged, `NET_ADMIN` container in the Istio users' app
 
 ## Usage
 
-The [Istio Helm charts](https://github.com/istio/istio/tree/master/install/kubernetes/helm/istio) integrate
-the option to install the Istio CNI.  The [Istio Installation with Helm](https://preliminary.istio.io/docs/setup/kubernetes/helm-install/)
-procedure with the addition of the setting `--set istio_cni.enabled=true` enables the Istio CNI for
-the Istio installation.
+A complete set of instructions on how to use and install the Istio CNI is available on the Istio documentation sites under the "Istio Install Istio with the Istio CNI plugin".  Only a summary is provided here.  The steps are:
+
+1. Install Kubernetes and kubelet in a manner that can support the CNI
+
+2. Install Kubernetes with the [ServiceAccount admission controller](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#serviceaccount) enabled
+
+3. Install the Istio CNI components
+
+4. Create and apply Istio manifests with the Istio CNI plugin enabled using the --set istio_cni.enabled=true helm variable
 
 For most Kubernetes environments the `istio-cni` [helm parameters' defaults](deployments/kubernetes/install/helm/istio-cni/values.yaml) will configure the Istio CNI plugin in a manner compatible with the Kubernetes installation.  Refer to
 the [Hosted Kubernetes Usage](#hosted-kubernetes-usage) section for Kubernetes environment specific procedures.
@@ -57,7 +62,7 @@ of hosted Kubernetes environments and whether `istio-cni` has been trialed in th
    1. `kubectl create clusterrolebinding cni-cluster-admin-binding --clusterrole=cluster-admin --user=istio-user@gmail.com`
       1. User `istio-user@gmail.com` is an admin user associated with the gcloud GKE cluster
 
-1. Install Istio via Helm including these options `--set istio_cni.enabled=true --set istio-cni.cniBinDir=/home/kubernetes/bin`
+1. Create the Istio CNI manifests with this option `--set cniBinDir=/home/kubernetes/bin`
 
 #### IKS Setup
 
@@ -77,52 +82,6 @@ securityContext:
 ```console
 $ oc adm policy add-scc-to-user privileged -z istio-cni -n kube-system
 ```
-
-### Istio CNI Install Decoupled from Istio Installation
-
-The following steps show installation of the CNI plugin as a separate installation process from
-the [Istio Installation with Helm](https://preliminary.istio.io/docs/setup/kubernetes/helm-install/) procedure.
-
-1. Clone this repo
-
-1. Install Istio control-plane
-
-1. Create Istio CNI installation manifest--either manually or via Helm:
-
-   1. (Helm Option) Construct a `helm template` or `helm install` command for your Kubernetes environment
-   
-      ```console
-      $ helm template deployments/kubernetes/install/helm/istio-cni --values deployments/kubernetes/install/helm/istio-cni/values.yaml --namespace kube-system --set hub=$HUB --set tag=$TAG > $HOME/istio-cni.yaml`
-      ```
-
-      1. Prebuilt Helm "profiles" (`values.yaml` files)
-
-         | Environment | Helm values |
-         |-------------|-------------|
-         | default kubeadm | [values.yaml](deployments/kubernetes/install/helm/istio-cni/values.yaml) |
-         | GKE | [values_gke.yaml](deployments/kubernetes/install/helm/istio-cni/values_gke.yaml) |
-
-   1. (Manual Option) Modify [istio-cni.yaml](deployments/kubernetes/install/manifests/istio-cni.yaml)
-      1. Set `CNI_CONF_NAME` to the filename for your k8s cluster's CNI config file in `/etc/cni/net.d`
-      1. Set `exclude_namespaces` to include the namespace the Istio control-plane is installed in
-      1. Set `cni_bin_dir` to your kubernetes install's CNI bin location (the value of `kubelet`'s `--cni-bin-dir`)
-         1. Default is `/opt/cni/bin`
-
-1. Install `istio-cni`:
-
-   ```console
-   $ kubectl apply -f $HOME/istio-cni.yaml
-   ```
-
-1. Remove the `initContainers` section from the result of Helm template's rendering of
-   istio/templates/sidecar-injector-configmap.yaml and apply it to replace the
-   `istio-sidecar-injector` configmap.  --e.g. pull the `istio-sidecar-injector` configmap from
-   `istio.yaml` and remove the `initContainers` section and `kubectl apply -f <configmap.yaml>`
-   1. restart the `istio-sidecar-injector` pod via `kubectl delete pod ...`
-
-1. With auto-sidecar injection, the init containers will no longer be added to the pods and the CNI
-   will be the component setting the iptables up for the pods.
-
 ## Build
 
 First, clone this repository under `$GOPATH/src/istio.io/`.
@@ -280,7 +239,7 @@ Specifically:
   - grab built executables from target dir and cp to staging dir for docker build
   - tagging and push logic
 
-#### Deployment 
+#### Deployment
 The details for the deployment & installation of this plugin were pretty much lifted directly from the
 [Calico CNI plugin](https://github.com/projectcalico/cni-plugin).
 
