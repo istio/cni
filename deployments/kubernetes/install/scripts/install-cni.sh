@@ -28,10 +28,38 @@ function rm_bin_files() {
 HOST_CNI_NET_DIR=${CNI_NET_DIR:-/etc/cni/net.d}
 MOUNTED_CNI_NET_DIR=${MOUNTED_CNI_NET_DIR:-/host/etc/cni/net.d}
 
+CNI_CONF_NAME_OVERRIDE=${CNI_CONF_NAME:-}
+
 # default to first file in `ls` output
+# if dir is empty, default to a filename that is not likely to be lexicographically first in the dir
 CNI_CONF_NAME=${CNI_CONF_NAME:-$(ls ${MOUNTED_CNI_NET_DIR} | head -n 1)}
-CNI_CONF_NAME=${CNI_CONF_NAME:-10-calico.conflist}
+CNI_CONF_NAME=${CNI_CONF_NAME:-YYY-istio-cni.conflist}
 KUBECFG_FILE_NAME=${KUBECFG_FILE_NAME:-ZZZ-istio-cni-kubeconfig}
+CFGCHECK_INTERVAL=${CFGCHECK_INTERVAL:-1}
+
+function check_install() {
+  cfgfile_nm=$(ls ${MOUNTED_CNI_NET_DIR} | head -n 1)
+  if [[ "${cfgfile_nm}" != "${CNI_CONF_NAME}" ]]; then
+    if [[ "${CNI_CONF_NAME_OVERRIDE}" != "" ]]; then
+       # Install was run with overridden cni config file so don't error out on the preempt check.
+       # Likely the only use for this is testing this script.
+       echo "WARNING: Configured CNI config file \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\" preempted by \"$cfgfile_nm\"."
+    else
+       echo "ERROR: CNI config file \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\" preempted by \"$cfgfile_nm\"."
+       exit 1
+    fi
+  fi
+  if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
+    istiocni_conf=$(cat ${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME} | jq '.plugins[]? | select(.type == "istio-cni")')
+    if [[ "$istiocni_conf" == "" ]]; then
+      echo "ERROR: istio-cni CNI config removed from file: \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\""
+      exit 1  
+    fi
+  else
+    echo "ERROR: CNI config file \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\" removed."
+    exit 1  
+  fi
+}
 
 function cleanup() {
   echo "Cleaning up and exiting."
@@ -203,5 +231,6 @@ echo "Created CNI config ${CNI_CONF_NAME}"
 should_sleep=${SLEEP:-"true"}
 echo "Done configuring CNI.  Sleep=$should_sleep"
 while [ "$should_sleep" == "true"  ]; do
-  sleep 10
+  sleep $CFGCHECK_INTERVAL
+  check_install
 done

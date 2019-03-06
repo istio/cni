@@ -101,6 +101,8 @@ e2e-dind-test: &e2e-dind-test
         name: Build test-e2e container
         working_directory: /go/src/istio.io/cni
         command: |
+          mkdir .circleci/helm
+          cp -r deployments/kubernetes/install/helm/istio-cni .circleci/helm/
           docker build --build-arg istio_branch=${ISTIO_BRANCH:-master} -t e2e-runner:latest .circleci
     - run:
         name: Get KDC

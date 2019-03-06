@@ -58,7 +58,7 @@ type Kubernetes struct {
 type PluginConf struct {
 	types.NetConf // You may wish to not nest this type
 	RuntimeConfig *struct {
-		SampleConfig map[string]interface{} `json:"sample"`
+		// SampleConfig map[string]interface{} `json:"sample"`
 	} `json:"runtimeConfig"`
 
 	// This is the previous result, when called in the context of a chained
@@ -159,8 +159,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		nsSetupBinDir = conf.Kubernetes.CniBinDir
 	}
 
-	var logger *logrus.Entry
-	logger = logrus.WithFields(logrus.Fields{
+	logger := logrus.WithFields(logrus.Fields{
 		"ContainerID": args.ContainerID,
 		"Pod":         string(k8sArgs.K8S_POD_NAME),
 		"Namespace":   string(k8sArgs.K8S_POD_NAMESPACE),

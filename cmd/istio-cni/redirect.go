@@ -79,22 +79,6 @@ type annotationParam struct {
 	validator  annotationValidationFunc
 }
 
-func (v *annotationParam) getValueOrDefault(annotations map[string]string) string {
-	if val, ok := annotations[v.key]; ok {
-		return val
-	}
-	return v.defaultVal
-}
-
-func (v *annotationParam) validate(annotations map[string]string) error {
-	if val, ok := annotations[v.key]; ok {
-		if err := v.validator(val); err != nil {
-			return fmt.Errorf("injection failed. Invalid value for annotation %s: %s. Error: %v", v.key, val, err)
-		}
-	}
-	return nil
-}
-
 func alwaysValidFunc(value string) error {
 	return nil
 }
@@ -226,14 +210,6 @@ func NewRedirect(ports []string, annotations map[string]string, logger *logrus.E
 	}
 
 	return redir, nil
-}
-
-func (rdrct *Redirect) setRedirectExcludeUID(noRedirectUID string) {
-	rdrct.noRedirectUID = noRedirectUID
-}
-
-func (rdrct *Redirect) setRedirectTargetPort(tgtPort string) {
-	rdrct.targetPort = tgtPort
 }
 
 func (rdrct *Redirect) doRedirect(netns string) error {
