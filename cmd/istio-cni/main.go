@@ -24,9 +24,11 @@ import (
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/ghodss/yaml"
 	"github.com/projectcalico/libcalico-go/lib/logutils"
 	"github.com/sirupsen/logrus"
 	proxyagentclient "istio.io/cni/pkg/istioproxyagent/client"
+	"istio.io/istio/pilot/pkg/kube/inject"
 	"net"
 	"net/http"
 	"os"
@@ -193,7 +195,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 				return err
 			}
 			logrus.WithField("client", client).Debug("Created Kubernetes client")
-			containers, podUID, labels, annotations, ports, k8sErr := getKubePodInfo(client, podName, podNamespace)
+			containers, podUID, labels, annotations, ports, podJSON, k8sErr := getKubePodInfo(client, podName, podNamespace)
 			if k8sErr != nil {
 				logger.Warnf("Error geting Pod data %v", k8sErr)
 			}
@@ -238,8 +240,38 @@ func cmdAdd(args *skel.CmdArgs) error {
 				if proxyAgent, redirErr := proxyagentclient.NewProxyAgentClient(agentURL); redirErr != nil {
 					logger.Errorf("Creating proxy agent client failed: %v", redirErr)
 				} else {
+
+					controlPlaneNamespace := "istio-system" // TODO make all these configurable
+					meshConfigMapName := "istio"
+					meshConfigMapKey := "mesh"
+					injectConfigMapName := "istio-sidecar-injector"
+					injectConfigMapKey := "config"
+
+					logger.Infof("Geting ConfigMap %s in namespace %s", meshConfigMapName, controlPlaneNamespace)
+					meshConfigMapData, k8sErr := getKubeConfigMap(client, meshConfigMapName, controlPlaneNamespace)
+					if k8sErr != nil {
+						logger.Warnf("Error geting ConfigMap data %v", k8sErr)
+					}
+					meshConfig := meshConfigMapData[meshConfigMapKey]
+
+					logger.Infof("Geting ConfigMap %s in namespace %s", injectConfigMapName, controlPlaneNamespace)
+					injectorConfigMapData, k8sErr := getKubeConfigMap(client, injectConfigMapName, controlPlaneNamespace)
+					if k8sErr != nil {
+						logger.Warnf("Error geting ConfigMap data %v", k8sErr)
+					}
+
+					injectData, exists := injectorConfigMapData[injectConfigMapKey]
+					if !exists {
+						return fmt.Errorf("missing configuration map key %q in %q", injectConfigMapKey, injectConfigMapName)
+					}
+					var injectConfig inject.Config
+					if err := yaml.Unmarshal([]byte(injectData), &injectConfig); err != nil {
+						return fmt.Errorf("unable to convert data from configmap %q: %v", injectConfigMapName, err)
+					}
+					sidecarTemplate := injectConfig.Template
+
 					logger.Info("Starting Proxy")
-					if err := proxyAgent.StartProxy(podName, podNamespace, podUID, podIP, podSandboxID, secretData, labels, annotations); err != nil {
+					if err := proxyAgent.StartProxy(podName, podNamespace, podUID, podIP, podSandboxID, secretData, labels, annotations, podJSON, meshConfig, sidecarTemplate); err != nil {
 						logger.Errorf("Starting proxy failed: %v", err)
 						return err
 					}

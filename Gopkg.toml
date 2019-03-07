@@ -28,16 +28,24 @@
 # for details.
 [[override]]
   name = "k8s.io/client-go"
-  branch = "release-7.0"	# For K8s 1.10.x
+  branch = "release-8.0"	# For K8s 1.11.x
 
 [[constraint]]
   name = "k8s.io/api"
-  version = "kubernetes-1.10.4"
+  branch = "release-1.11"
 
 [[constraint]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.10.4"
+  branch = "release-1.11"
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  version = "v1.10.4"
+  branch = "release-1.11"
+
+[[constraint]]
+  name = "istio.io/istio"
+  branch = "master"
+
+[[override]]
+  name = "github.com/openshift/api"
+  revision = "dca24d1902afee9d2be02425a2d7c9f910063631"

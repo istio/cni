@@ -112,3 +112,50 @@ func (p *DockerRuntime) runDockerCommand(args []string) error {
 	}
 	return err
 }
+
+type ProxyConfig struct {
+	image            string
+	args             []string
+	runAsUser        int64
+	interceptionMode string
+}
+
+func NewDefaultProxyConfig() ProxyConfig {
+	return ProxyConfig{
+		image: "docker.io/istio/proxyv2:1.1.0-rc.2",
+		args: []string{
+			"proxy",
+			"sidecar",
+			"--domain",
+			"myproject.svc.cluster.local",
+			"--configPath",
+			"/etc/istio/proxy",
+			"--binaryPath",
+			"/usr/local/bin/envoy",
+			"--serviceCluster",
+			"details.myproject",
+			"--drainDuration",
+			"45s",
+			"--parentShutdownDuration",
+			"1m0s",
+			"--discoveryAddress",
+			"istio-pilot.istio-system:15010",
+			"--zipkinAddress",
+			"zipkin.istio-system:9411",
+			"--connectTimeout",
+			"10s",
+			"--proxyAdminPort",
+			"15000",
+			"--concurrency",
+			"2",
+			"--controlPlaneAuthPolicy",
+			"NONE",
+			"--statusPort",
+			"15020",
+			"--applicationPorts",
+			"9080",
+		},
+		runAsUser:        1337,
+		interceptionMode: "REDIRECT",
+	}
+}

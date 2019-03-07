@@ -1,13 +1,20 @@
 package server
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"istio.io/cni/pkg/istioproxyagent/api"
+	"istio.io/istio/pilot/pkg/kube/inject"
+	"istio.io/istio/pilot/pkg/model"
+	"k8s.io/api/core/v1"
 	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/kubelet/apis/cri"
 	criapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 	"k8s.io/kubernetes/pkg/kubelet/remote"
+	"k8s.io/kubernetes/third_party/forked/golang/expansion"
 	"net/http"
 	"runtime"
 	"strings"
@@ -44,11 +51,25 @@ func NewCRIRuntime() (*CRIRuntime, error) {
 
 func (p *CRIRuntime) StartProxy(request *api.StartRequest) error {
 
-	config := NewDefaultProxyConfig() // TODO: get this from configmap (or from client?)
+	klog.Infof("Mesh config: %v", request.MeshConfig)
+	klog.Infof("Sidecar template: %v", request.SidecarTemplate)
+	klog.Infof("Pod JSON: %v", request.PodJSON)
 
-	err := p.pullImageIfNecessary(config)
+	pod := v1.Pod{}
+	err := json.Unmarshal([]byte(request.PodJSON), &pod)
 	if err != nil {
-		return err
+		return fmt.Errorf("Could not unmarshal pod YAML: %v", err)
+	}
+	pod.Status.PodIP = request.PodIP // we set it, because it's not set in the YAML yet
+
+	sidecar, err := getSidecar(request, pod)
+	if err != nil {
+		return fmt.Errorf("Could not obtain sidecar: %v", err)
+	}
+
+	err = p.pullImageIfNecessary(sidecar.Image)
+	if err != nil {
+		return fmt.Errorf("Could not pull image %s: %v", sidecar.Image, err)
 	}
 
 	status, err := p.runtimeService.PodSandboxStatus(request.PodSandboxID)
@@ -72,31 +93,29 @@ func (p *CRIRuntime) StartProxy(request *api.StartRequest) error {
 		return fmt.Errorf("Error writing secret data: %v", err)
 	}
 
-	annotationsJSON, err := toJSON(request.Annotations)
+	envs, err := convertEnvs(&pod, sidecar.Env, sidecar.EnvFrom)
 	if err != nil {
-		return fmt.Errorf("Error converting annotations to JSON: %v", err)
+		return fmt.Errorf("Error converting env vars: %v", err)
 	}
 
-	labelsJSON, err := toJSON(request.Labels)
-	if err != nil {
-		return fmt.Errorf("Error converting labels to JSON: %v", err)
-	}
+	expandVars(sidecar.Command, envs)
+	expandVars(sidecar.Args, envs)
 
 	containerConfig := criapi.ContainerConfig{
 		Metadata: &criapi.ContainerMetadata{
 			Name: containerName,
 		},
 		Image: &criapi.ImageSpec{
-			Image: config.image,
+			Image: sidecar.Image,
 		},
-		//Command:[]string{"sleep", "9999999"},
-		Args: config.args,
+		Command: sidecar.Command,
+		Args:    sidecar.Args,
 		Linux: &criapi.LinuxContainerConfig{
 			Resources: &criapi.LinuxContainerResources{
 				// TODO
 			},
 			SecurityContext: &criapi.LinuxContainerSecurityContext{
-				RunAsUser:          &criapi.Int64Value{config.runAsUser},
+				RunAsUser:          &criapi.Int64Value{*sidecar.SecurityContext.RunAsUser},
 				SupplementalGroups: []int64{0},
 				Privileged:         true,
 			},
@@ -109,40 +128,7 @@ func (p *CRIRuntime) StartProxy(request *api.StartRequest) error {
 				RunAsUsername: "NotImplemented", // TODO
 			},
 		},
-		Envs: []*criapi.KeyValue{
-			{
-				Key:   "POD_NAME",
-				Value: request.PodName,
-			},
-			{
-				Key:   "POD_NAMESPACE",
-				Value: request.PodNamespace,
-			},
-			{
-				Key:   "INSTANCE_IP",
-				Value: request.PodIP,
-			},
-			{
-				Key:   "ISTIO_META_POD_NAME",
-				Value: request.PodName,
-			},
-			{
-				Key:   "ISTIO_META_CONFIG_NAMESPACE",
-				Value: request.PodNamespace,
-			},
-			{
-				Key:   "ISTIO_META_INTERCEPTION_MODE",
-				Value: config.interceptionMode,
-			},
-			{
-				Key:   "ISTIO_METAJSON_ANNOTATIONS",
-				Value: annotationsJSON,
-			},
-			{
-				Key:   "ISTIO_METAJSON_LABELS",
-				Value: labelsJSON,
-			},
-		},
+		Envs: envs,
 		Mounts: []*criapi.Mount{
 			{
 				ContainerPath: "/etc/istio/proxy/",
@@ -169,6 +155,8 @@ func (p *CRIRuntime) StartProxy(request *api.StartRequest) error {
 		},
 	}
 
+	klog.Infof("containerConfig: %v", toDebugJSON(containerConfig))
+
 	klog.Infof("Creating proxy sidecar container for pod %s", request.PodName)
 	containerID, err := p.runtimeService.CreateContainer(request.PodSandboxID, &containerConfig, &podSandboxConfig)
 	if err != nil {
@@ -185,11 +173,91 @@ func (p *CRIRuntime) StartProxy(request *api.StartRequest) error {
 	return nil
 }
 
-func (p *CRIRuntime) pullImageIfNecessary(config ProxyConfig) error {
-	klog.Infof("Checking if image %s is available locally", config.image)
+func getSidecar(request *api.StartRequest, pod v1.Pod) (*v1.Container, error) {
+	meshConfig, err := model.ApplyMeshConfigDefaults(request.MeshConfig)
+	if err != nil {
+		return nil, fmt.Errorf("Could not apply mesh config defaults: %v", err)
+	}
+
+	sidecarInjectionSpec, _, err := inject.InjectionData(request.SidecarTemplate, sidecarTemplateVersionHash(request.SidecarTemplate), &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, meshConfig.DefaultConfig, meshConfig)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get injection data: %v", err)
+	}
+
+	klog.Infof("sidecarInjectionSpec: %v", toDebugJSON(sidecarInjectionSpec))
+
+	if len(sidecarInjectionSpec.Containers) == 0 {
+		return nil, fmt.Errorf("No sidecar container in sidecarInjectionSpec")
+	}
+	return &sidecarInjectionSpec.Containers[0], nil
+}
+
+func expandVars(strings []string, envVars []*criapi.KeyValue) {
+	mappingFunc := expansion.MappingFuncFor(EnvVarsToMap(envVars))
+
+	for i, s := range strings {
+		strings[i] = expansion.Expand(s, mappingFunc)
+	}
+}
+
+func EnvVarsToMap(envs []*criapi.KeyValue) map[string]string {
+	result := map[string]string{}
+	for _, env := range envs {
+		result[env.Key] = env.Value
+	}
+
+	return result
+}
+
+func sidecarTemplateVersionHash(in string) string {
+	hash := sha256.Sum256([]byte(in))
+	return hex.EncodeToString(hash[:])
+}
+
+func convertEnvs(pod *v1.Pod, env []v1.EnvVar, envFromSources []v1.EnvFromSource) ([]*criapi.KeyValue, error) {
+	if len(envFromSources) > 0 {
+		return nil, fmt.Errorf("EnvFrom not supported")
+	}
+
+	r := []*criapi.KeyValue{}
+
+	tmpEnv := make(map[string]string)
+	mappingFunc := expansion.MappingFuncFor(tmpEnv)
+
+	for _, e := range env {
+		value := e.Value
+
+		if e.ValueFrom != nil && e.ValueFrom.FieldRef != nil {
+			fieldRef := e.ValueFrom.FieldRef
+			switch {
+			case fieldRef.FieldPath == "metadata.uid":
+				value = string(pod.UID)
+			case fieldRef.FieldPath == "metadata.name":
+				value = pod.Name
+			case fieldRef.FieldPath == "metadata.namespace":
+				value = pod.Namespace
+			case fieldRef.FieldPath == "status.podIP":
+				value = pod.Status.PodIP
+			}
+		}
+
+		value = expansion.Expand(value, mappingFunc)
+
+		tmpEnv[e.Name] = value
+		r = append(r, &criapi.KeyValue{
+			Key:   e.Name,
+			Value: value,
+		})
+	}
+
+	return r, nil
+}
+
+func (p *CRIRuntime) pullImageIfNecessary(image string) error {
+	klog.Infof("Checking if image %s is available locally", image)
 
 	imageSpec := criapi.ImageSpec{
-		Image: config.image,
+		Image: image,
 	}
 	imageStatus, err := p.imageService.ImageStatus(&imageSpec)
 	if err != nil {
@@ -197,7 +265,7 @@ func (p *CRIRuntime) pullImageIfNecessary(config ProxyConfig) error {
 	}
 
 	if imageStatus == nil {
-		klog.Infof("Pulling image %s is available locally", config.image)
+		klog.Infof("Pulling image %s is available locally", image)
 		var authConfig *criapi.AuthConfig = nil // TODO: implement image pull authentication
 		imageRef, err := p.imageService.PullImage(&imageSpec, authConfig)
 		if err != nil {
