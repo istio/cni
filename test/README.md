@@ -131,7 +131,7 @@ To run any of the Istio e2e test follow these steps:
 
 1. Clone the Istio repo in your local environment.
 
-2. Install the CNI components as decribed in the Usage section: [Usage](../README.md#Usage). This might include building your own images and/or charts or pulling the images and charts from official repositories.
+2. Install the CNI components as described in the Usage section: [Usage](../README.md#Usage). This might include building your own images and/or charts or pulling the images and charts from official repositories.
 
 3. Step 2 includes setting appropriate Helm values.
 The HUB and TAG value can be overridden using the environement variables:
