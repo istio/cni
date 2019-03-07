@@ -35,6 +35,7 @@ const (
 	defaultRedirectIPCidr        = "*"
 	defaultRedirectExcludeIPCidr = ""
 	defaultRedirectExcludePort   = defaultProxyStatusPort
+	defaultKubevirtInterfaces    = ""
 
 	includeIPCidrsKey = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 	excludeIPCidrsKey = "traffic.sidecar.istio.io/excludeOutboundIPRanges"
@@ -43,30 +44,34 @@ const (
 
 	sidecarInterceptModeKey = "sidecar.istio.io/interceptionMode"
 	sidecarPortListKey      = "status.sidecar.istio.io/port"
+
+	kubevirtInterfacesKey = "traffic.sidecar.istio.io/kubevirtInterfaces"
 )
 
 var (
 	annotationRegistry = map[string]*annotationParam{
-		"inject":         {injectAnnotationKey, "", alwaysValidFunc},
-		"status":         {sidecarStatusKey, "", alwaysValidFunc},
-		"redirectMode":   {sidecarInterceptModeKey, defaultRedirectMode, validateInterceptionMode},
-		"ports":          {sidecarPortListKey, "", validatePortList},
-		"includeIPCidrs": {includeIPCidrsKey, defaultRedirectIPCidr, validateCIDRListWithWildcard},
-		"excludeIPCidrs": {excludeIPCidrsKey, defaultRedirectExcludeIPCidr, validateCIDRList},
-		"includePorts":   {includePortsKey, "", validatePortListWithWildcard},
-		"excludePorts":   {excludePortsKey, defaultRedirectExcludePort, validatePortList},
+		"inject":             {injectAnnotationKey, "", alwaysValidFunc},
+		"status":             {sidecarStatusKey, "", alwaysValidFunc},
+		"redirectMode":       {sidecarInterceptModeKey, defaultRedirectMode, validateInterceptionMode},
+		"ports":              {sidecarPortListKey, "", validatePortList},
+		"includeIPCidrs":     {includeIPCidrsKey, defaultRedirectIPCidr, validateCIDRListWithWildcard},
+		"excludeIPCidrs":     {excludeIPCidrsKey, defaultRedirectExcludeIPCidr, validateCIDRList},
+		"includePorts":       {includePortsKey, "", validatePortListWithWildcard},
+		"excludePorts":       {excludePortsKey, defaultRedirectExcludePort, validatePortList},
+		"kubevirtInterfaces": {kubevirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc},
 	}
 )
 
 // Redirect -- the istio-cni redirect object
 type Redirect struct {
-	targetPort     string
-	redirectMode   string
-	noRedirectUID  string
-	includeIPCidrs string
-	includePorts   string
-	excludeIPCidrs string
-	excludePorts   string
+	targetPort         string
+	redirectMode       string
+	noRedirectUID      string
+	includeIPCidrs     string
+	includePorts       string
+	excludeIPCidrs     string
+	excludePorts       string
+	kubevirtInterfaces string
 
 	logger *logrus.Entry
 }
@@ -208,6 +213,11 @@ func NewRedirect(ports []string, annotations map[string]string, logger *logrus.E
 		logger.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"excludePorts", isFound, valErr)
 	}
+	isFound, redir.kubevirtInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", annotations)
+	if valErr != nil {
+		logger.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
+			"kubevirtInterfaces", isFound, valErr)
+	}
 
 	return redir, nil
 }
@@ -225,6 +235,7 @@ func (rdrct *Redirect) doRedirect(netns string) error {
 		"-b", rdrct.includePorts,
 		"-d", rdrct.excludePorts,
 		"-x", rdrct.excludeIPCidrs,
+		"-k", rdrct.kubevirtInterfaces,
 	}
 	logrus.WithFields(logrus.Fields{
 		"nsenterArgs": nsenterArgs,
