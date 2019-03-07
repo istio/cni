@@ -13,15 +13,22 @@ removes the need for a privileged, `NET_ADMIN` container in the Istio users' app
 
 ## Usage
 
-A complete set of instructions on how to use and install the Istio CNI is available on the Istio documentation sites under the "Istio Install Istio with the Istio CNI plugin".  Only a summary is provided here.  The steps are:
+A complete set of instructions on how to use and install the Istio CNI is available on the Istio documentation site under [Install Istio with the Istio CNI plugin](https://preliminary.istio.io/docs/setup/kubernetes/install/cni/).  Only a summary is provided here.  The steps are:
 
-1. Install Kubernetes and kubelet in a manner that can support the CNI
+1. Install Kubernetes and `kubelet` in a manner that can support the CNI
 
 2. Install Kubernetes with the [ServiceAccount admission controller](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#serviceaccount) enabled
 
-3. Install the Istio CNI components
+3. Install the Istio CNI components. A specific example assuming locally built CNI images would be:
+```console
+$ CNI_HUB=docker.io/my_userid
+$ CNI_TAG=mytag
+# run from the ${GOPATH}/src/istio.io/cni dir (repo where istio/cni was cloned)
+$ helm template --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" --set hub=${CNI_HUB} --set tag=${CNI_TAG} --set pullPolicy=IfNotPresent --set logLevel=debug  deployments/kubernetes/install/helm/istio-cni > istio-cni_install.yaml
+$ kubectl apply -f istio-cni_install.yaml
+```
 
-4. Create and apply Istio manifests with the Istio CNI plugin enabled using the --set istio_cni.enabled=true helm variable
+4. Create and apply Istio manifests with the Istio CNI plugin enabled using the `--set istio_cni.enabled=true` Helm variable
 
 For most Kubernetes environments the `istio-cni` [helm parameters' defaults](deployments/kubernetes/install/helm/istio-cni/values.yaml) will configure the Istio CNI plugin in a manner compatible with the Kubernetes installation.  Refer to
 the [Hosted Kubernetes Usage](#hosted-kubernetes-usage) section for Kubernetes environment specific procedures.
@@ -62,7 +69,7 @@ of hosted Kubernetes environments and whether `istio-cni` has been trialed in th
    1. `kubectl create clusterrolebinding cni-cluster-admin-binding --clusterrole=cluster-admin --user=istio-user@gmail.com`
       1. User `istio-user@gmail.com` is an admin user associated with the gcloud GKE cluster
 
-1. Create the Istio CNI manifests with this option `--set cniBinDir=/home/kubernetes/bin`
+1. Create the Istio CNI manifests with this Helm chart option `--set cniBinDir=/home/kubernetes/bin`
 
 #### IKS Setup
 

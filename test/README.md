@@ -131,9 +131,9 @@ To run any of the Istio e2e test follow these steps:
 
 1. Clone the Istio repo in your local environment.
 
-2. Install the CNI components as decribed on the main README or other sources. This might include building your own images and/or charts or pulling the images and charts from official repositories.
+2. Install the CNI components as decribed in the Usage section: [Usage](../README.md#Usage). This might include building your own images and/or charts or pulling the images and charts from official repositories.
 
-3. Step 2 includes setting appropriate helm values.
+3. Step 2 includes setting appropriate Helm values.
 The HUB and TAG value can be overridden using the environement variables:
 ```console
 export ISTIO_CNI_HUB=yourhub
@@ -142,6 +142,7 @@ export ISTIO_CNI_TAG=yourtag
 ```console
 --set "excludeNamespaces={}"
 ```
+
 4. Run any of the Istio e2e targets after setting up a few environment variables:
 ```console
 export ENABLE_ISTIO_CNI=true
@@ -155,4 +156,5 @@ The e2e tests normally use `istioctl` to inject the sidecar and it is necessary 
 Depending on your environment you may need to override other default settings.
 
 If the `tag` and `hub` is not set, the test will use the latest hub and tag values checked into the istio/cni repository.  The default `tag` and `hub` values are fine to use if you do not want to build your own CNI images.
-The CNI will not be uninstalled after the test is completed.
+
+**The CNI will not be uninstalled after the test is completed.**
