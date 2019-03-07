@@ -202,6 +202,13 @@ echo "CNI config: $(cat ${TMP_CONF})"
 sed -i s/__SERVICEACCOUNT_TOKEN__/${SERVICEACCOUNT_TOKEN:-}/g $TMP_CONF
 
 CNI_CONF_FILE=${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}
+
+if [ ! -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ] && [ "${CNI_CONF_NAME: -5}" == ".conf" ] && [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}list" ]; then
+    echo "${CNI_CONF_NAME} doesn't exist, but ${CNI_CONF_NAME}list does; Using it instead."
+    CNI_CONF_NAME="${CNI_CONF_NAME}list"
+	CNI_CONF_FILE=${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}
+fi
+
 if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
     # This section overwrites an existing plugins list entry to for istio-cni
     CNI_TMP_CONF_DATA=$(cat ${TMP_CONF})
