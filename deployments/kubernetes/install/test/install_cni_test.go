@@ -16,17 +16,20 @@ package test
 
 import (
 	"flag"
+	"strings"
 	"testing"
 )
 
 var (
-	preConfFlag        = flag.String("preconf", "", "pre_conf")
-	resultFileNameFlag = flag.String("resultfilename", "", "result_filename")
-	expectedConfFlag   = flag.String("expectedconf", "", "expected_conf")
-	expectedCleanFlag  = flag.String("expectedclean", "", "expected_clean")
+	preConfFlag         = flag.String("preconf", "", "pre_conf")
+	resultFileNameFlag  = flag.String("resultfilename", "", "result_filename")
+	expectedConfFlag    = flag.String("expectedconf", "", "expected_conf")
+	expectedCleanFlag   = flag.String("expectedclean", "", "expected_clean")
+	confDirOrderedFiles = flag.String("confOrderedFiles", "", "conf_ordered_files")
 )
 
 // TestInstallCNI consumes CLI flags and runs the install CNI test.
 func TestInstallCNI(t *testing.T) {
-	RunInstallCNITest(1, *preConfFlag, *resultFileNameFlag, *expectedConfFlag, *expectedCleanFlag, t)
+	RunInstallCNITest(1, *preConfFlag, *resultFileNameFlag, *expectedConfFlag,
+		*expectedCleanFlag, strings.Split(*confDirOrderedFiles, ","), t)
 }

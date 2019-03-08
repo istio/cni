@@ -20,25 +20,36 @@ function rm_bin_files() {
   echo "Removing existing binaries"
   rm -f /host/opt/cni/bin/istio-cni /host/opt/cni/bin/istio-iptables.sh
 }
-
-# The directory on the host where CNI networks are installed. Defaults to
-# /etc/cni/net.d, but can be overridden by setting CNI_NET_DIR.  This is used
-# for populating absolute paths in the CNI network config to assets
-# which are installed in the CNI network config directory.
-HOST_CNI_NET_DIR=${CNI_NET_DIR:-/etc/cni/net.d}
-MOUNTED_CNI_NET_DIR=${MOUNTED_CNI_NET_DIR:-/host/etc/cni/net.d}
-
-CNI_CONF_NAME_OVERRIDE=${CNI_CONF_NAME:-}
-
-# default to first file in `ls` output
-# if dir is empty, default to a filename that is not likely to be lexicographically first in the dir
-CNI_CONF_NAME=${CNI_CONF_NAME:-$(ls ${MOUNTED_CNI_NET_DIR} | head -n 1)}
-CNI_CONF_NAME=${CNI_CONF_NAME:-YYY-istio-cni.conflist}
-KUBECFG_FILE_NAME=${KUBECFG_FILE_NAME:-ZZZ-istio-cni-kubeconfig}
-CFGCHECK_INTERVAL=${CFGCHECK_INTERVAL:-1}
+# find_cni_conf_file
+#   Finds the CNI config file in the mounted CNI config dir.
+#   - Follows the same semantics as kubelet
+#     https://github.com/kubernetes/kubernetes/blob/954996e231074dc7429f7be1256a579bedd8344c/pkg/kubelet/dockershim/network/cni/cni.go#L144-L184
+#
+function find_cni_conf_file() {
+    cni_cfg=
+    for cfgf in $(ls ${MOUNTED_CNI_NET_DIR}); do
+        if [ "${cfgf: -5}" == ".conf" ]; then
+            # check if it's a valid CNI .conf file
+            type=$(cat ${MOUNTED_CNI_NET_DIR}/${cfgf} | jq 'has("type")' 2>/dev/null)
+            if [[ "${type}" == "true" ]]; then
+                cni_cfg=${cfgf}
+                break
+            fi
+        elif [ "${cfgf: -9}" == ".conflist" ]; then
+            name=$(cat ${MOUNTED_CNI_NET_DIR}/${cfgf} | jq 'has("name")' 2>/dev/null)
+            ver=$(cat ${MOUNTED_CNI_NET_DIR}/${cfgf} | jq 'has("cniVersion")' 2>/dev/null)
+            plugins=$(cat ${MOUNTED_CNI_NET_DIR}/${cfgf} | jq 'has("plugins")' 2>/dev/null)
+            if [[ "${name}" == "true" && "${ver}" == "true" && "${plugins}" == "true" ]]; then
+                cni_cfg=${cfgf}
+                break
+            fi
+        fi
+    done
+    echo "$cni_cfg"
+}
 
 function check_install() {
-  cfgfile_nm=$(ls ${MOUNTED_CNI_NET_DIR} | head -n 1)
+  cfgfile_nm=$(find_cni_conf_file)
   if [[ "${cfgfile_nm}" != "${CNI_CONF_NAME}" ]]; then
     if [[ "${CNI_CONF_NAME_OVERRIDE}" != "" ]]; then
        # Install was run with overridden cni config file so don't error out on the preempt check.
@@ -76,6 +87,23 @@ function cleanup() {
   rm_bin_files
   echo "Exiting."
 }
+
+# The directory on the host where CNI networks are installed. Defaults to
+# /etc/cni/net.d, but can be overridden by setting CNI_NET_DIR.  This is used
+# for populating absolute paths in the CNI network config to assets
+# which are installed in the CNI network config directory.
+HOST_CNI_NET_DIR=${CNI_NET_DIR:-/etc/cni/net.d}
+MOUNTED_CNI_NET_DIR=${MOUNTED_CNI_NET_DIR:-/host/etc/cni/net.d}
+
+CNI_CONF_NAME_OVERRIDE=${CNI_CONF_NAME:-}
+
+# default to first file in `ls` output
+# if dir is empty, default to a filename that is not likely to be lexicographically first in the dir
+CNI_CONF_NAME=${CNI_CONF_NAME:-$(find_cni_conf_file)}
+CNI_CONF_NAME=${CNI_CONF_NAME:-YYY-istio-cni.conflist}
+KUBECFG_FILE_NAME=${KUBECFG_FILE_NAME:-ZZZ-istio-cni-kubeconfig}
+CFGCHECK_INTERVAL=${CFGCHECK_INTERVAL:-1}
+
 
 trap cleanup EXIT
 
