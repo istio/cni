@@ -32,18 +32,20 @@ var (
 )
 
 type testCase struct {
-	name                  string
-	preConfFile           string
-	resultFileName        string
-	expectedOutputFile    string
-	expectedPostCleanFile string
+	name                   string
+	preConfFile            string
+	resultFileName         string
+	expectedOutputFile     string
+	expectedPostCleanFile  string
+	cniConfDirOrderedFiles []string
 }
 
 func doTest(testNum int, tc testCase, t *testing.T) {
 	_ = os.Setenv("HUB", Hub)
 	_ = os.Setenv("TAG", Tag)
 	t.Logf("Running install CNI test with HUB=%s, TAG=%s", Hub, Tag)
-	test.RunInstallCNITest(testNum, tc.preConfFile, tc.resultFileName, tc.expectedOutputFile, tc.expectedPostCleanFile, t)
+	test.RunInstallCNITest(testNum, tc.preConfFile, tc.resultFileName, tc.expectedOutputFile,
+		tc.expectedPostCleanFile, tc.cniConfDirOrderedFiles, t)
 }
 
 func TestInstall(t *testing.T) {
@@ -59,25 +61,96 @@ func TestInstall(t *testing.T) {
 	testDataDir := TestWorkDir + "/../deployments/kubernetes/install/test/data"
 	cases := []testCase{
 		{
-			name:                  "First file with pre-plugins",
+			name:                   "File with pre-plugins--.conflist",
+			preConfFile:            "00-calico.conflist",
+			resultFileName:         "00-calico.conflist",
+			expectedOutputFile:     testDataDir + "/expected/10-calico.conflist-istioconfig",
+			expectedPostCleanFile:  testDataDir + "/pre/calico.conflist",
+			cniConfDirOrderedFiles: []string{"calico.conflist"},
+		},
+		{
+			name:                   "File without pre-plugins--.conf",
+			preConfFile:            "00-minikube_cni.conf",
+			resultFileName:         "00-minikube_cni.conflist",
+			expectedOutputFile:     testDataDir + "/expected/minikube_cni.conflist.expected",
+			expectedPostCleanFile:  testDataDir + "/expected/minikube_cni.conflist.clean",
+			cniConfDirOrderedFiles: []string{"minikube_cni.conf"},
+		},
+		{
+			name:                   "First file with pre-plugins--.conflist",
+			preConfFile:            "NONE",
+			resultFileName:         "00-calico.conflist",
+			expectedOutputFile:     testDataDir + "/expected/10-calico.conflist-istioconfig",
+			expectedPostCleanFile:  testDataDir + "/pre/calico.conflist",
+			cniConfDirOrderedFiles: []string{"calico.conflist", "minikube_cni.conf"},
+		},
+		{
+			name:                   "First file without pre-plugins--.conf",
+			preConfFile:            "NONE",
+			resultFileName:         "00-minikube_cni.conflist",
+			expectedOutputFile:     testDataDir + "/expected/minikube_cni.conflist.expected",
+			expectedPostCleanFile:  testDataDir + "/expected/minikube_cni.conflist.clean",
+			cniConfDirOrderedFiles: []string{"minikube_cni.conf", "calico.conflist"},
+		},
+		{
+			name:                   "Skip non-json file for first valid .conf file",
+			preConfFile:            "NONE",
+			resultFileName:         "01-minikube_cni.conflist",
+			expectedOutputFile:     testDataDir + "/expected/minikube_cni.conflist.expected",
+			expectedPostCleanFile:  testDataDir + "/expected/minikube_cni.conflist.clean",
+			cniConfDirOrderedFiles: []string{"non_json.conf", "minikube_cni.conf", "calico.conflist"},
+		},
+		{
+			name:                   "Skip non-json file for first valid .conflist file",
+			preConfFile:            "NONE",
+			resultFileName:         "01-calico.conflist",
+			expectedOutputFile:     testDataDir + "/expected/10-calico.conflist-istioconfig",
+			expectedPostCleanFile:  testDataDir + "/pre/calico.conflist",
+			cniConfDirOrderedFiles: []string{"non_json.conf", "calico.conflist", "minikube_cni.conf"},
+		},
+		{
+			name:                   "Skip invalid .conf file for first valid .conf file",
+			preConfFile:            "NONE",
+			resultFileName:         "01-minikube_cni.conflist",
+			expectedOutputFile:     testDataDir + "/expected/minikube_cni.conflist.expected",
+			expectedPostCleanFile:  testDataDir + "/expected/minikube_cni.conflist.clean",
+			cniConfDirOrderedFiles: []string{"bad_minikube_cni.conf", "minikube_cni.conf", "calico.conflist"},
+		},
+		{
+			name:                   "Skip invalid .conf file for first valid .conflist file",
+			preConfFile:            "NONE",
+			resultFileName:         "01-calico.conflist",
+			expectedOutputFile:     testDataDir + "/expected/10-calico.conflist-istioconfig",
+			expectedPostCleanFile:  testDataDir + "/pre/calico.conflist",
+			cniConfDirOrderedFiles: []string{"bad_minikube_cni.conf", "calico.conflist", "minikube_cni.conf"},
+		},
+		{
+			name:                  "Skip invalid .conflist files for first valid .conf file",
 			preConfFile:           "NONE",
-			resultFileName:        "10-calico.conflist",
-			expectedOutputFile:    testDataDir + "/expected/10-calico.conflist-istioconfig",
-			expectedPostCleanFile: "",
-		},
-		{
-			name:                  "File with pre-plugins",
-			preConfFile:           "10-calico.conflist",
-			resultFileName:        "10-calico.conflist",
-			expectedOutputFile:    testDataDir + "/expected/10-calico.conflist-istioconfig",
-			expectedPostCleanFile: "",
-		},
-		{
-			name:                  "File without pre-plugins",
-			preConfFile:           "minikube_cni.conf",
-			resultFileName:        "minikube_cni.conflist",
+			resultFileName:        "02-minikube_cni.conflist",
 			expectedOutputFile:    testDataDir + "/expected/minikube_cni.conflist.expected",
 			expectedPostCleanFile: testDataDir + "/expected/minikube_cni.conflist.clean",
+			cniConfDirOrderedFiles: []string{"noname_calico.conflist",
+				"noplugins_calico.conflist",
+				"minikube_cni.conf", "calico.conflist"},
+		},
+		{
+			name:                  "Skip invalid .conflist files for first valid .conflist file",
+			preConfFile:           "NONE",
+			resultFileName:        "02-calico.conflist",
+			expectedOutputFile:    testDataDir + "/expected/10-calico.conflist-istioconfig",
+			expectedPostCleanFile: testDataDir + "/pre/calico.conflist",
+			cniConfDirOrderedFiles: []string{"noname_calico.conflist",
+				"noplugins_calico.conflist",
+				"calico.conflist", "minikube_cni.conf"},
+		},
+		{
+			name:                   "confFile env var point to missing .conf with valid .conflist file",
+			preConfFile:            "00-calico.conf",
+			resultFileName:         "00-calico.conflist",
+			expectedOutputFile:     testDataDir + "/expected/10-calico.conflist-istioconfig",
+			expectedPostCleanFile:  testDataDir + "/pre/calico.conflist",
+			cniConfDirOrderedFiles: []string{"calico.conflist"},
 		},
 	}
 	for i, c := range cases {
