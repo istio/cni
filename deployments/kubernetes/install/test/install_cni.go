@@ -16,6 +16,7 @@ package test
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -106,11 +107,12 @@ func rm(dir string, t *testing.T) {
 
 // populateTempDirs populates temporary test directories with golden files and
 // other related configuration.
-func populateTempDirs(wd, tempCNIConfDir, tempK8sSvcAcctDir string, t *testing.T) {
+func populateTempDirs(wd string, cniDirOrderedFiles []string, tempCNIConfDir, tempK8sSvcAcctDir string, t *testing.T) {
 	t.Logf("Pre-populating working dirs")
-	for _, f := range ls(wd+cniConfSubDir, t) {
-		t.Logf("Copying %v into temp config dir %v", f, tempCNIConfDir)
-		cp(wd+cniConfSubDir+f, tempCNIConfDir+"/"+f, t)
+	for i, f := range cniDirOrderedFiles {
+		destFilenm := fmt.Sprintf("0%d-%s", i, f)
+		t.Logf("Copying %v into temp config dir %v/%s", f, tempCNIConfDir, destFilenm)
+		cp(wd+cniConfSubDir+f, tempCNIConfDir+"/"+destFilenm, t)
 	}
 	for _, f := range ls(wd+k8sSvcAcctSubDir, t) {
 		t.Logf("Copying %v into temp k8s serviceaccount dir %v", f, tempK8sSvcAcctDir)
@@ -121,7 +123,7 @@ func populateTempDirs(wd, tempCNIConfDir, tempK8sSvcAcctDir string, t *testing.T
 
 // startDocker starts a test Docker container and runs the install-cni.sh script.
 func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
-	tempK8sSvcAcctDir string, t *testing.T) string {
+	tempK8sSvcAcctDir, cniConfFileName string, t *testing.T) string {
 
 	dockerImage := env("HUB", "") + "/install-cni:" + env("TAG", "")
 	errFileName := path.Dir(tempCNIConfDir) + "/docker_run_stderr"
@@ -136,8 +138,8 @@ func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
 		"--env-file", wd + "/data/env_vars.sh",
 		"-e", cniNetworkConfigName,
 	}
-	if _, ok := os.LookupEnv(cniConfName); ok {
-		args = append(args, "-e", cniConfName)
+	if cniConfFileName != "" {
+		args = append(args, "-e", cniConfName+"="+cniConfFileName)
 	}
 	args = append(args, dockerImage)
 	args = append(args, "/install-cni.sh")
@@ -232,14 +234,15 @@ func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
 	t.Logf("Test %v: prior cni-conf='%v', expected result='%v'", testNum, preConfFile, resultFileName)
 
 	// Don't set the CNI conf file env var if preConfFile is not set
+	var envPreconf string
 	if preConfFile != "NONE" {
-		setEnv(cniConfName, preConfFile, t)
+		envPreconf = preConfFile
 	} else {
 		preConfFile = resultFileName
 	}
 	setEnv(cniNetworkConfigName, cniNetworkConfig, t)
 
-	containerID := startDocker(testNum, wd, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir, t)
+	containerID := startDocker(testNum, wd, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir, envPreconf, t)
 	time.Sleep(10 * time.Second)
 
 	compareConfResult(testWorkRootDir, tempCNIConfDir, resultFileName, expectedOutputFile, t)
@@ -267,7 +270,7 @@ func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
 // prefix. This func is only meant to be invoked programmatically. A separate
 // install_cni_test.go file exists for executing this test.
 func RunInstallCNITest(testNum int, preConfFile, resultFileName, expectedOutputFile,
-	expectedPostCleanFile string, t *testing.T) {
+	expectedPostCleanFile string, cniConfDirOrderedFiles []string, t *testing.T) {
 
 	wd := pwd(t)
 	// root := filepath.Dir(wd)
@@ -284,7 +287,7 @@ func RunInstallCNITest(testNum int, preConfFile, resultFileName, expectedOutputF
 	t.Logf("conf-dir=%v; bin-dir=%v; k8s-serviceaccount=%v", tempCNIConfDir,
 		tempCNIBinDir, tempK8sSvcAcctDir)
 
-	populateTempDirs(wd, tempCNIConfDir, tempK8sSvcAcctDir, t)
+	populateTempDirs(wd, cniConfDirOrderedFiles, tempCNIConfDir, tempK8sSvcAcctDir, t)
 	doTest(testNum, wd, preConfFile, resultFileName, expectedOutputFile,
 		expectedPostCleanFile, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir,
 		testWorkRootDir, t)
