@@ -123,36 +123,38 @@ with the istio/istio code base.  Both the istio/istio repo and the istio/cni rep
 that the CNI works properly.
 
 In order to run the e2e tests in a local environment confirm:
-
 1. That you can successfully run the desired Istio e2e tests in your local environment without the CNI enabled
 
 2. That your local environment supports the requirements for the CNI plugin
 
-To run the Istio e2e test first, clone the Istio repo in your local environment.  Then, there are two options to run the tests.
+To run any of the Istio e2e test follow these steps:
 
-1. Run the Istio make target  
-```console
-make e2e_simple_cni
-```
-This runs the `e2e_simple` with the latest nightly CNI image pushed to gcr.io/istio-release.  The HUB and TAG value can be overridden using the environement variables:
+1. Clone the Istio repo in your local environment.
+
+2. Install the CNI components as described in the Usage section: [Usage](../README.md#Usage). This might include building your own images and/or charts or pulling the images and charts from official repositories.
+
+3. Step 2 includes setting appropriate Helm values.
+The HUB and TAG value can be overridden using the environement variables:
 ```console
 export ISTIO_CNI_HUB=yourhub
 export ISTIO_CNI_TAG=yourtag
 ```
+```console
+--set "excludeNamespaces={}"
+```
 
-
-2. Run any of the Istio e2e targets after setting up a few environment variables:
+4. Run any of the Istio e2e targets after setting up a few environment variables:
 ```console
 export ENABLE_ISTIO_CNI=true
 export E2E_ARGS=--kube_inject_configmap=istio-sidecar-injector
-export EXTRA_HELM_SETTINGS=--set istio-cni.excludeNamespaces={} --set istio-cni.tag=$YOUR_CNI_TAG --set istio-cni.hub=$YOUR_CNI_HUB
 ```
-The value for `EXTRA_HELM_SETTINGS` will depend on your specific environment.
 
 The tag `$YOUR_CNI_TAG` should be set to the `$TAG` value you used when you built your CNI image.
 The hub `$YOUR_CNI_HUB` should be set to the location you used when you built your CNI image.
 Istio in most cases runs the e2e tests in the `istio-system` namespace and therefore the `excludeNamespaces` must be set to `NULL`.
 The e2e tests normally use `istioctl` to inject the sidecar and it is necessary to use a `ConfigMap` without the `initContainers` section.
-Depending on your environment you may need to override other default settings.  Any additional override settings can be added via the `EXTRA_HELM_SETTINGS`
+Depending on your environment you may need to override other default settings.
 
 If the `tag` and `hub` is not set, the test will use the latest hub and tag values checked into the istio/cni repository.  The default `tag` and `hub` values are fine to use if you do not want to build your own CNI images.
+
+**The CNI will not be uninstalled after the test is completed.**
