@@ -36,10 +36,11 @@ function find_cni_conf_file() {
                 break
             fi
         elif [ "${cfgf: -9}" == ".conflist" ]; then
+            # Check that the file is json and has top level "name" and "plugins" keys
+            # NOTE: "cniVersion" key is not required by libcni (kubelet) to be present
             name=$(cat ${MOUNTED_CNI_NET_DIR}/${cfgf} | jq 'has("name")' 2>/dev/null)
-            ver=$(cat ${MOUNTED_CNI_NET_DIR}/${cfgf} | jq 'has("cniVersion")' 2>/dev/null)
             plugins=$(cat ${MOUNTED_CNI_NET_DIR}/${cfgf} | jq 'has("plugins")' 2>/dev/null)
-            if [[ "${name}" == "true" && "${ver}" == "true" && "${plugins}" == "true" ]]; then
+            if [[ "${name}" == "true" && "${plugins}" == "true" ]]; then
                 cni_cfg=${cfgf}
                 break
             fi
