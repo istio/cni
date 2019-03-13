@@ -19,12 +19,12 @@ type server struct {
 }
 
 func NewProxyAgent(bindAddr string) (*server, error) {
-	runtime, err := NewCRIRuntime()
+	kube, err := NewKubernetesClient()
 	if err != nil {
 		return nil, err
 	}
 
-	kube, err := NewKubernetesClient()
+	runtime, err := NewCRIRuntime(kube)
 	if err != nil {
 		return nil, err
 	}
@@ -71,14 +71,7 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	klog.Infof("Geting Secret %s in namespace %s", "istio.default", request.PodNamespace)
-	secretData, k8sErr := p.kubernetes.getSecret("istio.default", request.PodNamespace) // TODO: get secret name
-	if k8sErr != nil {
-		klog.Warningf("Error geting Secret data %v", k8sErr)
-		return
-	}
-
-	err = p.runtime.StartProxy(request.PodSandboxID, pod, secretData, sidecar)
+	err = p.runtime.StartProxy(request.PodSandboxID, pod, sidecar)
 	if err != nil {
 		klog.Errorf("Error starting proxy: %s", err)
 	}

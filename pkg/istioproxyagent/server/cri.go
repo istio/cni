@@ -27,12 +27,13 @@ const (
 )
 
 type CRIRuntime struct {
+	kubeClient     *KubernetesClient
 	runtimeService cri.RuntimeService
 	imageService   cri.ImageManagerService
 	httpClient     http.Client
 }
 
-func NewCRIRuntime() (*CRIRuntime, error) {
+func NewCRIRuntime(kubeclient *KubernetesClient) (*CRIRuntime, error) {
 	runtimeService, err := remote.NewRemoteRuntimeService(getRemoteRuntimeEndpoint(), 2*time.Minute)
 	if err != nil {
 		return nil, err
@@ -44,13 +45,14 @@ func NewCRIRuntime() (*CRIRuntime, error) {
 	}
 
 	return &CRIRuntime{
+		kubeClient:     kubeclient,
 		runtimeService: runtimeService,
 		imageService:   imageService,
 		httpClient:     http.Client{},
 	}, nil
 }
 
-func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, secretData map[string][]byte, sidecar *v1.Container) error {
+func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecar *v1.Container) error {
 
 	err := p.pullImageIfNecessary(sidecar.Image)
 	if err != nil {
@@ -66,6 +68,12 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, secretData map
 	secretDir, confDir, err := createVolumes(sidecar)
 	if err != nil {
 		return fmt.Errorf("Error creating volumes: %v", err)
+	}
+
+	klog.Infof("Geting Secret %s in namespace %s", "istio.default", pod.Namespace)
+	secretData, k8sErr := p.kubeClient.getSecret("istio.default", pod.Namespace) // TODO: get secret name
+	if k8sErr != nil {
+		return fmt.Errorf("Error geting Secret data %v", k8sErr)
 	}
 
 	klog.Infof("Writing secret data to %s", secretDir)
