@@ -51,6 +51,9 @@ data:
               "kubeconfig": "__KUBECONFIG_FILEPATH__",
               "cni_bin_dir": "/opt/cni/bin",
               "exclude_namespaces": [ "istio-system" ]
+          },
+          "agent": {
+              "URL": "http://localhost:22222"
           }
         }
 
@@ -125,7 +128,7 @@ spec:
               name: cni-net-dir
         - name: proxy-management-agent
           image: docker.io/luksa/install-cni:v0.1-dev
-          command: ["/opt/istioproxyagent"]
+          command: ["/opt/istioproxyagent", ":22222"]
           imagePullPolicy: Always
           securityContext:
             privileged: true

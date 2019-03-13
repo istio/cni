@@ -2,11 +2,13 @@ package main
 
 import (
 	"istio.io/cni/pkg/istioproxyagent/server"
+	"os"
 )
 
 func main() {
 
-	agent, err := server.NewProxyAgent()
+	bindAddr := os.Args[1]
+	agent, err := server.NewProxyAgent(bindAddr)
 	if err != nil {
 		panic(err)
 	}

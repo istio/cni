@@ -8,7 +8,8 @@ import (
 )
 
 type server struct {
-	runtime AgentRuntime
+	bindAddr string
+	runtime  AgentRuntime
 }
 
 type AgentRuntime interface {
@@ -17,13 +18,14 @@ type AgentRuntime interface {
 	IsReady(request *api.ReadinessRequest) (bool, error)
 }
 
-func NewProxyAgent() (*server, error) {
+func NewProxyAgent(bindAddr string) (*server, error) {
 	runtime, err := NewCRIRuntime()
 	if err != nil {
 		return nil, err
 	}
 	return &server{
-		runtime: runtime,
+		bindAddr: bindAddr,
+		runtime:  runtime,
 	}, nil
 }
 
@@ -32,8 +34,8 @@ func (p *server) Run() error {
 	http.HandleFunc("/start", p.startHandler)
 	http.HandleFunc("/stop", p.stopHandler)
 	http.HandleFunc("/readiness", p.readinessHandler)
-	klog.Infof("Listening on :22222")
-	err := http.ListenAndServe(":22222", nil)
+	klog.Infof("Listening on %s", p.bindAddr)
+	err := http.ListenAndServe(p.bindAddr, nil)
 	if err != nil {
 		return err
 	}

@@ -51,6 +51,9 @@ data:
               "kubeconfig": "__KUBECONFIG_FILEPATH__",
               "cni_bin_dir": "/home/kubernetes/bin",
               "exclude_namespaces": [ "istio-system" ]
+          },
+          "agent": {
+              "URL": "http://localhost:22222"
           }
         }
 

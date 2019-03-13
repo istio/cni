@@ -37,8 +37,6 @@ import (
 	"time"
 )
 
-const agentURL = "http://localhost:22222"
-
 var (
 	nsSetupBinDir = "/opt/cni/bin"
 	nsSetupProg   = "istio-iptables.sh"
@@ -82,6 +80,11 @@ type PluginConf struct {
 	// Add plugin-specific flags here
 	LogLevel   string     `json:"log_level"`
 	Kubernetes Kubernetes `json:"kubernetes"`
+	Agent      AgentConf  `json:"agent"`
+}
+
+type AgentConf struct {
+	URL string `json:"URL"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
@@ -237,7 +240,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 				}
 
 				logger.Info("Creating Proxy")
-				if proxyAgent, redirErr := proxyagentclient.NewProxyAgentClient(agentURL); redirErr != nil {
+				if proxyAgent, redirErr := proxyagentclient.NewProxyAgentClient(conf.Agent.URL); redirErr != nil {
 					logger.Errorf("Creating proxy agent client failed: %v", redirErr)
 				} else {
 
@@ -354,7 +357,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	podSandboxID := string(k8sArgs.K8S_POD_INFRA_CONTAINER_ID)
 
 	// TODO: do we need to delete the proxy container or will the kubelet's GC delete it?
-	if proxy, redirErr := proxyagentclient.NewProxyAgentClient(agentURL); redirErr != nil {
+	if proxy, redirErr := proxyagentclient.NewProxyAgentClient(conf.Agent.URL); redirErr != nil {
 		logrus.Errorf("Creating proxy agent client failed: %v", redirErr)
 	} else {
 		logrus.Info("Stopping Proxy")
