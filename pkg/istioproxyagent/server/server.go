@@ -18,7 +18,6 @@ type AgentRuntime interface {
 }
 
 func NewProxyAgent() (*server, error) {
-	//runtime, err := NewDockerRuntime()
 	runtime, err := NewCRIRuntime()
 	if err != nil {
 		return nil, err
