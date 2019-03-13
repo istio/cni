@@ -46,14 +46,14 @@ func NewCRIRuntime() (*CRIRuntime, error) {
 	}, nil
 }
 
-func (p *CRIRuntime) StartProxy(request *api.StartRequest, pod *v1.Pod, secretData map[string][]byte, sidecar *v1.Container) error {
+func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, secretData map[string][]byte, sidecar *v1.Container) error {
 
 	err := p.pullImageIfNecessary(sidecar.Image)
 	if err != nil {
 		return fmt.Errorf("Could not pull image %s: %v", sidecar.Image, err)
 	}
 
-	status, err := p.runtimeService.PodSandboxStatus(request.PodSandboxID)
+	status, err := p.runtimeService.PodSandboxStatus(podSandboxID)
 	if err != nil {
 		return fmt.Errorf("Error getting pod sandbox status: %v", err)
 	}
@@ -139,7 +139,7 @@ func (p *CRIRuntime) StartProxy(request *api.StartRequest, pod *v1.Pod, secretDa
 	klog.Infof("containerConfig: %v", toDebugJSON(containerConfig))
 
 	klog.Infof("Creating proxy sidecar container for pod %s", pod.Name)
-	containerID, err := p.runtimeService.CreateContainer(request.PodSandboxID, &containerConfig, &podSandboxConfig)
+	containerID, err := p.runtimeService.CreateContainer(podSandboxID, &containerConfig, &podSandboxConfig)
 	if err != nil {
 		return fmt.Errorf("Error creating sidecar container: %v", err)
 	}

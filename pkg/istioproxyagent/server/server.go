@@ -18,13 +18,7 @@ import (
 type server struct {
 	kubeClient *kubernetes.Clientset
 	bindAddr   string
-	runtime    AgentRuntime
-}
-
-type AgentRuntime interface {
-	StartProxy(request *api.StartRequest, pod *v1.Pod, secretData map[string][]byte, sidecar *v1.Container) error
-	StopProxy(request *api.StopRequest) error
-	IsReady(request *api.ReadinessRequest) (bool, error)
+	runtime    *CRIRuntime
 }
 
 func NewProxyAgent(bindAddr string) (*server, error) {
@@ -92,7 +86,7 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = p.runtime.StartProxy(&request, pod, secretData, sidecar)
+	err = p.runtime.StartProxy(request.PodSandboxID, pod, secretData, sidecar)
 	if err != nil {
 		klog.Errorf("Error starting proxy: %s", err)
 	}
