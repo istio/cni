@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/containernetworking/plugins/pkg/ns"
+	"io/ioutil"
 	"istio.io/cni/pkg/istioproxyagent/api"
 	"k8s.io/api/core/v1"
 	"k8s.io/klog"
@@ -12,8 +13,11 @@ import (
 	criapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 	"k8s.io/kubernetes/pkg/kubelet/remote"
 	"k8s.io/kubernetes/third_party/forked/golang/expansion"
+	"math/rand"
 	"net/http"
+	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -59,7 +63,7 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, secretData map
 	}
 
 	klog.Info("Creating volumes")
-	secretDir, confDir, err := createVolumes()
+	secretDir, confDir, err := createVolumes(sidecar)
 	if err != nil {
 		return fmt.Errorf("Error creating volumes: %v", err)
 	}
@@ -323,4 +327,38 @@ func (p *CRIRuntime) findContainerByName(name string, containers []*criapi.Conta
 		}
 	}
 	return nil, fmt.Errorf("Could not find container %q in list of containers", containerName)
+}
+
+func createVolumes(sidecar *v1.Container) (string, string, error) {
+	random := rand.New(rand.NewSource(time.Now().UnixNano()))
+	dir := "/tmp/istio-proxy-volumes-" + strconv.Itoa(random.Int())
+	certsDir := dir + "/certs"
+	err := os.MkdirAll(certsDir, os.ModePerm)
+	if err != nil {
+		return "", "", err
+	}
+
+	confDir := dir + "/conf"
+	err = os.Mkdir(confDir, os.ModePerm)
+	if err != nil {
+		return "", "", err
+	}
+
+	// ensure the conf dir is world writable (might not be if umask is set)
+	err = os.Chmod(confDir, 0777)
+	if err != nil {
+		return "", "", err
+	}
+
+	return certsDir, confDir, nil
+}
+
+func writeSecret(dir string, secretData map[string][]byte) error {
+	for k, v := range secretData {
+		err := ioutil.WriteFile(dir+"/"+k, v, os.ModePerm)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

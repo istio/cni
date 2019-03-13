@@ -8,15 +8,12 @@ import (
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
 	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 	"net/http"
 )
 
 type server struct {
-	kubeClient *kubernetes.Clientset
+	kubernetes *KubernetesClient
 	bindAddr   string
 	runtime    *CRIRuntime
 }
@@ -27,18 +24,13 @@ func NewProxyAgent(bindAddr string) (*server, error) {
 		return nil, err
 	}
 
-	// creates the in-cluster config
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		panic(err.Error())
-	}
-	kube, err := kubernetes.NewForConfig(config)
+	kube, err := NewKubernetesClient()
 	if err != nil {
 		return nil, err
 	}
 
 	return &server{
-		kubeClient: kube,
+		kubernetes: kube,
 		bindAddr:   bindAddr,
 		runtime:    runtime,
 	}, nil
@@ -66,7 +58,7 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pod, err := getPod(p.kubeClient, request.PodName, request.PodNamespace)
+	pod, err := p.kubernetes.getPod(request.PodName, request.PodNamespace)
 	if err != nil {
 		klog.Warningf("Error geting ConfigMap data %v", err)
 		return
@@ -80,7 +72,7 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	klog.Infof("Geting Secret %s in namespace %s", "istio.default", request.PodNamespace)
-	secretData, k8sErr := getKubeSecret(p.kubeClient, "istio.default", request.PodNamespace) // TODO: get secret name
+	secretData, k8sErr := p.kubernetes.getSecret("istio.default", request.PodNamespace) // TODO: get secret name
 	if k8sErr != nil {
 		klog.Warningf("Error geting Secret data %v", k8sErr)
 		return
@@ -139,30 +131,6 @@ func (p *server) decodeRequest(r *http.Request, obj interface{}) error {
 	return err
 }
 
-func getPod(client *kubernetes.Clientset, podName, podNamespace string) (pod *v1.Pod, err error) {
-	return client.CoreV1().Pods(string(podNamespace)).Get(podName, metav1.GetOptions{})
-}
-
-func getKubeSecret(client *kubernetes.Clientset, secretName, secretNamespace string) (data map[string][]byte, err error) {
-	secret, err := client.CoreV1().Secrets(string(secretNamespace)).Get(secretName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	klog.Infof("secret info: %+v", secret)
-	return secret.Data, nil
-}
-
-func getKubeConfigMap(client *kubernetes.Clientset, configMapName, configMapNamespace string) (data map[string]string, err error) {
-	configMap, err := client.CoreV1().ConfigMaps(string(configMapNamespace)).Get(configMapName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	klog.Infof("config map info: %+v", configMap)
-	return configMap.Data, nil
-}
-
 func (p *server) getSidecar(pod *v1.Pod) (*v1.Container, error) {
 	controlPlaneNamespace := "istio-system" // TODO make all these configurable
 	meshConfigMapName := "istio"
@@ -171,14 +139,14 @@ func (p *server) getSidecar(pod *v1.Pod) (*v1.Container, error) {
 	injectConfigMapKey := "config"
 
 	klog.Infof("Geting ConfigMap %s in namespace %s", meshConfigMapName, controlPlaneNamespace)
-	meshConfigMapData, err := getKubeConfigMap(p.kubeClient, meshConfigMapName, controlPlaneNamespace)
+	meshConfigMapData, err := p.kubernetes.getConfigMap(meshConfigMapName, controlPlaneNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("Error geting ConfigMap data %v", err)
 	}
 	meshConfig := meshConfigMapData[meshConfigMapKey]
 
 	klog.Infof("Geting ConfigMap %s in namespace %s", injectConfigMapName, controlPlaneNamespace)
-	injectorConfigMapData, err := getKubeConfigMap(p.kubeClient, injectConfigMapName, controlPlaneNamespace)
+	injectorConfigMapData, err := p.kubernetes.getConfigMap(injectConfigMapName, controlPlaneNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("Error geting ConfigMap data %v", err)
 	}
