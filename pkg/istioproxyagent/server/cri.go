@@ -65,21 +65,9 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecar *v1.Co
 	}
 
 	klog.Info("Creating volumes")
-	secretDir, confDir, err := createVolumes(sidecar)
+	mounts, err := p.createVolumeMounts(pod, sidecar)
 	if err != nil {
 		return fmt.Errorf("Error creating volumes: %v", err)
-	}
-
-	klog.Infof("Geting Secret %s in namespace %s", "istio.default", pod.Namespace)
-	secretData, k8sErr := p.kubeClient.getSecret("istio.default", pod.Namespace) // TODO: get secret name
-	if k8sErr != nil {
-		return fmt.Errorf("Error geting Secret data %v", k8sErr)
-	}
-
-	klog.Infof("Writing secret data to %s", secretDir)
-	err = writeSecret(secretDir, secretData)
-	if err != nil {
-		return fmt.Errorf("Error writing secret data: %v", err)
 	}
 
 	envs, err := convertEnvs(pod, sidecar.Env, sidecar.EnvFrom)
@@ -117,19 +105,8 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecar *v1.Co
 				RunAsUsername: "NotImplemented", // TODO
 			},
 		},
-		Envs: envs,
-		Mounts: []*criapi.Mount{
-			{
-				ContainerPath: "/etc/istio/proxy/",
-				HostPath:      confDir,
-				Readonly:      false,
-			},
-			{
-				ContainerPath: "/etc/certs/",
-				HostPath:      secretDir,
-				Readonly:      true,
-			},
-		},
+		Envs:   envs,
+		Mounts: mounts,
 		Labels: map[string]string{
 			"io.kubernetes.container.name": containerName,
 			"io.kubernetes.pod.name":       pod.Name,
@@ -337,28 +314,51 @@ func (p *CRIRuntime) findContainerByName(name string, containers []*criapi.Conta
 	return nil, fmt.Errorf("Could not find container %q in list of containers", containerName)
 }
 
-func createVolumes(sidecar *v1.Container) (string, string, error) {
+func (p *CRIRuntime) createVolumeMounts(pod *v1.Pod, sidecar *v1.Container) ([]*criapi.Mount, error) {
 	random := rand.New(rand.NewSource(time.Now().UnixNano()))
 	dir := "/tmp/istio-proxy-volumes-" + strconv.Itoa(random.Int())
 	certsDir := dir + "/certs"
 	err := os.MkdirAll(certsDir, os.ModePerm)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
 	confDir := dir + "/conf"
 	err = os.Mkdir(confDir, os.ModePerm)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
 	// ensure the conf dir is world writable (might not be if umask is set)
 	err = os.Chmod(confDir, 0777)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	return certsDir, confDir, nil
+	klog.Infof("Geting Secret %s in namespace %s", "istio.default", pod.Namespace)
+	secretData, k8sErr := p.kubeClient.getSecret("istio.default", pod.Namespace) // TODO: get secret name
+	if k8sErr != nil {
+		return nil, fmt.Errorf("Error geting Secret data %v", k8sErr)
+	}
+
+	klog.Infof("Writing secret data to %s", certsDir)
+	err = writeSecret(certsDir, secretData)
+	if err != nil {
+		return nil, fmt.Errorf("Error writing secret data: %v", err)
+	}
+
+	return []*criapi.Mount{
+		{
+			ContainerPath: "/etc/istio/proxy/",
+			HostPath:      confDir,
+			Readonly:      false,
+		},
+		{
+			ContainerPath: "/etc/certs/",
+			HostPath:      certsDir,
+			Readonly:      true,
+		},
+	}, nil
 }
 
 func writeSecret(dir string, secretData map[string][]byte) error {
