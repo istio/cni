@@ -143,9 +143,9 @@ func (p *CRIRuntime) StartProxy(request *api.StartRequest) error {
 		},
 		Labels: map[string]string{
 			"io.kubernetes.container.name": containerName,
-			"io.kubernetes.pod.name":       request.PodName,
-			"io.kubernetes.pod.namespace":  request.PodNamespace,
-			"io.kubernetes.pod.uid":        request.PodUID,
+			"io.kubernetes.pod.name":       pod.Name,
+			"io.kubernetes.pod.namespace":  pod.Namespace,
+			"io.kubernetes.pod.uid":        string(pod.UID),
 		},
 		Annotations: map[string]string{
 			"io.kubernetes.container.terminationMessagePath":   "/dev/termination-log",
@@ -157,7 +157,7 @@ func (p *CRIRuntime) StartProxy(request *api.StartRequest) error {
 
 	klog.Infof("containerConfig: %v", toDebugJSON(containerConfig))
 
-	klog.Infof("Creating proxy sidecar container for pod %s", request.PodName)
+	klog.Infof("Creating proxy sidecar container for pod %s", pod.Name)
 	containerID, err := p.runtimeService.CreateContainer(request.PodSandboxID, &containerConfig, &podSandboxConfig)
 	if err != nil {
 		return fmt.Errorf("Error creating sidecar container: %v", err)

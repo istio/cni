@@ -19,16 +19,11 @@ func NewProxyAgentClient(URL string) (*proxyAgentClient, error) {
 	}, nil
 }
 
-func (p *proxyAgentClient) StartProxy(podName, podNamespace, podUID, podIP, infraContainerID string, secretData map[string][]byte, labels, annotations map[string]string, podJSON, meshConfig, sidecarTemplate string) error {
+func (p *proxyAgentClient) StartProxy(podIP, infraContainerID string, secretData map[string][]byte, podJSON, meshConfig, sidecarTemplate string) error {
 	return p.callAgent("/start", api.StartRequest{
-		podName,
-		podNamespace,
 		podIP,
-		podUID,
 		infraContainerID,
 		secretData,
-		labels,
-		annotations,
 		podJSON,
 		meshConfig,
 		sidecarTemplate,

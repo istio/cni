@@ -195,7 +195,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 				return err
 			}
 			logrus.WithField("client", client).Debug("Created Kubernetes client")
-			containers, podUID, labels, annotations, ports, podJSON, k8sErr := getKubePodInfo(client, podName, podNamespace)
+			containers, _, _, annotations, ports, podJSON, k8sErr := getKubePodInfo(client, podName, podNamespace)
 			if k8sErr != nil {
 				logger.Warnf("Error geting Pod data %v", k8sErr)
 			}
@@ -271,7 +271,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 					sidecarTemplate := injectConfig.Template
 
 					logger.Info("Starting Proxy")
-					if err := proxyAgent.StartProxy(podName, podNamespace, podUID, podIP, podSandboxID, secretData, labels, annotations, podJSON, meshConfig, sidecarTemplate); err != nil {
+					if err := proxyAgent.StartProxy(podIP, podSandboxID, secretData, podJSON, meshConfig, sidecarTemplate); err != nil {
 						logger.Errorf("Starting proxy failed: %v", err)
 						return err
 					}
