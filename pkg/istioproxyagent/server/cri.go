@@ -94,7 +94,8 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecar *v1.Co
 			SecurityContext: &criapi.LinuxContainerSecurityContext{
 				RunAsUser:          &criapi.Int64Value{*sidecar.SecurityContext.RunAsUser},
 				SupplementalGroups: []int64{0},
-				Privileged:         true,
+				Privileged:         *sidecar.SecurityContext.Privileged,
+				ReadonlyRootfs:     *sidecar.SecurityContext.ReadOnlyRootFilesystem,
 			},
 		},
 		Windows: &criapi.WindowsContainerConfig{
