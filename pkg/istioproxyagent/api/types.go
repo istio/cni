@@ -1,12 +1,10 @@
 package api
 
 type StartRequest struct {
-	PodIP           string
-	PodSandboxID    string
-	SecretData      map[string][]byte
-	PodJSON         string
-	MeshConfig      string
-	SidecarTemplate string
+	PodName      string
+	PodNamespace string
+	PodIP        string
+	PodSandboxID string
 }
 
 type StopRequest struct {

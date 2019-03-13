@@ -3,12 +3,9 @@ package server
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"istio.io/cni/pkg/istioproxyagent/api"
-	"istio.io/istio/pilot/pkg/kube/inject"
-	"istio.io/istio/pilot/pkg/model"
 	"k8s.io/api/core/v1"
 	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/kubelet/apis/cri"
@@ -49,25 +46,9 @@ func NewCRIRuntime() (*CRIRuntime, error) {
 	}, nil
 }
 
-func (p *CRIRuntime) StartProxy(request *api.StartRequest) error {
+func (p *CRIRuntime) StartProxy(request *api.StartRequest, pod *v1.Pod, secretData map[string][]byte, sidecar *v1.Container) error {
 
-	klog.Infof("Mesh config: %v", request.MeshConfig)
-	klog.Infof("Sidecar template: %v", request.SidecarTemplate)
-	klog.Infof("Pod JSON: %v", request.PodJSON)
-
-	pod := v1.Pod{}
-	err := json.Unmarshal([]byte(request.PodJSON), &pod)
-	if err != nil {
-		return fmt.Errorf("Could not unmarshal pod YAML: %v", err)
-	}
-	pod.Status.PodIP = request.PodIP // we set it, because it's not set in the YAML yet
-
-	sidecar, err := getSidecar(request, pod)
-	if err != nil {
-		return fmt.Errorf("Could not obtain sidecar: %v", err)
-	}
-
-	err = p.pullImageIfNecessary(sidecar.Image)
+	err := p.pullImageIfNecessary(sidecar.Image)
 	if err != nil {
 		return fmt.Errorf("Could not pull image %s: %v", sidecar.Image, err)
 	}
@@ -88,12 +69,12 @@ func (p *CRIRuntime) StartProxy(request *api.StartRequest) error {
 	}
 
 	klog.Infof("Writing secret data to %s", secretDir)
-	err = writeSecret(secretDir, request.SecretData)
+	err = writeSecret(secretDir, secretData)
 	if err != nil {
 		return fmt.Errorf("Error writing secret data: %v", err)
 	}
 
-	envs, err := convertEnvs(&pod, sidecar.Env, sidecar.EnvFrom)
+	envs, err := convertEnvs(pod, sidecar.Env, sidecar.EnvFrom)
 	if err != nil {
 		return fmt.Errorf("Error converting env vars: %v", err)
 	}
@@ -171,25 +152,6 @@ func (p *CRIRuntime) StartProxy(request *api.StartRequest) error {
 	klog.Infof("Started proxy sidecar container: %s", containerID)
 
 	return nil
-}
-
-func getSidecar(request *api.StartRequest, pod v1.Pod) (*v1.Container, error) {
-	meshConfig, err := model.ApplyMeshConfigDefaults(request.MeshConfig)
-	if err != nil {
-		return nil, fmt.Errorf("Could not apply mesh config defaults: %v", err)
-	}
-
-	sidecarInjectionSpec, _, err := inject.InjectionData(request.SidecarTemplate, sidecarTemplateVersionHash(request.SidecarTemplate), &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, meshConfig.DefaultConfig, meshConfig)
-	if err != nil {
-		return nil, fmt.Errorf("Could not get injection data: %v", err)
-	}
-
-	klog.Infof("sidecarInjectionSpec: %v", toDebugJSON(sidecarInjectionSpec))
-
-	if len(sidecarInjectionSpec.Containers) == 0 {
-		return nil, fmt.Errorf("No sidecar container in sidecarInjectionSpec")
-	}
-	return &sidecarInjectionSpec.Containers[0], nil
 }
 
 func expandVars(strings []string, envVars []*criapi.KeyValue) {

@@ -15,7 +15,6 @@
 package main
 
 import (
-	"encoding/json"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
@@ -29,12 +28,6 @@ var newKubeClient = newK8sClient
 
 // getKubePodInfo is a unit test override variable for interface create.
 var getKubePodInfo = getK8sPodInfo
-
-// getKubeSecret is a unit test override variable for interface create.
-var getKubeSecret = getK8sSecret
-
-// getKubeConfigMap is a unit test override variable for interface create.
-var getKubeConfigMap = getK8sConfigMap
 
 // newK8sClient returns a Kubernetes client
 func newK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset, error) {
@@ -62,11 +55,11 @@ func newK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset,
 
 // getK8sPodInfo returns information of a POD
 func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
-	podUID string, labels map[string]string, annotations map[string]string, ports []string, podJSON string, err error) {
+	labels map[string]string, annotations map[string]string, ports []string, err error) {
 	pod, err := client.CoreV1().Pods(string(podNamespace)).Get(podName, metav1.GetOptions{})
 	logrus.Infof("pod info %+v", pod)
 	if err != nil {
-		return nil, "", nil, nil, nil, "", err
+		return nil, nil, nil, nil, err
 	}
 
 	containers = make([]string, len(pod.Spec.Containers))
@@ -97,32 +90,5 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 		}
 	}
 
-	podJSONBytes, err := json.Marshal(pod)
-	if err != nil {
-		return nil, "", nil, nil, nil, "", err
-	}
-
-	return containers, string(pod.UID), pod.Labels, pod.Annotations, ports, string(podJSONBytes), nil
-}
-
-func getK8sSecret(client *kubernetes.Clientset, secretName, secretNamespace string) (data map[string][]byte, err error) {
-	secret, err := client.CoreV1().Secrets(string(secretNamespace)).Get(secretName, metav1.GetOptions{})
-	logrus.Info("returned from client")
-	if err != nil {
-		return nil, err
-	}
-
-	logrus.Infof("secret info: %+v", secret)
-	return secret.Data, nil
-}
-
-func getK8sConfigMap(client *kubernetes.Clientset, configMapName, configMapNamespace string) (data map[string]string, err error) {
-	configMap, err := client.CoreV1().ConfigMaps(string(configMapNamespace)).Get(configMapName, metav1.GetOptions{})
-	logrus.Info("returned from client")
-	if err != nil {
-		return nil, err
-	}
-
-	logrus.Infof("config map info: %+v", configMap)
-	return configMap.Data, nil
+	return containers, pod.Labels, pod.Annotations, ports, nil
 }
