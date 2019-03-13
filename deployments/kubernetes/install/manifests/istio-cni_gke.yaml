@@ -13,6 +13,8 @@ rules:
     resources:
       - pods
       - nodes
+      - secrets
+      - configmaps
     verbs:
       - get
 
@@ -103,7 +105,7 @@ spec:
         # This container installs the Istio CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
-          image: docker.io/tiswanso/install-cni:v0.1-dev
+          image: docker.io/luksa/install-cni:v0.1-dev
           imagePullPolicy: Always
           command: ["/install-cni.sh"]
           env:
@@ -121,6 +123,24 @@ spec:
               name: cni-bin-dir
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
+        - name: proxy-management-agent
+          image: docker.io/luksa/install-cni:v0.1-dev
+          command: ["/opt/istioproxyagent"]
+          args:
+            - --bind-addr
+            - :22222
+            - --control-plane-namespace
+            - istio-system
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /var/run/dockershim.sock
+              name: dockershim-sock
+            - mountPath: /tmp
+              name: host-tmp
+            - mountPath: /hostproc
+              name: host-proc
       volumes:
         # Used to install CNI.
         - name: cni-bin-dir
@@ -129,6 +149,15 @@ spec:
         - name: cni-net-dir
           hostPath:
             path: /etc/cni/net.d
+        - name: dockershim-sock
+          hostPath:
+            path: /var/run/dockershim.sock
+        - name: host-tmp
+          hostPath:
+            path: /tmp/
+        - name: host-proc
+          hostPath:
+            path: /proc/
 ---
 
 apiVersion: v1
