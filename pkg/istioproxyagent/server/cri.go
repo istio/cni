@@ -58,10 +58,6 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, secretData map
 		return fmt.Errorf("Error getting pod sandbox status: %v", err)
 	}
 
-	podSandboxConfig := criapi.PodSandboxConfig{
-		Metadata: status.GetMetadata(),
-	}
-
 	klog.Info("Creating volumes")
 	secretDir, confDir, err := createVolumes()
 	if err != nil {
@@ -137,6 +133,10 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, secretData map
 	}
 
 	klog.Infof("containerConfig: %v", toDebugJSON(containerConfig))
+
+	podSandboxConfig := criapi.PodSandboxConfig{
+		Metadata: status.GetMetadata(),
+	}
 
 	klog.Infof("Creating proxy sidecar container for pod %s", pod.Name)
 	containerID, err := p.runtimeService.CreateContainer(podSandboxID, &containerConfig, &podSandboxConfig)
