@@ -65,13 +65,13 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	pod.Status.PodIP = request.PodIP // we set it, because it's not set in the YAML yet
 
-	sidecar, err := p.getSidecar(pod)
+	sidecarInjectionSpec, err := p.getSidecar(pod)
 	if err != nil {
 		klog.Warningf("Could not obtain sidecar: %v", err)
 		return
 	}
 
-	err = p.runtime.StartProxy(request.PodSandboxID, pod, sidecar)
+	err = p.runtime.StartProxy(request.PodSandboxID, pod, sidecarInjectionSpec)
 	if err != nil {
 		klog.Errorf("Error starting proxy: %s", err)
 	}
@@ -124,7 +124,7 @@ func (p *server) decodeRequest(r *http.Request, obj interface{}) error {
 	return err
 }
 
-func (p *server) getSidecar(pod *v1.Pod) (*v1.Container, error) {
+func (p *server) getSidecar(pod *v1.Pod) (*inject.SidecarInjectionSpec, error) {
 	controlPlaneNamespace := "istio-system" // TODO make all these configurable
 	meshConfigMapName := "istio"
 	meshConfigMapKey := "mesh"
@@ -169,8 +169,5 @@ func (p *server) getSidecar(pod *v1.Pod) (*v1.Container, error) {
 
 	klog.Infof("sidecarInjectionSpec: %v", toDebugJSON(sidecarInjectionSpec))
 
-	if len(sidecarInjectionSpec.Containers) == 0 {
-		return nil, fmt.Errorf("No sidecar container in sidecarInjectionSpec")
-	}
-	return &sidecarInjectionSpec.Containers[0], nil
+	return sidecarInjectionSpec, nil
 }

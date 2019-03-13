@@ -5,7 +5,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
 )
 
 type KubernetesClient struct {
@@ -39,8 +38,6 @@ func (k *KubernetesClient) getSecret(secretName, secretNamespace string) (data m
 	if err != nil {
 		return nil, err
 	}
-
-	klog.Infof("secret info: %+v", secret)
 	return secret.Data, nil
 }
 
@@ -49,7 +46,5 @@ func (k *KubernetesClient) getConfigMap(configMapName, configMapNamespace string
 	if err != nil {
 		return nil, err
 	}
-
-	klog.Infof("config map info: %+v", configMap)
 	return configMap.Data, nil
 }

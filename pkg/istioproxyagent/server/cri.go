@@ -7,23 +7,25 @@ import (
 	"github.com/containernetworking/plugins/pkg/ns"
 	"io/ioutil"
 	"istio.io/cni/pkg/istioproxyagent/api"
+	"istio.io/istio/pilot/pkg/kube/inject"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/kubelet/apis/cri"
 	criapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 	"k8s.io/kubernetes/pkg/kubelet/remote"
 	"k8s.io/kubernetes/third_party/forked/golang/expansion"
-	"math/rand"
 	"net/http"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	containerName = "istio-proxy"
+	volumesBaseDir = "/tmp/istio-proxy-volumes/"
+	containerName  = "istio-proxy"
 )
 
 type CRIRuntime struct {
@@ -52,7 +54,12 @@ func NewCRIRuntime(kubeclient *KubernetesClient) (*CRIRuntime, error) {
 	}, nil
 }
 
-func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecar *v1.Container) error {
+func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjectionSpec *inject.SidecarInjectionSpec) error {
+	if len(sidecarInjectionSpec.Containers) == 0 {
+		return fmt.Errorf("No sidecar container in sidecarInjectionSpec")
+	}
+
+	sidecar := sidecarInjectionSpec.Containers[0]
 
 	err := p.pullImageIfNecessary(sidecar.Image)
 	if err != nil {
@@ -65,7 +72,7 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecar *v1.Co
 	}
 
 	klog.Info("Creating volumes")
-	mounts, err := p.createVolumeMounts(pod, sidecar)
+	mounts, err := p.createVolumeMounts(pod, &sidecar, sidecarInjectionSpec.Volumes)
 	if err != nil {
 		return fmt.Errorf("Error creating volumes: %v", err)
 	}
@@ -315,51 +322,94 @@ func (p *CRIRuntime) findContainerByName(name string, containers []*criapi.Conta
 	return nil, fmt.Errorf("Could not find container %q in list of containers", containerName)
 }
 
-func (p *CRIRuntime) createVolumeMounts(pod *v1.Pod, sidecar *v1.Container) ([]*criapi.Mount, error) {
-	random := rand.New(rand.NewSource(time.Now().UnixNano()))
-	dir := "/tmp/istio-proxy-volumes-" + strconv.Itoa(random.Int())
-	certsDir := dir + "/certs"
-	err := os.MkdirAll(certsDir, os.ModePerm)
+func (p *CRIRuntime) createVolumeMounts(pod *v1.Pod, sidecar *v1.Container, volumes []v1.Volume) ([]*criapi.Mount, error) {
+
+	hostPaths := make(map[string]string)
+
+	for _, v := range volumes {
+		switch {
+		case v.EmptyDir != nil:
+			hostDir, err := createEmptyDirVolume(pod.UID, v.Name)
+			if err != nil {
+				return nil, err
+			}
+			hostPaths[v.Name] = hostDir
+		case v.Secret != nil:
+			hostDir, err := createEmptyDirVolume(pod.UID, v.Name)
+			if err != nil {
+				return nil, err
+			}
+			hostPaths[v.Name] = hostDir
+
+			klog.Infof("Geting Secret %s in namespace %s", v.Secret.SecretName, pod.Namespace)
+			secretData, err := p.kubeClient.getSecret(v.Secret.SecretName, pod.Namespace)
+			if errors.IsNotFound(err) && v.Secret.Optional != nil && *v.Secret.Optional {
+				continue
+			}
+			if err != nil {
+				return nil, fmt.Errorf("Error geting Secret data %v", err)
+			}
+
+			klog.Infof("Writing secret data to %s", hostDir)
+			err = writeSecret(hostDir, secretData)
+			if err != nil {
+				return nil, fmt.Errorf("Error writing secret data: %v", err)
+			}
+		default:
+			return nil, fmt.Errorf("Unsupported volume type in volume %s", v.Name)
+		}
+	}
+
+	mounts := []*criapi.Mount{}
+	for _, m := range sidecar.VolumeMounts {
+		mounts = append(mounts, &criapi.Mount{
+			HostPath:      hostPaths[m.Name],
+			ContainerPath: m.MountPath,
+			Readonly:      m.ReadOnly,
+			Propagation:   convertMountPropagation(m.MountPropagation),
+		})
+	}
+
+	return mounts, nil
+}
+
+func createEmptyDirVolume(podUID types.UID, volumeName string) (string, error) {
+	podVolumesDir := volumesBaseDir + string(podUID)
+	err := os.MkdirAll(podVolumesDir, os.ModePerm)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	confDir := dir + "/conf"
-	err = os.Mkdir(confDir, os.ModePerm)
+	dir := podVolumesDir + "/" + volumeName
+	err = os.Mkdir(dir, os.ModePerm)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	// ensure the conf dir is world writable (might not be if umask is set)
-	err = os.Chmod(confDir, 0777)
+	// ensure the dir is world writable, so it's accessible from within container (might not be if umask is set)
+	err = os.Chmod(dir, 0777)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	klog.Infof("Geting Secret %s in namespace %s", "istio.default", pod.Namespace)
-	secretData, k8sErr := p.kubeClient.getSecret("istio.default", pod.Namespace) // TODO: get secret name
-	if k8sErr != nil {
-		return nil, fmt.Errorf("Error geting Secret data %v", k8sErr)
+	return dir, nil
+}
+
+func convertMountPropagation(mode *v1.MountPropagationMode) criapi.MountPropagation {
+	if mode == nil {
+		return criapi.MountPropagation_PROPAGATION_PRIVATE
 	}
 
-	klog.Infof("Writing secret data to %s", certsDir)
-	err = writeSecret(certsDir, secretData)
-	if err != nil {
-		return nil, fmt.Errorf("Error writing secret data: %v", err)
+	switch *mode {
+	default:
+		fallthrough
+	case v1.MountPropagationNone:
+		return criapi.MountPropagation_PROPAGATION_PRIVATE
+	case v1.MountPropagationHostToContainer:
+		return criapi.MountPropagation_PROPAGATION_HOST_TO_CONTAINER
+	case v1.MountPropagationBidirectional:
+		return criapi.MountPropagation_PROPAGATION_BIDIRECTIONAL
 	}
-
-	return []*criapi.Mount{
-		{
-			ContainerPath: "/etc/istio/proxy/",
-			HostPath:      confDir,
-			Readonly:      false,
-		},
-		{
-			ContainerPath: "/etc/certs/",
-			HostPath:      certsDir,
-			Readonly:      true,
-		},
-	}, nil
 }
 
 func writeSecret(dir string, secretData map[string][]byte) error {
