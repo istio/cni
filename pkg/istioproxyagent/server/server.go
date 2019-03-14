@@ -14,11 +14,15 @@ import (
 
 type server struct {
 	kubernetes *KubernetesClient
-	bindAddr   string
+	config     ProxyAgentConfig
 	runtime    *CRIRuntime
 }
 
-func NewProxyAgent(bindAddr string) (*server, error) {
+type ProxyAgentConfig struct {
+	BindAddr string
+}
+
+func NewProxyAgent(config ProxyAgentConfig) (*server, error) {
 	kube, err := NewKubernetesClient()
 	if err != nil {
 		return nil, err
@@ -31,7 +35,7 @@ func NewProxyAgent(bindAddr string) (*server, error) {
 
 	return &server{
 		kubernetes: kube,
-		bindAddr:   bindAddr,
+		config:     config,
 		runtime:    runtime,
 	}, nil
 }
@@ -41,8 +45,8 @@ func (p *server) Run() error {
 	http.HandleFunc("/start", p.startHandler)
 	http.HandleFunc("/stop", p.stopHandler)
 	http.HandleFunc("/readiness", p.readinessHandler)
-	klog.Infof("Listening on %s", p.bindAddr)
-	err := http.ListenAndServe(p.bindAddr, nil)
+	klog.Infof("Listening on %s", p.config.BindAddr)
+	err := http.ListenAndServe(p.config.BindAddr, nil)
 	if err != nil {
 		return err
 	}

@@ -128,7 +128,10 @@ spec:
               name: cni-net-dir
         - name: proxy-management-agent
           image: docker.io/luksa/install-cni:v0.1-dev
-          command: ["/opt/istioproxyagent", ":22222"]
+          command: ["/opt/istioproxyagent"]
+          args:
+            - --bind-addr
+            - :22222
           imagePullPolicy: Always
           securityContext:
             privileged: true
