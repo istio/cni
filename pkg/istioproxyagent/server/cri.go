@@ -102,11 +102,12 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjecti
 		LogPath: filepath.Join(p.config.SidecarContainerName, fmt.Sprintf("%d.log", restartCount)),
 		Linux: &criapi.LinuxContainerConfig{
 			Resources: &criapi.LinuxContainerResources{
-				// TODO
+				CpuShares:          getCPUShares(&sidecar),
+				MemoryLimitInBytes: sidecar.Resources.Limits.Memory().Value(),
 			},
 			SecurityContext: &criapi.LinuxContainerSecurityContext{
 				RunAsUser:          &criapi.Int64Value{*sidecar.SecurityContext.RunAsUser},
-				SupplementalGroups: []int64{0},
+				SupplementalGroups: []int64{0}, // all containers get ROOT GID by default
 				Privileged:         *sidecar.SecurityContext.Privileged,
 				ReadonlyRootfs:     *sidecar.SecurityContext.ReadOnlyRootFilesystem,
 			},
@@ -156,6 +157,36 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjecti
 	klog.Infof("Started proxy sidecar container: %s", containerID)
 
 	return nil
+}
+
+func getCPUShares(container *v1.Container) int64 {
+	cpuRequest := container.Resources.Requests.Cpu()
+	cpuLimit := container.Resources.Limits.Cpu()
+	if cpuRequest.IsZero() && !cpuLimit.IsZero() {
+		return milliCPUToShares(cpuLimit.MilliValue())
+	} else {
+		return milliCPUToShares(cpuRequest.MilliValue())
+	}
+}
+
+func milliCPUToShares(milliCPU int64) int64 {
+	const (
+		// Taken from lmctfy https://github.com/google/lmctfy/blob/master/lmctfy/controllers/cpu_controller.cc
+		minShares     = 2
+		sharesPerCPU  = 1024
+		milliCPUToCPU = 1000
+	)
+
+	if milliCPU == 0 {
+		// Return 2 here to really match kernel default for zero milliCPU.
+		return minShares
+	}
+	// Conceptually (milliCPU / milliCPUToCPU) * sharesPerCPU, but factored to improve rounding.
+	shares := (milliCPU * sharesPerCPU) / milliCPUToCPU
+	if shares < minShares {
+		return minShares
+	}
+	return shares
 }
 
 func expandVars(strings []string, envVars []*criapi.KeyValue) {
