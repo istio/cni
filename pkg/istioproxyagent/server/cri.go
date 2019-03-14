@@ -25,17 +25,17 @@ import (
 
 const (
 	volumesBaseDir = "/tmp/istio-proxy-volumes/"
-	containerName  = "istio-proxy"
 )
 
 type CRIRuntime struct {
+	config         ProxyAgentConfig
 	kubeClient     *KubernetesClient
 	runtimeService cri.RuntimeService
 	imageService   cri.ImageManagerService
 	httpClient     http.Client
 }
 
-func NewCRIRuntime(kubeclient *KubernetesClient) (*CRIRuntime, error) {
+func NewCRIRuntime(kubeclient *KubernetesClient, config ProxyAgentConfig) (*CRIRuntime, error) {
 	runtimeService, err := remote.NewRemoteRuntimeService(getRemoteRuntimeEndpoint(), 2*time.Minute)
 	if err != nil {
 		return nil, err
@@ -47,6 +47,7 @@ func NewCRIRuntime(kubeclient *KubernetesClient) (*CRIRuntime, error) {
 	}
 
 	return &CRIRuntime{
+		config:         config,
 		kubeClient:     kubeclient,
 		runtimeService: runtimeService,
 		imageService:   imageService,
@@ -87,7 +88,7 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjecti
 
 	containerConfig := criapi.ContainerConfig{
 		Metadata: &criapi.ContainerMetadata{
-			Name: containerName,
+			Name: p.config.SidecarContainerName,
 		},
 		Image: &criapi.ImageSpec{
 			Image: sidecar.Image,
@@ -116,7 +117,7 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjecti
 		Envs:   envs,
 		Mounts: mounts,
 		Labels: map[string]string{
-			"io.kubernetes.container.name": containerName,
+			"io.kubernetes.container.name": p.config.SidecarContainerName,
 			"io.kubernetes.pod.name":       pod.Name,
 			"io.kubernetes.pod.namespace":  pod.Namespace,
 			"io.kubernetes.pod.uid":        string(pod.UID),
@@ -305,7 +306,7 @@ func (p *CRIRuntime) findProxyContainerID(podSandboxId string) (string, error) {
 		return "", err
 	}
 
-	container, err := p.findContainerByName(containerName, containers)
+	container, err := p.findContainerByName(p.config.SidecarContainerName, containers)
 	if err != nil {
 		return "", err
 	}
@@ -319,7 +320,7 @@ func (p *CRIRuntime) findContainerByName(name string, containers []*criapi.Conta
 			return c, nil
 		}
 	}
-	return nil, fmt.Errorf("Could not find container %q in list of containers", containerName)
+	return nil, fmt.Errorf("Could not find container %q in list of containers", p.config.SidecarContainerName)
 }
 
 func (p *CRIRuntime) createVolumeMounts(pod *v1.Pod, sidecar *v1.Container, volumes []v1.Volume) ([]*criapi.Mount, error) {

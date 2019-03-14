@@ -19,7 +19,8 @@ type server struct {
 }
 
 type ProxyAgentConfig struct {
-	BindAddr string
+	BindAddr             string
+	SidecarContainerName string
 }
 
 func NewProxyAgent(config ProxyAgentConfig) (*server, error) {
@@ -28,7 +29,7 @@ func NewProxyAgent(config ProxyAgentConfig) (*server, error) {
 		return nil, err
 	}
 
-	runtime, err := NewCRIRuntime(kube)
+	runtime, err := NewCRIRuntime(kube, config)
 	if err != nil {
 		return nil, err
 	}

@@ -10,6 +10,7 @@ func main() {
 	config := server.ProxyAgentConfig{}
 
 	flag.StringVar(&config.BindAddr, "bind-addr", ":22222", "Address to bind to for serving")
+	flag.StringVar(&config.SidecarContainerName, "sidecar-container-name", "istio-proxy", "Name to use for the sidecar container")
 	flag.Parse()
 
 	agent, err := server.NewProxyAgent(config)
