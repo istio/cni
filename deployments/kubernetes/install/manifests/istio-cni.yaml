@@ -132,6 +132,8 @@ spec:
           args:
             - --bind-addr
             - :22222
+            - --control-plane-namespace
+            - istio-system
           imagePullPolicy: Always
           securityContext:
             privileged: true

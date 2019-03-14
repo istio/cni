@@ -19,7 +19,14 @@ type server struct {
 }
 
 type ProxyAgentConfig struct {
-	BindAddr             string
+	BindAddr string
+
+	ControlPlaneNamespace string
+	MeshConfigMapName     string
+	MeshConfigMapKey      string
+	InjectConfigMapName   string
+	InjectConfigMapKey    string
+
 	SidecarContainerName string
 }
 
@@ -130,32 +137,27 @@ func (p *server) decodeRequest(r *http.Request, obj interface{}) error {
 }
 
 func (p *server) getSidecar(pod *v1.Pod) (*inject.SidecarInjectionSpec, error) {
-	controlPlaneNamespace := "istio-system" // TODO make all these configurable
-	meshConfigMapName := "istio"
-	meshConfigMapKey := "mesh"
-	injectConfigMapName := "istio-sidecar-injector"
-	injectConfigMapKey := "config"
 
-	klog.Infof("Geting ConfigMap %s in namespace %s", meshConfigMapName, controlPlaneNamespace)
-	meshConfigMapData, err := p.kubernetes.getConfigMap(meshConfigMapName, controlPlaneNamespace)
+	klog.Infof("Geting ConfigMap %s in namespace %s", p.config.MeshConfigMapName, p.config.ControlPlaneNamespace)
+	meshConfigMapData, err := p.kubernetes.getConfigMap(p.config.MeshConfigMapName, p.config.ControlPlaneNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("Error geting ConfigMap data %v", err)
 	}
-	meshConfig := meshConfigMapData[meshConfigMapKey]
+	meshConfig := meshConfigMapData[p.config.MeshConfigMapKey]
 
-	klog.Infof("Geting ConfigMap %s in namespace %s", injectConfigMapName, controlPlaneNamespace)
-	injectorConfigMapData, err := p.kubernetes.getConfigMap(injectConfigMapName, controlPlaneNamespace)
+	klog.Infof("Geting ConfigMap %s in namespace %s", p.config.InjectConfigMapName, p.config.ControlPlaneNamespace)
+	injectorConfigMapData, err := p.kubernetes.getConfigMap(p.config.InjectConfigMapName, p.config.ControlPlaneNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("Error geting ConfigMap data %v", err)
 	}
 
-	injectData, exists := injectorConfigMapData[injectConfigMapKey]
+	injectData, exists := injectorConfigMapData[p.config.InjectConfigMapKey]
 	if !exists {
-		return nil, fmt.Errorf("missing configuration map key %q in %q", injectConfigMapKey, injectConfigMapName)
+		return nil, fmt.Errorf("missing configuration map key %q in %q", p.config.InjectConfigMapKey, p.config.InjectConfigMapName)
 	}
 	var injectConfig inject.Config
 	if err := yaml.Unmarshal([]byte(injectData), &injectConfig); err != nil {
-		return nil, fmt.Errorf("unable to convert data from configmap %q: %v", injectConfigMapName, err)
+		return nil, fmt.Errorf("unable to convert data from configmap %q: %v", p.config.InjectConfigMapName, err)
 	}
 	sidecarTemplate := injectConfig.Template
 
