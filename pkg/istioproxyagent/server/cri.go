@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -87,6 +88,8 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjecti
 	expandVars(sidecar.Command, envs)
 	expandVars(sidecar.Args, envs)
 
+	restartCount := 0 // TODO
+
 	containerConfig := criapi.ContainerConfig{
 		Metadata: &criapi.ContainerMetadata{
 			Name: p.config.SidecarContainerName,
@@ -96,6 +99,7 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjecti
 		},
 		Command: sidecar.Command,
 		Args:    sidecar.Args,
+		LogPath: filepath.Join(p.config.SidecarContainerName, fmt.Sprintf("%d.log", restartCount)),
 		Linux: &criapi.LinuxContainerConfig{
 			Resources: &criapi.LinuxContainerResources{
 				// TODO
@@ -127,14 +131,15 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjecti
 			"io.kubernetes.container.terminationMessagePath":   "/dev/termination-log",
 			"io.kubernetes.container.terminationMessagePolicy": "File",
 			"io.kubernetes.container.hash":                     "0", // TODO
-			"io.kubernetes.container.restartCount":             "0", // TODO
+			"io.kubernetes.container.restartCount":             strconv.Itoa(restartCount),
 		},
 	}
 
 	klog.Infof("containerConfig: %v", toDebugJSON(containerConfig))
 
 	podSandboxConfig := criapi.PodSandboxConfig{
-		Metadata: status.GetMetadata(),
+		Metadata:     status.GetMetadata(),
+		LogDirectory: filepath.Join("/var/log/pods", string(pod.UID)),
 	}
 
 	klog.Infof("Creating proxy sidecar container for pod %s", pod.Name)
