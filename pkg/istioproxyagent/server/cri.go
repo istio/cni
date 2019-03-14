@@ -18,6 +18,7 @@ import (
 	"k8s.io/kubernetes/third_party/forked/golang/expansion"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -381,13 +382,13 @@ func createEmptyDirVolume(podUID types.UID, volumeName string) (string, error) {
 		return "", err
 	}
 
-	dir := podVolumesDir + "/" + volumeName
+	dir := filepath.Join(podVolumesDir, volumeName)
 	err = os.Mkdir(dir, os.ModePerm)
 	if err != nil {
 		return "", err
 	}
 
-	// ensure the dir is world writable, so it's accessible from within container (might not be if umask is set)
+	// ensure the dir is world writable, so it's accessible from within container (might not be fully writable if umask is set)
 	err = os.Chmod(dir, 0777)
 	if err != nil {
 		return "", err
@@ -415,7 +416,7 @@ func convertMountPropagation(mode *v1.MountPropagationMode) criapi.MountPropagat
 
 func writeSecret(dir string, secretData map[string][]byte) error {
 	for k, v := range secretData {
-		err := ioutil.WriteFile(dir+"/"+k, v, os.ModePerm)
+		err := ioutil.WriteFile(filepath.Join(dir, k), v, os.ModePerm)
 		if err != nil {
 			return err
 		}
