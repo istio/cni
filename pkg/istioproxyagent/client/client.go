@@ -28,9 +28,10 @@ func (p *proxyAgentClient) StartProxy(podName, podNamespace, podIP, infraContain
 	}, nil)
 }
 
-func (p *proxyAgentClient) StopProxy(podName, podSandboxID string) error {
+func (p *proxyAgentClient) StopProxy(podName, podNamespace, podSandboxID string) error {
 	return p.callAgent("/stop", api.StopRequest{
 		podName,
+		podNamespace,
 		podSandboxID,
 	}, nil)
 }

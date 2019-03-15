@@ -62,6 +62,7 @@ func (p *server) Run() error {
 	return nil
 }
 
+// TODO: return HTTP error code on errors & handle them in client
 func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 	klog.Infof("Handling proxy start request")
 	request := api.StartRequest{}
@@ -83,6 +84,7 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	klog.Infof("Starting proxy for pod %s/%s", request.PodNamespace, request.PodName)
 	err = p.runtime.StartProxy(request.PodSandboxID, pod, sidecarInjectionSpec)
 	if err != nil {
 		klog.Errorf("Error starting proxy: %s", err)
@@ -90,13 +92,14 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *server) stopHandler(w http.ResponseWriter, r *http.Request) {
-	klog.Infof("Handling proxy stop request")
+	klog.Info("Handling proxy stop request")
 	request := api.StopRequest{}
 	err := p.decodeRequest(r, &request)
 	if err != nil {
 		return
 	}
 
+	klog.Infof("Stopping proxy for pod %s/%s", request.PodNamespace, request.PodName)
 	err = p.runtime.StopProxy(&request)
 	if err != nil {
 		klog.Errorf("Error stopping proxy: %s", err)
@@ -161,8 +164,8 @@ func (p *server) getSidecar(pod *v1.Pod) (*inject.SidecarInjectionSpec, error) {
 	}
 	sidecarTemplate := injectConfig.Template
 
-	klog.Infof("Mesh config: %v", meshConfig)
-	klog.Infof("Sidecar template: %v", sidecarTemplate)
+	klog.V(5).Infof("Mesh config: %v", meshConfig)
+	klog.V(5).Infof("Sidecar template: %v", sidecarTemplate)
 
 	meshConf, err := model.ApplyMeshConfigDefaults(meshConfig)
 	if err != nil {

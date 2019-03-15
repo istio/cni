@@ -9,6 +9,7 @@ type StartRequest struct {
 
 type StopRequest struct {
 	PodName      string
+	PodNamespace string
 	PodSandboxID string
 }
 

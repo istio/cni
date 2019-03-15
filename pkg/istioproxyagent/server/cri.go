@@ -136,12 +136,13 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjecti
 		},
 	}
 
-	klog.Infof("containerConfig: %v", toDebugJSON(containerConfig))
-
 	podSandboxConfig := criapi.PodSandboxConfig{
 		Metadata:     status.GetMetadata(),
 		LogDirectory: filepath.Join("/var/log/pods", string(pod.UID)),
 	}
+
+	klog.Infof("podSandboxConfig: %v", toDebugJSON(podSandboxConfig))
+	klog.Infof("containerConfig: %v", toDebugJSON(containerConfig))
 
 	klog.Infof("Creating proxy sidecar container for pod %s", pod.Name)
 	containerID, err := p.runtimeService.CreateContainer(podSandboxID, &containerConfig, &podSandboxConfig)

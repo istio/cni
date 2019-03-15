@@ -241,6 +241,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 						logger.Errorf("Starting proxy failed: %v", err)
 						return err
 					}
+					logger.Info("Proxy started successfully")
 
 					//ready := false
 					//for !ready {
@@ -317,6 +318,7 @@ func cmdDel(args *skel.CmdArgs) error {
 		return err
 	}
 	podName := string(k8sArgs.K8S_POD_NAME)
+	podNamespace := string(k8sArgs.K8S_POD_NAMESPACE)
 	podSandboxID := string(k8sArgs.K8S_POD_INFRA_CONTAINER_ID)
 
 	// TODO: do we need to delete the proxy container or will the kubelet's GC delete it?
@@ -324,10 +326,11 @@ func cmdDel(args *skel.CmdArgs) error {
 		logrus.Errorf("Creating proxy agent client failed: %v", redirErr)
 	} else {
 		logrus.Info("Stopping Proxy")
-		if err := proxy.StopProxy(podName, podSandboxID); err != nil {
+		if err := proxy.StopProxy(podName, podNamespace, podSandboxID); err != nil {
 			logrus.Errorf("Stopping proxy failed: %v", err)
 			return err
 		}
+		logrus.Info("Proxy stopped successfully")
 	}
 
 	// Do your delete here
