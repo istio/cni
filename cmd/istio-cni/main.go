@@ -321,7 +321,6 @@ func cmdDel(args *skel.CmdArgs) error {
 	podNamespace := string(k8sArgs.K8S_POD_NAMESPACE)
 	podSandboxID := string(k8sArgs.K8S_POD_INFRA_CONTAINER_ID)
 
-	// TODO: do we need to delete the proxy container or will the kubelet's GC delete it?
 	if proxy, redirErr := proxyagentclient.NewProxyAgentClient(conf.Agent.URL); redirErr != nil {
 		logrus.Errorf("Creating proxy agent client failed: %v", redirErr)
 	} else {
@@ -332,8 +331,6 @@ func cmdDel(args *skel.CmdArgs) error {
 		}
 		logrus.Info("Proxy stopped successfully")
 	}
-
-	// Do your delete here
 
 	return nil
 }

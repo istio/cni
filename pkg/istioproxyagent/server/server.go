@@ -10,6 +10,7 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/klog"
 	"net/http"
+	"time"
 )
 
 type server struct {
@@ -49,6 +50,9 @@ func NewProxyAgent(config ProxyAgentConfig) (*server, error) {
 }
 
 func (p *server) Run() error {
+	syncChan := time.NewTicker(5 * time.Second)
+	go p.RunPodSyncLoop(syncChan.C)
+
 	klog.Infof("Starting server...")
 	http.HandleFunc("/start", p.startHandler)
 	http.HandleFunc("/stop", p.stopHandler)
@@ -60,6 +64,22 @@ func (p *server) Run() error {
 	}
 
 	return nil
+}
+
+func (p *server) RunPodSyncLoop(syncChan <-chan time.Time) {
+	for {
+		select {
+		case <-syncChan:
+			err := p.SyncPods()
+			if err != nil {
+				klog.Warningf("Could not sync pods: %v", err)
+			}
+		}
+	}
+}
+
+func (p *server) SyncPods() error {
+	return p.runtime.RestartStoppedSidecars()
 }
 
 // TODO: return HTTP error code on errors & handle them in client

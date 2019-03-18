@@ -22,11 +22,18 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 const (
-	volumesBaseDir = "/tmp/istio-proxy-volumes/"
+	volumesBaseDir        = "/tmp/istio-proxy-volumes/"
+	sidecarLabelKey       = "istio-sidecar"
+	sidecarLabelValue     = "true"
+	containerNameLabelKey = "io.kubernetes.container.name"
+	podNameLabelKey       = "io.kubernetes.pod.name"
+	podNamespaceLabelKey  = "io.kubernetes.pod.namespace"
+	podUIDLabelKey        = "io.kubernetes.pod.uid"
 )
 
 type CRIRuntime struct {
@@ -35,6 +42,7 @@ type CRIRuntime struct {
 	runtimeService cri.RuntimeService
 	imageService   cri.ImageManagerService
 	httpClient     http.Client
+	mux            sync.Mutex
 }
 
 func NewCRIRuntime(kubeclient *KubernetesClient, config ProxyAgentConfig) (*CRIRuntime, error) {
@@ -58,6 +66,9 @@ func NewCRIRuntime(kubeclient *KubernetesClient, config ProxyAgentConfig) (*CRIR
 }
 
 func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjectionSpec *inject.SidecarInjectionSpec) error {
+	p.mux.Lock()
+	defer p.mux.Unlock()
+
 	if len(sidecarInjectionSpec.Containers) == 0 {
 		return fmt.Errorf("No sidecar container in sidecarInjectionSpec")
 	}
@@ -123,10 +134,11 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjecti
 		Envs:   envs,
 		Mounts: mounts,
 		Labels: map[string]string{
-			"io.kubernetes.container.name": p.config.SidecarContainerName,
-			"io.kubernetes.pod.name":       pod.Name,
-			"io.kubernetes.pod.namespace":  pod.Namespace,
-			"io.kubernetes.pod.uid":        string(pod.UID),
+			sidecarLabelKey:       sidecarLabelValue,
+			containerNameLabelKey: p.config.SidecarContainerName,
+			podNameLabelKey:       pod.Name,
+			podNamespaceLabelKey:  pod.Namespace,
+			podUIDLabelKey:        string(pod.UID),
 		},
 		Annotations: map[string]string{
 			"io.kubernetes.container.terminationMessagePath":   "/dev/termination-log",
@@ -291,6 +303,8 @@ func getRemoteRuntimeEndpoint() string {
 }
 
 func (p *CRIRuntime) StopProxy(request *api.StopRequest) error {
+	p.mux.Lock()
+	defer p.mux.Unlock()
 
 	containerID, err := p.findProxyContainerID(request.PodSandboxID)
 	if err != nil {
@@ -298,6 +312,11 @@ func (p *CRIRuntime) StopProxy(request *api.StopRequest) error {
 	}
 
 	err = p.runtimeService.StopContainer(containerID, 30000) // TODO: make timeout configurable
+	if err != nil {
+		return err
+	}
+
+	err = p.runtimeService.RemoveContainer(containerID)
 	if err != nil {
 		return err
 	}
@@ -410,6 +429,36 @@ func (p *CRIRuntime) createVolumeMounts(pod *v1.Pod, sidecar *v1.Container, volu
 	}
 
 	return mounts, nil
+}
+
+func (p *CRIRuntime) RestartStoppedSidecars() error {
+	// TODO: re-create containers instead of just re-starting them
+
+	p.mux.Lock()
+	defer p.mux.Unlock()
+
+	containers, err := p.runtimeService.ListContainers(&criapi.ContainerFilter{
+		LabelSelector: map[string]string{
+			sidecarLabelKey: sidecarLabelValue,
+		},
+		State: &criapi.ContainerStateValue{
+			State: criapi.ContainerState_CONTAINER_EXITED,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	for _, c := range containers {
+		containerID := c.Id
+		klog.Infof("Restarting proxy sidecar for pod %s", c.Labels[podNameLabelKey])
+		err = p.runtimeService.StartContainer(containerID)
+		if err != nil {
+			klog.Warningf("Error restarting sidecar container: %v", err)
+		} else {
+			klog.Infof("Restarted proxy sidecar container: %s", containerID)
+		}
+	}
+	return nil
 }
 
 func createEmptyDirVolume(podUID types.UID, volumeName string) (string, error) {
