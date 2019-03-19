@@ -232,8 +232,8 @@ func cmdAdd(args *skel.CmdArgs) error {
 				}
 
 				logger.Info("Creating Proxy")
-				if proxyAgent, redirErr := proxyagentclient.NewProxyAgentClient(conf.Agent.URL); redirErr != nil {
-					logger.Errorf("Creating proxy agent client failed: %v", redirErr)
+				if proxyAgent, err := proxyagentclient.NewProxyAgentClient(conf.Agent.URL, logger); err != nil {
+					logger.Errorf("Creating proxy agent client failed: %v", err)
 				} else {
 
 					logger.Info("Starting Proxy")
@@ -321,15 +321,23 @@ func cmdDel(args *skel.CmdArgs) error {
 	podNamespace := string(k8sArgs.K8S_POD_NAMESPACE)
 	podSandboxID := string(k8sArgs.K8S_POD_INFRA_CONTAINER_ID)
 
-	if proxy, redirErr := proxyagentclient.NewProxyAgentClient(conf.Agent.URL); redirErr != nil {
-		logrus.Errorf("Creating proxy agent client failed: %v", redirErr)
+	logger := logrus.WithFields(logrus.Fields{
+		"ContainerID":  args.ContainerID,
+		"Pod":          podName,
+		"Namespace":    podNamespace,
+		"PodSandboxID": podSandboxID,
+	})
+
+	if proxy, err := proxyagentclient.NewProxyAgentClient(conf.Agent.URL, logger); err != nil {
+		logger.Errorf("Creating proxy agent client failed: %v", err)
+		return err
 	} else {
-		logrus.Info("Stopping Proxy")
+		logger.Info("Stopping Proxy")
 		if err := proxy.StopProxy(podName, podNamespace, podSandboxID); err != nil {
-			logrus.Errorf("Failed to stop proxy: %v", err)
+			logger.Errorf("Failed to stop proxy: %v", err)
 			return err
 		}
-		logrus.Info("Proxy stopped successfully")
+		logger.Info("Proxy stopped successfully")
 	}
 
 	return nil

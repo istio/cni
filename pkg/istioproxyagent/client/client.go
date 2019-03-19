@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"istio.io/cni/pkg/istioproxyagent/api"
 	"net/http"
 )
@@ -11,12 +12,14 @@ import (
 type proxyAgentClient struct {
 	httpClient *http.Client
 	URL        string
+	log        *logrus.Entry
 }
 
-func NewProxyAgentClient(URL string) (*proxyAgentClient, error) {
+func NewProxyAgentClient(URL string, log *logrus.Entry) (*proxyAgentClient, error) {
 	return &proxyAgentClient{
 		httpClient: http.DefaultClient,
 		URL:        URL,
+		log:        log,
 	}, nil
 }
 
@@ -61,7 +64,9 @@ func (p *proxyAgentClient) callAgent(path string, request interface{}, responseO
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, p.URL+path, bytes.NewReader(b))
+	url := p.URL + path
+	p.log.Debugf("Calling agent URL: %s", url)
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(b))
 	if err != nil {
 		return err
 	}
@@ -75,12 +80,15 @@ func (p *proxyAgentClient) callAgent(path string, request interface{}, responseO
 	}()
 
 	if responseObj != nil {
+		p.log.Debug("Decoding JSON response")
 		decoder := json.NewDecoder(response.Body)
 		err := decoder.Decode(responseObj)
 		if err != nil {
 			return fmt.Errorf("Could not decode response: %v", err)
 		}
 	}
+
+	p.log.Debugf("Agent returned status: %v", response.Status)
 
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("Agent returned an error: %v", response.Status)
