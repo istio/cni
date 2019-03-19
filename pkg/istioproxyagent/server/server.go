@@ -27,8 +27,6 @@ type ProxyAgentConfig struct {
 	MeshConfigMapKey      string
 	InjectConfigMapName   string
 	InjectConfigMapKey    string
-
-	SidecarContainerName string
 }
 
 func NewProxyAgent(config ProxyAgentConfig) (*server, error) {

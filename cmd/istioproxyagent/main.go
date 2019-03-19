@@ -10,7 +10,6 @@ func main() {
 	config := server.ProxyAgentConfig{}
 
 	flag.StringVar(&config.BindAddr, "bind-addr", ":22222", "Address to bind to for serving")
-	flag.StringVar(&config.SidecarContainerName, "sidecar-container-name", "istio-proxy", "Name to use for the sidecar container")
 	flag.StringVar(&config.ControlPlaneNamespace, "control-plane-namespace", "istio-system", "Namespace where Istio control plane is running")
 	flag.StringVar(&config.MeshConfigMapName, "mesh-configmap-name", "istio", "Name of ConfigMap holding the mesh config")
 	flag.StringVar(&config.MeshConfigMapKey, "mesh-configmap-key", "mesh", "Key in the mesh ConfigMap that holds the mesh config")

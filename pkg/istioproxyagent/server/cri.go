@@ -103,14 +103,14 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjecti
 
 	containerConfig := criapi.ContainerConfig{
 		Metadata: &criapi.ContainerMetadata{
-			Name: p.config.SidecarContainerName,
+			Name: sidecar.Name,
 		},
 		Image: &criapi.ImageSpec{
 			Image: sidecar.Image,
 		},
 		Command: sidecar.Command,
 		Args:    sidecar.Args,
-		LogPath: filepath.Join(p.config.SidecarContainerName, fmt.Sprintf("%d.log", restartCount)),
+		LogPath: filepath.Join(sidecar.Name, fmt.Sprintf("%d.log", restartCount)),
 		Linux: &criapi.LinuxContainerConfig{
 			Resources: &criapi.LinuxContainerResources{
 				CpuShares:          getCPUShares(&sidecar),
@@ -135,7 +135,7 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjecti
 		Mounts: mounts,
 		Labels: map[string]string{
 			sidecarLabelKey:       sidecarLabelValue,
-			containerNameLabelKey: p.config.SidecarContainerName,
+			containerNameLabelKey: sidecar.Name,
 			podNameLabelKey:       pod.Name,
 			podNamespaceLabelKey:  pod.Namespace,
 			podUIDLabelKey:        string(pod.UID),
@@ -367,21 +367,12 @@ func (p *CRIRuntime) findProxyContainerID(podSandboxId string) (string, error) {
 		return "", err
 	}
 
-	container, err := p.findContainerByName(p.config.SidecarContainerName, containers)
-	if err != nil {
-		return "", err
-	}
-
-	return container.Id, nil
-}
-
-func (p *CRIRuntime) findContainerByName(name string, containers []*criapi.Container) (*criapi.Container, error) {
 	for _, c := range containers {
-		if c.Metadata.Name == name {
-			return c, nil
+		if c.Labels[sidecarLabelKey] == sidecarLabelValue {
+			return c.Id, nil
 		}
 	}
-	return nil, fmt.Errorf("Could not find container %q in list of containers", p.config.SidecarContainerName)
+	return "", fmt.Errorf("Could not find proxy sidecar among pod's containers")
 }
 
 func (p *CRIRuntime) createVolumeMounts(pod *v1.Pod, sidecar *v1.Container, volumes []v1.Volume) ([]*criapi.Mount, error) {
