@@ -147,6 +147,8 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 	ConfigureLogging(conf.LogLevel)
 
+	logrus.Debugf("Environment: %v", os.Environ())
+
 	if conf.PrevResult == nil {
 		logrus.Error("must be called as chained plugin")
 		return fmt.Errorf("must be called as chained plugin")
@@ -311,6 +313,8 @@ func cmdDel(args *skel.CmdArgs) error {
 		return err
 	}
 	ConfigureLogging(conf.LogLevel)
+
+	logrus.Debugf("Environment: %v", os.Environ())
 
 	// Determine if running under k8s by checking the CNI args
 	k8sArgs := K8sArgs{}
