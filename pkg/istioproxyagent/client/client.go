@@ -24,56 +24,76 @@ func NewProxyAgentClient(URL string, log *logrus.Entry) (*proxyAgentClient, erro
 }
 
 func (p *proxyAgentClient) StartProxy(podName, podNamespace, podIP, infraContainerID string) error {
-	return p.callAgent("/start", api.StartRequest{
+	httpResponse, err := p.callAgent("/start", api.StartRequest{
 		podName,
 		podNamespace,
 		podIP,
 		infraContainerID,
 	}, nil)
+
+	if err != nil {
+		return err
+	}
+
+	if httpResponse.StatusCode != http.StatusOK {
+		return fmt.Errorf("Agent returned an error: %v", httpResponse.Status)
+	}
+
+	return nil
 }
 
 func (p *proxyAgentClient) StopProxy(podName, podNamespace, podSandboxID string) error {
-	return p.callAgent("/stop", api.StopRequest{
+	httpResponse, err := p.callAgent("/stop", api.StopRequest{
 		podName,
 		podNamespace,
 		podSandboxID,
 	}, nil)
+
+	if err != nil {
+		return err
+	}
+
+	if httpResponse.StatusCode != http.StatusOK && httpResponse.StatusCode != http.StatusGone {
+		return fmt.Errorf("Agent returned an error: %v", httpResponse.Status)
+	}
+
+	return nil
 }
 
 func (p *proxyAgentClient) IsReady(podName string, podNamespace string, podIP string, netNS string) (bool, error) {
 
 	readinessResponse := api.ReadinessResponse{}
 
-	err := p.callAgent("/readiness", api.ReadinessRequest{
+	httpResponse, err := p.callAgent("/readiness", api.ReadinessRequest{
 		podName,
 		podNamespace,
 		podIP,
 		netNS,
 	}, &readinessResponse)
 
-	if err != nil {
+	if err != nil || httpResponse.StatusCode != http.StatusOK {
 		return false, err
 	}
 
 	return readinessResponse.Ready, nil
 }
 
-func (p *proxyAgentClient) callAgent(path string, request interface{}, responseObj interface{}) error {
+func (p *proxyAgentClient) callAgent(path string, request interface{}, responseObj interface{}) (*http.Response, error) {
 	b, err := json.Marshal(request)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	url := p.URL + path
 	p.log.Debugf("Calling agent URL: %s", url)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(b))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	response, err := p.httpClient.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer func() {
 		_ = response.Body.Close()
@@ -84,15 +104,11 @@ func (p *proxyAgentClient) callAgent(path string, request interface{}, responseO
 		decoder := json.NewDecoder(response.Body)
 		err := decoder.Decode(responseObj)
 		if err != nil {
-			return fmt.Errorf("Could not decode response: %v", err)
+			return nil, fmt.Errorf("Could not decode response: %v", err)
 		}
 	}
 
 	p.log.Debugf("Agent returned status: %v", response.Status)
 
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("Agent returned an error: %v", response.Status)
-	}
-
-	return nil
+	return response, nil
 }

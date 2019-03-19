@@ -125,10 +125,16 @@ func (p *server) stopHandler(w http.ResponseWriter, r *http.Request) {
 	klog.Infof("Stopping proxy for pod %s/%s", request.PodNamespace, request.PodName)
 	err = p.runtime.StopProxy(&request)
 	if err != nil {
+		if _, ok := err.(SidecarNotFoundError); ok {
+			klog.Errorf("Sidecar container for pod %s/%s not found", request.PodNamespace, request.PodName)
+			handleError(http.StatusGone, err, w, r)
+			return
+		}
 		klog.Errorf("Error stopping proxy: %s", err)
 		handleError(http.StatusInternalServerError, err, w, r)
 		return
 	}
+	klog.Info("Proxy stopped")
 }
 
 func handleError(statusCode int, err error, w http.ResponseWriter, r *http.Request) {

@@ -372,7 +372,16 @@ func (p *CRIRuntime) findProxyContainerID(podSandboxId string) (string, error) {
 			return c.Id, nil
 		}
 	}
-	return "", fmt.Errorf("Could not find proxy sidecar among pod's containers")
+	return "", SidecarNotFoundError{}
+}
+
+type SidecarNotFoundError struct {
+	Dir  string
+	Name string
+}
+
+func (e SidecarNotFoundError) Error() string {
+	return "Could not find proxy sidecar among pod's containers"
 }
 
 func (p *CRIRuntime) createVolumeMounts(pod *v1.Pod, sidecar *v1.Container, volumes []v1.Volume) ([]*criapi.Mount, error) {
