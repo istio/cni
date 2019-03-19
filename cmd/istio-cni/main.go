@@ -326,7 +326,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	} else {
 		logrus.Info("Stopping Proxy")
 		if err := proxy.StopProxy(podName, podNamespace, podSandboxID); err != nil {
-			logrus.Errorf("Stopping proxy failed: %v", err)
+			logrus.Errorf("Failed to stop proxy: %v", err)
 			return err
 		}
 		logrus.Info("Proxy stopped successfully")

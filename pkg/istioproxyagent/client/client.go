@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"istio.io/cni/pkg/istioproxyagent/api"
 	"net/http"
 )
@@ -69,13 +70,21 @@ func (p *proxyAgentClient) callAgent(path string, request interface{}, responseO
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() {
+		_ = response.Body.Close()
+	}()
 
 	if responseObj != nil {
 		decoder := json.NewDecoder(response.Body)
-		return decoder.Decode(responseObj)
+		err := decoder.Decode(responseObj)
+		if err != nil {
+			return fmt.Errorf("Could not decode response: %v", err)
+		}
 	}
 
-	// TODO: return error on HTTP error codes
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("Agent returned an error: %v", response.Status)
+	}
+
 	return nil
 }

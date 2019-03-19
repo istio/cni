@@ -303,6 +303,10 @@ func getRemoteRuntimeEndpoint() string {
 }
 
 func (p *CRIRuntime) StopProxy(request *api.StopRequest) error {
+	if request.PodSandboxID == "" {
+		return fmt.Errorf("PodSandboxID missing from request")
+	}
+
 	p.mux.Lock()
 	defer p.mux.Unlock()
 

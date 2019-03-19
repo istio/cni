@@ -82,18 +82,19 @@ func (p *server) SyncPods() error {
 	return p.runtime.RestartStoppedSidecars()
 }
 
-// TODO: return HTTP error code on errors & handle them in client
 func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 	klog.Infof("Handling proxy start request")
 	request := api.StartRequest{}
 	err := p.decodeRequest(r, &request)
 	if err != nil {
+		handleError(http.StatusBadRequest, err, w, r)
 		return
 	}
 
 	pod, err := p.kubernetes.getPod(request.PodName, request.PodNamespace)
 	if err != nil {
 		klog.Warningf("Error geting ConfigMap data %v", err)
+		handleError(http.StatusInternalServerError, err, w, r)
 		return
 	}
 	pod.Status.PodIP = request.PodIP // we set it, because it's not set in the YAML yet
@@ -101,6 +102,7 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 	sidecarInjectionSpec, err := p.getSidecar(pod)
 	if err != nil {
 		klog.Warningf("Could not obtain sidecar: %v", err)
+		handleError(http.StatusInternalServerError, err, w, r)
 		return
 	}
 
@@ -108,6 +110,8 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 	err = p.runtime.StartProxy(request.PodSandboxID, pod, sidecarInjectionSpec)
 	if err != nil {
 		klog.Errorf("Error starting proxy: %s", err)
+		handleError(http.StatusInternalServerError, err, w, r)
+		return
 	}
 }
 
@@ -116,6 +120,7 @@ func (p *server) stopHandler(w http.ResponseWriter, r *http.Request) {
 	request := api.StopRequest{}
 	err := p.decodeRequest(r, &request)
 	if err != nil {
+		handleError(http.StatusBadRequest, err, w, r)
 		return
 	}
 
@@ -123,6 +128,17 @@ func (p *server) stopHandler(w http.ResponseWriter, r *http.Request) {
 	err = p.runtime.StopProxy(&request)
 	if err != nil {
 		klog.Errorf("Error stopping proxy: %s", err)
+		handleError(http.StatusInternalServerError, err, w, r)
+		return
+	}
+}
+
+func handleError(statusCode int, err error, w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(statusCode)
+	w.Header().Set("Content-Type", "text/plain")
+	_, err2 := fmt.Fprintln(w, "Error: %v\n", err)
+	if err2 != nil {
+		klog.Warningf("Could not print response: %v", err2)
 	}
 }
 
@@ -154,7 +170,7 @@ func (p *server) decodeRequest(r *http.Request, obj interface{}) error {
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&obj)
 	if err != nil {
-		klog.Errorf("Error decoding request: %s", err)
+		klog.Infof("Error decoding request: %s", err)
 	}
 	return err
 }
