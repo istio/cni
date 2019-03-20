@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"io"
 	"istio.io/cni/pkg/istioproxyagent/api"
 	"net/http"
 )
@@ -24,9 +25,8 @@ func NewProxyAgentClient(URL string, log *logrus.Entry) (*proxyAgentClient, erro
 }
 
 func (p *proxyAgentClient) StartProxy(podName, podNamespace, podIP, infraContainerID string) error {
-	httpResponse, err := p.callAgent("/start", api.StartRequest{
-		podName,
-		podNamespace,
+	url := fmt.Sprintf("/sidecars/%s/%s", podNamespace, podName)
+	httpResponse, err := p.callAgent(http.MethodPut, url, api.StartRequest{
 		podIP,
 		infraContainerID,
 	}, nil)
@@ -43,11 +43,8 @@ func (p *proxyAgentClient) StartProxy(podName, podNamespace, podIP, infraContain
 }
 
 func (p *proxyAgentClient) StopProxy(podName, podNamespace, podSandboxID string) error {
-	httpResponse, err := p.callAgent("/stop", api.StopRequest{
-		podName,
-		podNamespace,
-		podSandboxID,
-	}, nil)
+	url := fmt.Sprintf("/sidecars/%s/%s?podSandboxID=%s", podNamespace, podName, podSandboxID)
+	httpResponse, err := p.callAgent(http.MethodDelete, url, nil, nil)
 
 	if err != nil {
 		return err
@@ -64,12 +61,8 @@ func (p *proxyAgentClient) IsReady(podName string, podNamespace string, podIP st
 
 	readinessResponse := api.ReadinessResponse{}
 
-	httpResponse, err := p.callAgent("/readiness", api.ReadinessRequest{
-		podName,
-		podNamespace,
-		podIP,
-		netNS,
-	}, &readinessResponse)
+	url := fmt.Sprintf("/sidecars/%s/%s/readiness?podIP=%s&netNS=%s", podNamespace, podName, podIP, netNS)
+	httpResponse, err := p.callAgent(http.MethodGet, url, nil, &readinessResponse)
 
 	if err != nil || httpResponse.StatusCode != http.StatusOK {
 		return false, err
@@ -78,15 +71,20 @@ func (p *proxyAgentClient) IsReady(podName string, podNamespace string, podIP st
 	return readinessResponse.Ready, nil
 }
 
-func (p *proxyAgentClient) callAgent(path string, request interface{}, responseObj interface{}) (*http.Response, error) {
-	b, err := json.Marshal(request)
-	if err != nil {
-		return nil, err
+func (p *proxyAgentClient) callAgent(method, path string, request interface{}, responseObj interface{}) (*http.Response, error) {
+	var requestBody io.Reader
+	if request != nil {
+		b, err := json.Marshal(request)
+		if err != nil {
+			return nil, err
+		}
+		requestBody = bytes.NewReader(b)
 	}
 
 	url := p.URL + path
-	p.log.Debugf("Calling agent URL: %s", url)
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(b))
+	p.log.Debugf("Calling agent URL %s", url)
+
+	req, err := http.NewRequest(method, url, requestBody)
 	if err != nil {
 		return nil, err
 	}

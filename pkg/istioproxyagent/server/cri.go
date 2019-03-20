@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"io/ioutil"
-	"istio.io/cni/pkg/istioproxyagent/api"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -302,15 +301,15 @@ func getRemoteRuntimeEndpoint() string {
 	return ""
 }
 
-func (p *CRIRuntime) StopProxy(request *api.StopRequest) error {
-	if request.PodSandboxID == "" {
+func (p *CRIRuntime) StopProxy(podSandboxID string) error {
+	if podSandboxID == "" {
 		return fmt.Errorf("PodSandboxID missing from request")
 	}
 
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
-	containerID, err := p.findProxyContainerID(request.PodSandboxID)
+	containerID, err := p.findProxyContainerID(podSandboxID)
 	if err != nil {
 		return err
 	}
@@ -328,13 +327,13 @@ func (p *CRIRuntime) StopProxy(request *api.StopRequest) error {
 	return nil
 }
 
-func (p *CRIRuntime) IsReady(request *api.ReadinessRequest) (bool, error) {
+func (p *CRIRuntime) IsReady(podName, podNamespace, podIP, netNS string) (bool, error) {
 	ready := false
 
-	netNS := strings.Replace(request.NetNS, "/proc/", "/hostproc/", 1) // we're running in a container; host's /proc/ is mapped to /hostproc/
+	netNS = strings.Replace(netNS, "/proc/", "/hostproc/", 1) // we're running in a container; host's /proc/ is mapped to /hostproc/
 
 	err := ns.WithNetNSPath(netNS, func(hostNS ns.NetNS) error {
-		//url := "http://" + request.PodIP + ":" + "15000" + "/server_info" // TODO: make port & path configurable
+		//url := "http://" + podIP + ":" + "15000" + "/server_info" // TODO: make port & path configurable
 		url := "http://" + "localhost" + ":" + "15000" + "/server_info" // TODO: make port & path configurable
 		req, err := http.NewRequest(http.MethodGet, url, nil)
 		if err != nil {
@@ -348,11 +347,11 @@ func (p *CRIRuntime) IsReady(request *api.ReadinessRequest) (bool, error) {
 		defer response.Body.Close()
 
 		if response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusBadRequest {
-			klog.Infof("Readiness probe succeeded for %s", request.PodName)
+			klog.Infof("Readiness probe succeeded for %s", podName)
 			ready = true
 			return nil
 		}
-		klog.Infof("Readiness probe failed for %s (%s): %v %s", request.PodName, url, response.StatusCode, response.Status)
+		klog.Infof("Readiness probe failed for %s (%s): %v %s", podName, url, response.StatusCode, response.Status)
 		return nil
 	})
 

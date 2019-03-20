@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ghodss/yaml"
+	"github.com/gorilla/mux"
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/cni/pkg/istioproxyagent/api"
 	"istio.io/istio/pilot/pkg/kube/inject"
@@ -52,16 +53,18 @@ func (p *server) Run() error {
 	syncChan := time.NewTicker(5 * time.Second)
 	go p.RunPodSyncLoop(syncChan.C)
 
+	router := mux.NewRouter()
+	router.HandleFunc("/sidecars/{podNamespace}/{podName}", p.startHandler).Methods(http.MethodPut)
+	router.HandleFunc("/sidecars/{podNamespace}/{podName}", p.stopHandler).Methods(http.MethodDelete)
+	router.HandleFunc("/sidecars/{podNamespace}/{podName}/readiness", p.readinessHandler).Methods(http.MethodGet)
+	http.Handle("/", router)
+
 	klog.Infof("Starting server...")
-	http.HandleFunc("/start", p.startHandler)
-	http.HandleFunc("/stop", p.stopHandler)
-	http.HandleFunc("/readiness", p.readinessHandler)
 	klog.Infof("Listening on %s", p.config.BindAddr)
 	err := http.ListenAndServe(p.config.BindAddr, nil)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -83,6 +86,11 @@ func (p *server) SyncPods() error {
 
 func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 	klog.Infof("Handling proxy start request")
+
+	params := mux.Vars(r)
+	podName := params["podName"]
+	podNamespace := params["podNamespace"]
+
 	request := api.StartRequest{}
 	err := p.decodeRequest(r, &request)
 	if err != nil {
@@ -90,7 +98,7 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pod, err := p.kubernetes.getPod(request.PodName, request.PodNamespace)
+	pod, err := p.kubernetes.getPod(podName, podNamespace)
 	if err != nil {
 		klog.Warningf("Error geting ConfigMap data %v", err)
 		handleError(http.StatusInternalServerError, err, w, r)
@@ -105,7 +113,7 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	klog.Infof("Starting proxy for pod %s/%s", request.PodNamespace, request.PodName)
+	klog.Infof("Starting proxy for pod %s/%s", podNamespace, podName)
 	err = p.runtime.StartProxy(request.PodSandboxID, pod, sidecarInjectionSpec)
 	if err != nil {
 		klog.Errorf("Error starting proxy: %s", err)
@@ -116,18 +124,18 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 
 func (p *server) stopHandler(w http.ResponseWriter, r *http.Request) {
 	klog.Info("Handling proxy stop request")
-	request := api.StopRequest{}
-	err := p.decodeRequest(r, &request)
-	if err != nil {
-		handleError(http.StatusBadRequest, err, w, r)
-		return
-	}
 
-	klog.Infof("Stopping proxy for pod %s/%s", request.PodNamespace, request.PodName)
-	err = p.runtime.StopProxy(&request)
+	params := mux.Vars(r)
+	podName := params["podName"]
+	podNamespace := params["podNamespace"]
+
+	podSandboxID := r.FormValue("podSandboxID")
+
+	klog.Infof("Stopping proxy for pod %s/%s", podNamespace, podName)
+	err := p.runtime.StopProxy(podSandboxID)
 	if err != nil {
 		if _, ok := err.(SidecarNotFoundError); ok {
-			klog.Errorf("Sidecar container for pod %s/%s not found", request.PodNamespace, request.PodName)
+			klog.Errorf("Sidecar container for pod %s/%s not found", podNamespace, podName)
 			handleError(http.StatusGone, err, w, r)
 			return
 		}
@@ -149,13 +157,15 @@ func handleError(statusCode int, err error, w http.ResponseWriter, r *http.Reque
 
 func (p *server) readinessHandler(w http.ResponseWriter, r *http.Request) {
 	klog.Infof("Handling readiness request")
-	request := api.ReadinessRequest{}
-	err := p.decodeRequest(r, &request)
-	if err != nil {
-		return
-	}
 
-	ready, err := p.runtime.IsReady(&request)
+	params := mux.Vars(r)
+	podName := params["podName"]
+	podNamespace := params["podNamespace"]
+
+	podIP := r.FormValue("podIP")
+	netNS := r.FormValue("netNS")
+
+	ready, err := p.runtime.IsReady(podName, podNamespace, podIP, netNS)
 	if err != nil {
 		klog.Errorf("Error checking readiness: %s", err)
 	}
