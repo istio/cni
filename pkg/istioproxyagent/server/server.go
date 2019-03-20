@@ -70,9 +70,9 @@ func (p *server) Run() error {
 	go p.RunPodSyncLoop(syncChan.C)
 
 	router := mux.NewRouter()
-	router.HandleFunc("/sidecars/{podNamespace}/{podName}", p.startHandler).Methods(http.MethodPut)
-	router.HandleFunc("/sidecars/{podNamespace}/{podName}", p.stopHandler).Methods(http.MethodDelete)
-	router.HandleFunc("/sidecars/{podNamespace}/{podName}/readiness", p.readinessHandler).Methods(http.MethodGet)
+	router.HandleFunc("/sidecars/{podNamespace}/{podName}", wrap(p.startHandler)).Methods(http.MethodPut)
+	router.HandleFunc("/sidecars/{podNamespace}/{podName}", wrap(p.stopHandler)).Methods(http.MethodDelete)
+	router.HandleFunc("/sidecars/{podNamespace}/{podName}/readiness", wrap(p.readinessHandler)).Methods(http.MethodGet)
 	http.Handle("/", router)
 
 	klog.Infof("Starting server...")
@@ -82,6 +82,16 @@ func (p *server) Run() error {
 		return err
 	}
 	return nil
+}
+
+func wrap(handler func(w http.ResponseWriter, r *http.Request) error) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := handler(w, r)
+		if err != nil {
+			klog.Errorf("Internal error when handling request: %v", err)
+			handleError(http.StatusInternalServerError, err, w, r)
+		}
+	}
 }
 
 func (p *server) RunPodSyncLoop(syncChan <-chan time.Time) {
@@ -100,7 +110,7 @@ func (p *server) SyncPods() error {
 	return p.runtime.RestartStoppedSidecars()
 }
 
-func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
+func (p *server) startHandler(w http.ResponseWriter, r *http.Request) error {
 	klog.Infof("Handling proxy start request")
 
 	params := mux.Vars(r)
@@ -110,40 +120,35 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 	request := api.StartRequest{}
 	err := p.decodeRequest(r, &request)
 	if err != nil {
-		handleError(http.StatusBadRequest, err, w, r)
-		return
+		handleError(http.StatusBadRequest, fmt.Errorf("Could not decode request body: %v", err), w, r)
+		return nil
 	}
 
 	if podName == "" || podNamespace == "" || request.PodSandboxID == "" || request.PodIP == "" {
 		handleError(http.StatusBadRequest, fmt.Errorf("Fields missing"), w, r)
-		return
+		return nil
 	}
 
 	pod, err := p.kubernetes.getPod(podName, podNamespace)
 	if err != nil {
-		klog.Warningf("Error geting ConfigMap data %v", err)
-		handleError(http.StatusInternalServerError, err, w, r)
-		return
+		return fmt.Errorf("Error geting ConfigMap data %v", err)
 	}
 	pod.Status.PodIP = request.PodIP // we set it, because it's not set in the YAML yet
 
 	sidecarInjectionSpec, err := p.getSidecarInjectionSpec(pod)
 	if err != nil {
-		klog.Warningf("Could not obtain sidecar: %v", err)
-		handleError(http.StatusInternalServerError, err, w, r)
-		return
+		return fmt.Errorf("Could not obtain sidecar: %v", err)
 	}
 
 	klog.Infof("Starting proxy for pod %s/%s", podNamespace, podName)
 	err = p.runtime.StartProxy(request.PodSandboxID, pod, sidecarInjectionSpec)
 	if err != nil {
-		klog.Errorf("Error starting proxy: %s", err)
-		handleError(http.StatusInternalServerError, err, w, r)
-		return
+		return fmt.Errorf("Error starting proxy: %s", err)
 	}
+	return nil
 }
 
-func (p *server) stopHandler(w http.ResponseWriter, r *http.Request) {
+func (p *server) stopHandler(w http.ResponseWriter, r *http.Request) error {
 	klog.Info("Handling proxy stop request")
 
 	params := mux.Vars(r)
@@ -154,7 +159,7 @@ func (p *server) stopHandler(w http.ResponseWriter, r *http.Request) {
 
 	if podName == "" || podNamespace == "" || podSandboxID == "" {
 		handleError(http.StatusBadRequest, fmt.Errorf("Fields missing"), w, r)
-		return
+		return nil
 	}
 
 	klog.Infof("Stopping proxy for pod %s/%s", podNamespace, podName)
@@ -163,13 +168,12 @@ func (p *server) stopHandler(w http.ResponseWriter, r *http.Request) {
 		if _, ok := err.(SidecarNotFoundError); ok {
 			klog.Errorf("Sidecar container for pod %s/%s not found", podNamespace, podName)
 			handleError(http.StatusGone, err, w, r)
-			return
+			return nil
 		}
-		klog.Errorf("Error stopping proxy: %s", err)
-		handleError(http.StatusInternalServerError, err, w, r)
-		return
+		return fmt.Errorf("Error stopping proxy: %s", err)
 	}
 	klog.Info("Proxy stopped")
+	return nil
 }
 
 func handleError(statusCode int, err error, w http.ResponseWriter, r *http.Request) {
@@ -181,7 +185,7 @@ func handleError(statusCode int, err error, w http.ResponseWriter, r *http.Reque
 	}
 }
 
-func (p *server) readinessHandler(w http.ResponseWriter, r *http.Request) {
+func (p *server) readinessHandler(w http.ResponseWriter, r *http.Request) error {
 	klog.Infof("Handling readiness request")
 
 	params := mux.Vars(r)
@@ -193,7 +197,7 @@ func (p *server) readinessHandler(w http.ResponseWriter, r *http.Request) {
 
 	if podName == "" || podNamespace == "" || podIP == "" || netNS == "" {
 		handleError(http.StatusBadRequest, fmt.Errorf("Fields missing"), w, r)
-		return
+		return nil
 	}
 
 	ready, err := p.runtime.IsReady(podName, podNamespace, podIP, netNS)
@@ -210,6 +214,7 @@ func (p *server) readinessHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		klog.Errorf("Error encoding readiness response: %s", err)
 	}
+	return nil
 }
 
 func (p *server) decodeRequest(r *http.Request, obj interface{}) error {
