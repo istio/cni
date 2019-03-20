@@ -98,6 +98,11 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if podName == "" || podNamespace == "" || request.PodSandboxID == "" || request.PodIP == "" {
+		handleError(http.StatusBadRequest, fmt.Errorf("Fields missing"), w, r)
+		return
+	}
+
 	pod, err := p.kubernetes.getPod(podName, podNamespace)
 	if err != nil {
 		klog.Warningf("Error geting ConfigMap data %v", err)
@@ -130,6 +135,11 @@ func (p *server) stopHandler(w http.ResponseWriter, r *http.Request) {
 	podNamespace := params["podNamespace"]
 
 	podSandboxID := r.FormValue("podSandboxID")
+
+	if podName == "" || podNamespace == "" || podSandboxID == "" {
+		handleError(http.StatusBadRequest, fmt.Errorf("Fields missing"), w, r)
+		return
+	}
 
 	klog.Infof("Stopping proxy for pod %s/%s", podNamespace, podName)
 	err := p.runtime.StopProxy(podSandboxID)
@@ -164,6 +174,11 @@ func (p *server) readinessHandler(w http.ResponseWriter, r *http.Request) {
 
 	podIP := r.FormValue("podIP")
 	netNS := r.FormValue("netNS")
+
+	if podName == "" || podNamespace == "" || podIP == "" || netNS == "" {
+		handleError(http.StatusBadRequest, fmt.Errorf("Fields missing"), w, r)
+		return
+	}
 
 	ready, err := p.runtime.IsReady(podName, podNamespace, podIP, netNS)
 	if err != nil {
