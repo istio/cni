@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ghodss/yaml"
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/cni/pkg/istioproxyagent/api"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
@@ -97,7 +98,7 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	pod.Status.PodIP = request.PodIP // we set it, because it's not set in the YAML yet
 
-	sidecarInjectionSpec, err := p.getSidecar(pod)
+	sidecarInjectionSpec, err := p.getSidecarInjectionSpec(pod)
 	if err != nil {
 		klog.Warningf("Could not obtain sidecar: %v", err)
 		handleError(http.StatusInternalServerError, err, w, r)
@@ -179,45 +180,57 @@ func (p *server) decodeRequest(r *http.Request, obj interface{}) error {
 	return err
 }
 
-func (p *server) getSidecar(pod *v1.Pod) (*inject.SidecarInjectionSpec, error) {
+func (p *server) getSidecarInjectionSpec(pod *v1.Pod) (*inject.SidecarInjectionSpec, error) {
+	sidecarTemplate, err := p.getSidecarTemplate()
+	if err != nil {
+		return nil, err
+	}
+	klog.V(5).Infof("Sidecar template: %v", sidecarTemplate)
 
+	meshConfig, err := p.getMeshConfig()
+	if err != nil {
+		return nil, err
+	}
+	klog.V(5).Infof("Mesh config: %v", meshConfig)
+
+	sidecarInjectionSpec, _, err := inject.InjectionData(sidecarTemplate, sidecarTemplateVersionHash(sidecarTemplate), &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, meshConfig.DefaultConfig, meshConfig)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get injection data: %v", err)
+	}
+	klog.Infof("sidecarInjectionSpec: %v", toDebugJSON(sidecarInjectionSpec))
+
+	return sidecarInjectionSpec, nil
+}
+
+func (p *server) getSidecarTemplate() (string, error) {
+	klog.Infof("Geting ConfigMap %s in namespace %s", p.config.InjectConfigMapName, p.config.ControlPlaneNamespace)
+	injectorConfigMapData, err := p.kubernetes.getConfigMap(p.config.InjectConfigMapName, p.config.ControlPlaneNamespace)
+	if err != nil {
+		return "", fmt.Errorf("Error geting ConfigMap data %v", err)
+	}
+
+	injectData, exists := injectorConfigMapData[p.config.InjectConfigMapKey]
+	if !exists {
+		return "", fmt.Errorf("missing configuration map key %q in %q", p.config.InjectConfigMapKey, p.config.InjectConfigMapName)
+	}
+	var injectConfig inject.Config
+	if err := yaml.Unmarshal([]byte(injectData), &injectConfig); err != nil {
+		return "", fmt.Errorf("unable to convert data from configmap %q: %v", p.config.InjectConfigMapName, err)
+	}
+	return injectConfig.Template, nil
+}
+
+func (p *server) getMeshConfig() (*v1alpha1.MeshConfig, error) {
 	klog.Infof("Geting ConfigMap %s in namespace %s", p.config.MeshConfigMapName, p.config.ControlPlaneNamespace)
 	meshConfigMapData, err := p.kubernetes.getConfigMap(p.config.MeshConfigMapName, p.config.ControlPlaneNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("Error geting ConfigMap data %v", err)
 	}
-	meshConfig := meshConfigMapData[p.config.MeshConfigMapKey]
+	meshConfigYAML := meshConfigMapData[p.config.MeshConfigMapKey]
 
-	klog.Infof("Geting ConfigMap %s in namespace %s", p.config.InjectConfigMapName, p.config.ControlPlaneNamespace)
-	injectorConfigMapData, err := p.kubernetes.getConfigMap(p.config.InjectConfigMapName, p.config.ControlPlaneNamespace)
-	if err != nil {
-		return nil, fmt.Errorf("Error geting ConfigMap data %v", err)
-	}
-
-	injectData, exists := injectorConfigMapData[p.config.InjectConfigMapKey]
-	if !exists {
-		return nil, fmt.Errorf("missing configuration map key %q in %q", p.config.InjectConfigMapKey, p.config.InjectConfigMapName)
-	}
-	var injectConfig inject.Config
-	if err := yaml.Unmarshal([]byte(injectData), &injectConfig); err != nil {
-		return nil, fmt.Errorf("unable to convert data from configmap %q: %v", p.config.InjectConfigMapName, err)
-	}
-	sidecarTemplate := injectConfig.Template
-
-	klog.V(5).Infof("Mesh config: %v", meshConfig)
-	klog.V(5).Infof("Sidecar template: %v", sidecarTemplate)
-
-	meshConf, err := model.ApplyMeshConfigDefaults(meshConfig)
+	meshConf, err := model.ApplyMeshConfigDefaults(meshConfigYAML)
 	if err != nil {
 		return nil, fmt.Errorf("Could not apply mesh config defaults: %v", err)
 	}
-
-	sidecarInjectionSpec, _, err := inject.InjectionData(sidecarTemplate, sidecarTemplateVersionHash(sidecarTemplate), &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, meshConf.DefaultConfig, meshConf)
-	if err != nil {
-		return nil, fmt.Errorf("Could not get injection data: %v", err)
-	}
-
-	klog.Infof("sidecarInjectionSpec: %v", toDebugJSON(sidecarInjectionSpec))
-
-	return sidecarInjectionSpec, nil
+	return meshConf, nil
 }
