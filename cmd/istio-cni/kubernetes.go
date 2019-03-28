@@ -55,11 +55,11 @@ func newK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset,
 
 // getK8sPodInfo returns information of a POD
 func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
-	labels map[string]string, annotations map[string]string, ports []string, err error) {
+	labels map[string]string, annotations map[string]string, ports []string, hasSidecar bool, err error) {
 	pod, err := client.CoreV1().Pods(string(podNamespace)).Get(podName, metav1.GetOptions{})
 	logrus.Infof("pod info %+v", pod)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, false, err
 	}
 
 	containers = make([]string, len(pod.Spec.Containers))
@@ -72,6 +72,7 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 
 		if container.Name == "istio-proxy" {
 			// don't include ports from istio-proxy in the redirect ports
+			hasSidecar = true
 			continue
 		}
 		for _, containerPort := range container.Ports {
@@ -90,5 +91,5 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 		}
 	}
 
-	return containers, pod.Labels, pod.Annotations, ports, nil
+	return containers, pod.Labels, pod.Annotations, ports, hasSidecar, nil
 }

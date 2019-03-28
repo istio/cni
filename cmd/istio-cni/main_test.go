@@ -41,6 +41,7 @@ var (
 	testLabels      = map[string]string{}
 	testAnnotations = map[string]string{}
 	testPorts       = []string{"9080"}
+	testHasSidecar  = true
 )
 
 var conf = `{
@@ -102,14 +103,15 @@ func mocknewK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Client
 }
 
 func mockgetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
-	labels map[string]string, annotations map[string]string, ports []string, err error) {
+	labels map[string]string, annotations map[string]string, ports []string, hasSidecar bool, err error) {
 
 	containers = testContainers
 	labels = testLabels
 	annotations = testAnnotations
 	ports = testPorts
+	hasSidecar = testHasSidecar
 
-	return containers, labels, annotations, ports, nil
+	return containers, labels, annotations, ports, hasSidecar, nil
 }
 
 func resetGlobalTestVariables() {

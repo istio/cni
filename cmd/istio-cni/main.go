@@ -180,12 +180,12 @@ func cmdAdd(args *skel.CmdArgs) error {
 				return err
 			}
 			logrus.WithField("client", client).Debug("Created Kubernetes client")
-			containers, _, annotations, ports, k8sErr := getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
+			containers, _, annotations, ports, hasSidecar, k8sErr := getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
 			if k8sErr != nil {
 				logger.Warnf("Error geting Pod data %v", k8sErr)
 			}
 			logger.Infof("Found containers %v", containers)
-			if len(containers) > 1 {
+			if len(containers) > 1 && hasSidecar {
 				logrus.WithFields(logrus.Fields{
 					"ContainerID": args.ContainerID,
 					"netns":       args.Netns,
