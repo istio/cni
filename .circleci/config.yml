@@ -15,6 +15,13 @@ dind-env: &dind-env
   DOCKER_VERSION: "17.03.0-ce"
   CNI_PLUGIN: flannel
 
+dind-env-ipv6: &dind-env-ipv6
+  GOPATH: /go
+  SKIP_CLEANUP: true
+  DOCKER_VERSION: "17.03.0-ce"
+  CNI_PLUGIN: bridge
+  IP_MODE: ipv6
+
 # dind default setup
 dind-defaults: &dind-defaults
   docker:
@@ -257,8 +264,7 @@ jobs:
   e2e-dind:
     <<: *dind-defaults
     environment:
-      <<: *dind-env
-      IP_MODE: ipv6
+      <<: *dind-env-ipv6
       ISTIO_BRANCH: master
       ISTIO_HUB: gcr.io/istio-release
       ISTIO_TAG: master-latest-daily
