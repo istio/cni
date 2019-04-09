@@ -114,6 +114,7 @@ e2e-dind-test: &e2e-dind-test
     - run:
         name: Start kubeadm in DinD (KDC)
         command: |
+          export IP_MODE=${IP_MODE:-ipv4}
           export DIND_PORT_FORWARDER_WAIT=1
           export DIND_PORT_FORWARDER="${PWD}/build/portforward.sh"
           ./fixed/dind-cluster-v1.10.sh up
@@ -257,6 +258,7 @@ jobs:
     <<: *dind-defaults
     environment:
       <<: *dind-env
+      IP_MODE: ipv6
       ISTIO_BRANCH: master
       ISTIO_HUB: gcr.io/istio-release
       ISTIO_TAG: master-latest-daily
