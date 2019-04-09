@@ -360,7 +360,7 @@ iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 # Apply outbound IP exclusions. Must be applied before inclusions.
 if [ -n "${OUTBOUND_IP_RANGES_EXCLUDE}" ]; then
   for cidr in ${OUTBOUND_IP_RANGES_EXCLUDE}; do
-    iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j RETURN
+    iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j RETURN 2>/dev/null || true
   done
 fi
 
@@ -380,9 +380,9 @@ elif [ -n "${OUTBOUND_IP_RANGES_INCLUDE}" ]; then
   # User has specified a non-empty list of cidrs to be redirected to Envoy.
   for cidr in ${OUTBOUND_IP_RANGES_INCLUDE}; do
     for internalInterface in ${KUBEVIRT_INTERFACES}; do
-        iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT
+        iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT 2>/dev/null || true
     done
-    iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j ISTIO_REDIRECT
+    iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j ISTIO_REDIRECT 2>/dev/null || true
   done
   # All other traffic is not redirected.
   iptables -t nat -A ISTIO_OUTPUT -j RETURN
@@ -479,18 +479,39 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   # container-to-container traffic both of which explicitly use
   # localhost.
   ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN
-  
+
+  # Apply outbound IP exclusions. Must be applied before inclusions.
+  if [ -n "${OUTBOUND_IP_RANGES_EXCLUDE}" ]; then
+    for cidr in ${OUTBOUND_IP_RANGES_EXCLUDE}; do
+      ip6tables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j RETURN 2>/dev/null || true
+    done
+  fi
+
+  for internalInterface in ${KUBEVIRT_INTERFACES}; do
+      ip6tables -t nat -I PREROUTING 1 -i "${internalInterface}" -j RETURN
+  done
+
   # Apply outbound IPv6 inclusions.
   # TODO Need to figure out differentiation  between IPv4 and IPv6 ranges 
   # for now process only "*"
   if [ "${OUTBOUND_IP_RANGES_INCLUDE}" == "*" ]; then
     # Wildcard specified. Redirect all remaining outbound traffic to Envoy.
     ip6tables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
-  fi 
+    for internalInterface in ${KUBEVIRT_INTERFACES}; do
+      ip6tables -t nat -I PREROUTING 1 -i "${internalInterface}" -j ISTIO_REDIRECT
+    done
+  elif [ -n "${OUTBOUND_IP_RANGES_INCLUDE}" ]; then
+    # User has specified a non-empty list of cidrs to be redirected to Envoy.
+    for cidr in ${OUTBOUND_IP_RANGES_INCLUDE}; do
+      for internalInterface in ${KUBEVIRT_INTERFACES}; do
+          ip6tables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT 2>/dev/null || true
+      done
+      ip6tables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j ISTIO_REDIRECT 2>/dev/null || true
+    done
+    # All other traffic is not redirected.
+    ip6tables -t nat -A ISTIO_OUTPUT -j RETURN
+  fi
 
-  for internalInterface in ${KUBEVIRT_INTERFACES}; do
-      ip6tables -t nat -I PREROUTING 1 -i "${internalInterface}" -j RETURN
-  done
 else
   # Drop all inbound traffic except established connections.
   ip6tables -F INPUT || true
