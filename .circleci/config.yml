@@ -132,7 +132,7 @@ e2e-dind-test: &e2e-dind-test
     - run:
         name: Run e2e test
         command: |
-          docker run --name=istio-e2e --network=container:kube-master -t -e CNI_TAG=${CIRCLE_SHA1} -e CNI_HUB='docker.io/istio' -e HUB=${ISTIO_HUB:-gcr.io/istio-release} -e TAG=${ISTIO_TAG:-master-latest-daily} -e ISTIO_REMOTE=${ISTIO_REMOTE} -e ISTIO_REMOTE_BRANCH=${ISTIO_REMOTE_BRANCH} -e SKIP_CLEAN='1' e2e-runner:latest /go/run_e2e.sh
+          docker run --name=istio-e2e --network=container:kube-master -t -e CNI_TAG=${CIRCLE_SHA1} -e CNI_HUB='docker.io/istio' -e HUB=${ISTIO_HUB:-gcr.io/istio-release} -e TAG=${ISTIO_TAG:-master-latest-daily} -e ISTIO_REMOTE=${ISTIO_REMOTE} -e ISTIO_REMOTE_BRANCH=${ISTIO_REMOTE_BRANCH} -e CNI_ENABLE=${CNI_ENABLE:-true} -e SKIP_CLEAN='1' e2e-runner:latest /go/run_e2e.sh
     - run:
         name: Display cluster status (2)
         when: always
@@ -264,11 +264,11 @@ jobs:
     environment:
       <<: *dind-env-ipv6
       ISTIO_BRANCH: master
-      ISTIO_HUB: gcr.io/istio-release
-      ISTIO_TAG: master-latest-daily
+      ISTIO_HUB: docker.io/tiswanso
+      ISTIO_TAG: ipv6-13117
       ISTIO_REMOTE: https://github.com/tiswanso/istio.git
       ISTIO_REMOTE_BRANCH: simpletest_ipv6
-      ENABLE_CNI: false
+      CNI_ENABLE: false
     <<: *e2e-dind-test
 
 workflows:
