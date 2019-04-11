@@ -233,27 +233,35 @@ func cmdAdd(args *skel.CmdArgs) error {
 					}
 				}
 
-				logger.Info("Creating Proxy")
-				if proxyAgent, err := proxyagentclient.NewProxyAgentClient(conf.Agent.URL, logger); err != nil {
-					logger.Errorf("Creating proxy agent client failed: %v", err)
-				} else {
+				skipSidecarInjection := false
+				if _, ok := annotations[sidecarStatusKey]; ok {
+					logrus.Infof("Skipping sidecar injection for pod %s, since it already contains sidecar status annotation", podName)
+					skipSidecarInjection = true
+				}
 
-					logger.Info("Starting Proxy")
-					if err := proxyAgent.StartProxy(podName, podNamespace, podIP, podSandboxID); err != nil {
-						logger.Errorf("Starting proxy failed: %v", err)
-						return err
+				if !skipSidecarInjection {
+					logger.Info("Creating Proxy")
+					if proxyAgent, err := proxyagentclient.NewProxyAgentClient(conf.Agent.URL, logger); err != nil {
+						logger.Errorf("Creating proxy agent client failed: %v", err)
+					} else {
+
+						logger.Info("Starting Proxy")
+						if err := proxyAgent.StartProxy(podName, podNamespace, podIP, podSandboxID); err != nil {
+							logger.Errorf("Starting proxy failed: %v", err)
+							return err
+						}
+						logger.Info("Proxy started successfully")
+
+						//ready := false
+						//for !ready {
+						//	ready, err = isReady(logger, podName, podNamespace, podIP, args.Netns)
+						//	if err != nil {
+						//		logger.Errorf("Could not perform readiness check: %v", err)
+						//		return err
+						//	}
+						//	time.Sleep(2 * time.Second) // TODO: give up after some time
+						//}
 					}
-					logger.Info("Proxy started successfully")
-
-					//ready := false
-					//for !ready {
-					//	ready, err = isReady(logger, podName, podNamespace, podIP, args.Netns)
-					//	if err != nil {
-					//		logger.Errorf("Could not perform readiness check: %v", err)
-					//		return err
-					//	}
-					//	time.Sleep(2 * time.Second) // TODO: give up after some time
-					//}
 				}
 			}
 		} else {
