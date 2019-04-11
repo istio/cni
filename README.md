@@ -278,8 +278,9 @@ Workflow:
 1.  Get k8s pod info
     1.  Determine containerPort list
 1.  Determine if the pod needs to be setup for Istio sidecar proxy
-    1.  If pod has a container named `istio-proxy` AND pod has more than 1 container
+    1.  If pod has more than 1 container
         1.  If pod has annotation with key `sidecar.istio.io/inject` with value `false` then skip redirect
+        1.  If pod has no annotation with key `sidecar.istio.io/status` then skip redirect
         1.  Else, do redirect
 1.  Setup iptables with the required port list
     1.  `nsenter --net=<k8s pod netns> /opt/cni/bin/istio-iptables.sh ...`
