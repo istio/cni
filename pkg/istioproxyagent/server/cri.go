@@ -481,14 +481,8 @@ func (p *CRIRuntime) RestartStoppedSidecars() error {
 }
 
 func createEmptyDirVolume(podUID types.UID, volumeName string) (string, error) {
-	podVolumesDir := volumesBaseDir + string(podUID)
-	err := os.MkdirAll(podVolumesDir, os.ModePerm)
-	if err != nil {
-		return "", err
-	}
-
-	dir := filepath.Join(podVolumesDir, volumeName)
-	err = os.Mkdir(dir, os.ModePerm)
+	dir := filepath.Join(volumesBaseDir, string(podUID), volumeName)
+	err := os.MkdirAll(dir, os.ModePerm)
 	if err != nil {
 		return "", err
 	}
