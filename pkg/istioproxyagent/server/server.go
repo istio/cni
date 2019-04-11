@@ -31,6 +31,11 @@ import (
 	"time"
 )
 
+const (
+	injectionAnnotationKey   = "sidecar.istio.io/sidecar-injected"
+	injectionAnnotationValue = "true"
+)
+
 type server struct {
 	kubernetes *KubernetesClient
 	config     ProxyAgentConfig
@@ -145,7 +150,17 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("Error starting proxy: %s", err)
 	}
-	return nil
+
+	klog.Infof("Adding annotation %s to pod %s/%s", injectionAnnotationKey, podNamespace, podName)
+	pod, err = p.kubernetes.updatePodWithRetries(podNamespace, podName, func(pod *v1.Pod) {
+		pod.Annotations[injectionAnnotationKey] = injectionAnnotationValue
+	})
+
+	if err != nil {
+		return fmt.Errorf("Error adding annotation to pod: %s", err)
+	}
+
+	return err
 }
 
 func (p *server) stopHandler(w http.ResponseWriter, r *http.Request) error {
