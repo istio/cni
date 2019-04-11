@@ -32,8 +32,7 @@ import (
 )
 
 const (
-	injectionAnnotationKey   = "sidecar.istio.io/sidecar-injected"
-	injectionAnnotationValue = "true"
+	annotationStatus = "sidecar.istio.io/status"
 )
 
 type server struct {
@@ -140,7 +139,7 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) error {
 	}
 	pod.Status.PodIP = request.PodIP // we set it, because it's not set in the YAML yet
 
-	sidecarInjectionSpec, err := p.getSidecarInjectionSpec(pod)
+	sidecarInjectionSpec, status, err := p.getSidecarInjectionSpec(pod)
 	if err != nil {
 		return fmt.Errorf("Could not obtain sidecar: %v", err)
 	}
@@ -151,9 +150,9 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("Error starting proxy: %s", err)
 	}
 
-	klog.Infof("Adding annotation %s to pod %s/%s", injectionAnnotationKey, podNamespace, podName)
+	klog.Infof("Adding annotation %s to pod %s/%s", annotationStatus, podNamespace, podName)
 	pod, err = p.kubernetes.updatePodWithRetries(podNamespace, podName, func(pod *v1.Pod) {
-		pod.Annotations[injectionAnnotationKey] = injectionAnnotationValue
+		pod.Annotations[annotationStatus] = status
 	})
 
 	if err != nil {
@@ -241,26 +240,26 @@ func (p *server) decodeRequest(r *http.Request, obj interface{}) error {
 	return err
 }
 
-func (p *server) getSidecarInjectionSpec(pod *v1.Pod) (*inject.SidecarInjectionSpec, error) {
+func (p *server) getSidecarInjectionSpec(pod *v1.Pod) (*inject.SidecarInjectionSpec, string, error) {
 	sidecarTemplate, err := p.getSidecarTemplate()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	klog.V(5).Infof("Sidecar template: %v", sidecarTemplate)
 
 	meshConfig, err := p.getMeshConfig()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	klog.V(5).Infof("Mesh config: %v", meshConfig)
 
-	sidecarInjectionSpec, _, err := inject.InjectionData(sidecarTemplate, sidecarTemplateVersionHash(sidecarTemplate), &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, meshConfig.DefaultConfig, meshConfig)
+	sidecarInjectionSpec, status, err := inject.InjectionData(sidecarTemplate, sidecarTemplateVersionHash(sidecarTemplate), &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, meshConfig.DefaultConfig, meshConfig)
 	if err != nil {
-		return nil, fmt.Errorf("Could not get injection data: %v", err)
+		return nil, "", fmt.Errorf("Could not get injection data: %v", err)
 	}
 	klog.Infof("sidecarInjectionSpec: %v", toDebugJSON(sidecarInjectionSpec))
 
-	return sidecarInjectionSpec, nil
+	return sidecarInjectionSpec, status, nil
 }
 
 func (p *server) getSidecarTemplate() (string, error) {
