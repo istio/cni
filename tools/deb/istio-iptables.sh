@@ -357,11 +357,13 @@ done
 # localhost.
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 
-# Apply outbound IP exclusions. Must be applied before inclusions.
-if [ -n "${OUTBOUND_IP_RANGES_EXCLUDE}" ]; then
-  for cidr in ${OUTBOUND_IP_RANGES_EXCLUDE}; do
-    iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j RETURN 2>/dev/null || true
-  done
+if [ -z "${ENABLE_INBOUND_IPV6}" ]; then
+  # Apply outbound IP exclusions. Must be applied before inclusions.
+  if [ -n "${OUTBOUND_IP_RANGES_EXCLUDE}" ]; then
+    for cidr in ${OUTBOUND_IP_RANGES_EXCLUDE}; do
+      iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j RETURN 2>/dev/null || true
+    done
+  fi
 fi
 
 for internalInterface in ${KUBEVIRT_INTERFACES}; do
@@ -377,13 +379,15 @@ if [ "${OUTBOUND_IP_RANGES_INCLUDE}" == "*" ]; then
   done
 
 elif [ -n "${OUTBOUND_IP_RANGES_INCLUDE}" ]; then
-  # User has specified a non-empty list of cidrs to be redirected to Envoy.
-  for cidr in ${OUTBOUND_IP_RANGES_INCLUDE}; do
-    for internalInterface in ${KUBEVIRT_INTERFACES}; do
-        iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT 2>/dev/null || true
+  if [ -z "${ENABLE_INBOUND_IPV6}" ]; then
+    # User has specified a non-empty list of cidrs to be redirected to Envoy.
+    for cidr in ${OUTBOUND_IP_RANGES_INCLUDE}; do
+      for internalInterface in ${KUBEVIRT_INTERFACES}; do
+          iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT 2>/dev/null || true
+      done
+      iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j ISTIO_REDIRECT 2>/dev/null || true
     done
-    iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j ISTIO_REDIRECT 2>/dev/null || true
-  done
+  fi
   # All other traffic is not redirected.
   iptables -t nat -A ISTIO_OUTPUT -j RETURN
 fi
