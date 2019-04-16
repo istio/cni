@@ -144,8 +144,12 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("Could not obtain sidecar: %v", err)
 	}
 
+	if len(sidecarInjectionSpec.Containers) == 0 {
+		return fmt.Errorf("No sidecar container in sidecarInjectionSpec")
+	}
+
 	klog.Infof("Starting proxy for pod %s/%s", podNamespace, podName)
-	err = p.runtime.StartProxy(request.PodSandboxID, pod, sidecarInjectionSpec)
+	err = p.runtime.StartProxy(request.PodSandboxID, pod, &sidecarInjectionSpec.Containers[0], sidecarInjectionSpec.Volumes)
 	if err != nil {
 		return fmt.Errorf("Error starting proxy: %s", err)
 	}

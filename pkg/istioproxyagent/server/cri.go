@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"io/ioutil"
-	"istio.io/istio/pilot/pkg/kube/inject"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -80,15 +79,9 @@ func NewCRIRuntime(kubeclient *KubernetesClient, config ProxyAgentConfig) (*CRIR
 	}, nil
 }
 
-func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjectionSpec *inject.SidecarInjectionSpec) error {
+func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecar *v1.Container, volumes []v1.Volume) error {
 	p.mux.Lock()
 	defer p.mux.Unlock()
-
-	if len(sidecarInjectionSpec.Containers) == 0 {
-		return fmt.Errorf("No sidecar container in sidecarInjectionSpec")
-	}
-
-	sidecar := sidecarInjectionSpec.Containers[0]
 
 	err := p.pullImageIfNecessary(sidecar.Image)
 	if err != nil {
@@ -101,7 +94,7 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjecti
 	}
 
 	klog.Info("Creating volumes")
-	mounts, err := p.createVolumeMounts(pod, &sidecar, sidecarInjectionSpec.Volumes)
+	mounts, err := p.createVolumeMounts(pod, sidecar, volumes)
 	if err != nil {
 		return fmt.Errorf("Error creating volumes: %v", err)
 	}
@@ -128,7 +121,7 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecarInjecti
 		LogPath: filepath.Join(sidecar.Name, fmt.Sprintf("%d.log", restartCount)),
 		Linux: &criapi.LinuxContainerConfig{
 			Resources: &criapi.LinuxContainerResources{
-				CpuShares:          getCPUShares(&sidecar),
+				CpuShares:          getCPUShares(sidecar),
 				MemoryLimitInBytes: sidecar.Resources.Limits.Memory().Value(),
 			},
 			SecurityContext: &criapi.LinuxContainerSecurityContext{
