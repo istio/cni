@@ -28,6 +28,7 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/klog"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -39,6 +40,7 @@ type server struct {
 	kubernetes *KubernetesClient
 	config     ProxyAgentConfig
 	runtime    *CRIRuntime
+	mux        sync.Mutex
 }
 
 type ProxyAgentConfig struct {
@@ -111,6 +113,9 @@ func (p *server) RunPodSyncLoop(syncChan <-chan time.Time) {
 }
 
 func (p *server) SyncPods() error {
+	p.mux.Lock()
+	defer p.mux.Unlock()
+
 	return p.runtime.RestartStoppedSidecars()
 }
 
@@ -148,6 +153,9 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("No sidecar container in sidecarInjectionSpec")
 	}
 
+	p.mux.Lock()
+	defer p.mux.Unlock()
+
 	klog.Infof("Starting proxy for pod %s/%s", podNamespace, podName)
 	err = p.runtime.StartProxy(request.PodSandboxID, pod, &sidecarInjectionSpec.Containers[0], sidecarInjectionSpec.Volumes)
 	if err != nil {
@@ -179,6 +187,13 @@ func (p *server) stopHandler(w http.ResponseWriter, r *http.Request) error {
 		handleError(http.StatusBadRequest, fmt.Errorf("Fields missing"), w, r)
 		return nil
 	}
+
+	if podSandboxID == "" {
+		return fmt.Errorf("PodSandboxID missing from request")
+	}
+
+	p.mux.Lock()
+	defer p.mux.Unlock()
 
 	klog.Infof("Stopping proxy for pod %s/%s", podNamespace, podName)
 	err := p.runtime.StopProxy(podSandboxID)

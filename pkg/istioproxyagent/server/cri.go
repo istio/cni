@@ -36,7 +36,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -56,7 +55,6 @@ type CRIRuntime struct {
 	runtimeService cri.RuntimeService
 	imageService   cri.ImageManagerService
 	httpClient     http.Client
-	mux            sync.Mutex
 }
 
 func NewCRIRuntime(kubeclient *KubernetesClient, config ProxyAgentConfig) (*CRIRuntime, error) {
@@ -80,9 +78,6 @@ func NewCRIRuntime(kubeclient *KubernetesClient, config ProxyAgentConfig) (*CRIR
 }
 
 func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecar *v1.Container, volumes []v1.Volume) error {
-	p.mux.Lock()
-	defer p.mux.Unlock()
-
 	err := p.pullImageIfNecessary(sidecar.Image)
 	if err != nil {
 		return fmt.Errorf("Could not pull image %s: %v", sidecar.Image, err)
@@ -311,13 +306,6 @@ func getRemoteRuntimeEndpoint() string {
 }
 
 func (p *CRIRuntime) StopProxy(podSandboxID string) error {
-	if podSandboxID == "" {
-		return fmt.Errorf("PodSandboxID missing from request")
-	}
-
-	p.mux.Lock()
-	defer p.mux.Unlock()
-
 	containerID, err := p.findProxyContainerID(podSandboxID)
 	if err != nil {
 		return err
@@ -445,9 +433,6 @@ func (p *CRIRuntime) createVolumeMounts(pod *v1.Pod, sidecar *v1.Container, volu
 
 func (p *CRIRuntime) RestartStoppedSidecars() error {
 	// TODO: re-create containers instead of just re-starting them
-
-	p.mux.Lock()
-	defer p.mux.Unlock()
 
 	containers, err := p.runtimeService.ListContainers(&criapi.ContainerFilter{
 		LabelSelector: map[string]string{
