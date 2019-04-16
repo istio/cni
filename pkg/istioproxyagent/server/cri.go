@@ -47,6 +47,14 @@ const (
 	podNameLabelKey       = "io.kubernetes.pod.name"
 	podNamespaceLabelKey  = "io.kubernetes.pod.namespace"
 	podUIDLabelKey        = "io.kubernetes.pod.uid"
+
+	terminationMessagePathAnnotation   = "io.kubernetes.container.terminationMessagePath"
+	terminationMessagePolicyAnnotation = "io.kubernetes.container.terminationMessagePolicy"
+	containerHashAnnotation            = "io.kubernetes.container.hash"
+	restartCountAnnotation             = "io.kubernetes.container.restartCount"
+	terminationGracePeriodAnnotation   = "io.kubernetes.pod.terminationGracePeriod"
+
+	defaultTerminationGracePeriodSeconds = 30
 )
 
 type CRIRuntime struct {
@@ -103,6 +111,10 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecar *v1.Co
 	expandVars(sidecar.Args, envs)
 
 	restartCount := 0 // TODO
+	terminationGracePeriodSeconds := int64(defaultTerminationGracePeriodSeconds)
+	if pod.Spec.TerminationGracePeriodSeconds != nil {
+		terminationGracePeriodSeconds = *pod.Spec.TerminationGracePeriodSeconds
+	}
 
 	containerConfig := criapi.ContainerConfig{
 		Metadata: &criapi.ContainerMetadata{
@@ -144,10 +156,11 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecar *v1.Co
 			podUIDLabelKey:        string(pod.UID),
 		},
 		Annotations: map[string]string{
-			"io.kubernetes.container.terminationMessagePath":   "/dev/termination-log",
-			"io.kubernetes.container.terminationMessagePolicy": "File",
-			"io.kubernetes.container.hash":                     "0", // TODO
-			"io.kubernetes.container.restartCount":             strconv.Itoa(restartCount),
+			terminationMessagePathAnnotation:   "/dev/termination-log",
+			terminationMessagePolicyAnnotation: "File",
+			containerHashAnnotation:            "0", // TODO
+			restartCountAnnotation:             strconv.Itoa(restartCount),
+			terminationGracePeriodAnnotation:   strconv.FormatInt(terminationGracePeriodSeconds, 10),
 		},
 	}
 
@@ -315,7 +328,16 @@ func (p *CRIRuntime) StopProxy(podSandboxID string) error {
 		return SidecarNotFoundError{}
 	}
 
-	err = p.runtimeService.StopContainer(container.Id, 30000) // TODO: make timeout configurable
+	terminationGracePeriodMillis := int64(defaultTerminationGracePeriodSeconds * 1000)
+	terminationGracePeriodStr := container.Annotations[terminationGracePeriodAnnotation]
+	if terminationGracePeriodStr != "" {
+		terminationGracePeriodMillis, err = strconv.ParseInt(terminationGracePeriodStr, 10, 64)
+		if err != nil {
+			klog.Warningf("Could not parse terminationGracePeriod annotation. Defaulting to %ds. Error: %v", defaultTerminationGracePeriodSeconds, err)
+			terminationGracePeriodMillis = int64(defaultTerminationGracePeriodSeconds * 1000)
+		}
+	}
+	err = p.runtimeService.StopContainer(container.Id, terminationGracePeriodMillis)
 	if err != nil {
 		return err
 	}
