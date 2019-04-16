@@ -26,14 +26,18 @@ import (
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog"
+	criapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 	"net/http"
 	"sync"
 	"time"
 )
 
 const (
-	annotationStatus = "sidecar.istio.io/status"
+	annotationStatus             = "sidecar.istio.io/status"
+	annotationInjectionType      = "sidecar.istio.io/injection-type"
+	annotationInjectionTypeValue = "cni"
 )
 
 type server struct {
@@ -104,7 +108,7 @@ func (p *server) RunPodSyncLoop(syncChan <-chan time.Time) {
 	for {
 		select {
 		case <-syncChan:
-			err := p.SyncPods()
+			err := p.restartStoppedSidecars()
 			if err != nil {
 				klog.Warningf("Could not sync pods: %v", err)
 			}
@@ -112,19 +116,72 @@ func (p *server) RunPodSyncLoop(syncChan <-chan time.Time) {
 	}
 }
 
-func (p *server) SyncPods() error {
+func (p *server) restartStoppedSidecars() error {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
-	return p.runtime.RestartStoppedSidecars()
+	podSandboxes, err := p.runtime.ListPodSandboxes()
+	if err != nil {
+		return err
+	}
+
+	for _, podSandbox := range podSandboxes {
+		podName := podSandbox.Labels["io.kubernetes.pod.name"]
+		podNamespace := podSandbox.Labels["io.kubernetes.pod.namespace"]
+		podSandboxID := podSandbox.Id
+
+		sidecarRunning, err := p.sidecarRunning(podSandbox)
+		if err != nil {
+			klog.Warningf("Could not determine if sidecar is running: %v", err)
+			continue
+		}
+		if sidecarRunning {
+			continue
+		}
+
+		pod, err := p.kubernetes.getPod(podName, podNamespace)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				continue // pod has been deleted
+			}
+			return fmt.Errorf("Error getting Pod: %v", err)
+		}
+
+		if !sidecarRequired(pod) || !sidecarManagedByCNI(pod) {
+			continue
+		}
+
+		klog.Infof("Restarting proxy sidecar for pod %s/%s", podNamespace, podName)
+
+		err = p.runSidecar(pod, podSandboxID)
+		if err != nil {
+			klog.Warningf("Error restarting sidecar container: %v", err)
+		} else {
+			klog.Infof("Restarted proxy sidecar container: %s/%s", podNamespace, podName)
+		}
+	}
+	return nil
+}
+
+func sidecarRequired(pod *v1.Pod) bool {
+	return pod.Annotations[annotationStatus] != ""
+}
+
+func sidecarManagedByCNI(pod *v1.Pod) bool {
+	return pod.Annotations[annotationInjectionType] == annotationInjectionTypeValue
+}
+
+func (p *server) sidecarRunning(sandbox *criapi.PodSandbox) (bool, error) {
+	container, err := p.runtime.findProxyContainer(sandbox.Id)
+	if err != nil {
+		return false, err
+	}
+
+	return container != nil && container.State == criapi.ContainerState_CONTAINER_RUNNING, nil
 }
 
 func (p *server) startHandler(w http.ResponseWriter, r *http.Request) error {
 	klog.Infof("Handling proxy start request")
-
-	params := mux.Vars(r)
-	podName := params["podName"]
-	podNamespace := params["podNamespace"]
 
 	request := api.StartRequest{}
 	err := p.decodeRequest(r, &request)
@@ -133,16 +190,34 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	if podName == "" || podNamespace == "" || request.PodSandboxID == "" || request.PodIP == "" {
+	params := mux.Vars(r)
+	podName := params["podName"]
+	podNamespace := params["podNamespace"]
+	podIP := request.PodIP
+	podSandboxID := request.PodSandboxID
+
+	if podName == "" || podNamespace == "" || podSandboxID == "" || podIP == "" {
 		handleError(http.StatusBadRequest, fmt.Errorf("Fields missing"), w, r)
 		return nil
 	}
 
 	pod, err := p.kubernetes.getPod(podName, podNamespace)
 	if err != nil {
-		return fmt.Errorf("Error geting ConfigMap data %v", err)
+		return fmt.Errorf("Error getting Pod: %v", err)
 	}
-	pod.Status.PodIP = request.PodIP // we set it, because it's not set in the YAML yet
+	if pod.Status.PodIP == "" {
+		pod.Status.PodIP = podIP
+	} else {
+		podIP = pod.Status.PodIP
+	}
+
+	p.mux.Lock()
+	defer p.mux.Unlock()
+
+	return p.runSidecar(pod, podSandboxID)
+}
+
+func (p *server) runSidecar(pod *v1.Pod, podSandboxID string) error {
 
 	sidecarInjectionSpec, status, err := p.getSidecarInjectionSpec(pod)
 	if err != nil {
@@ -153,24 +228,21 @@ func (p *server) startHandler(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("No sidecar container in sidecarInjectionSpec")
 	}
 
-	p.mux.Lock()
-	defer p.mux.Unlock()
-
-	klog.Infof("Starting proxy for pod %s/%s", podNamespace, podName)
-	err = p.runtime.StartProxy(request.PodSandboxID, pod, &sidecarInjectionSpec.Containers[0], sidecarInjectionSpec.Volumes)
+	klog.Infof("Starting proxy for pod %s/%s", pod.Namespace, pod.Name)
+	err = p.runtime.StartProxy(podSandboxID, pod, &sidecarInjectionSpec.Containers[0], sidecarInjectionSpec.Volumes)
 	if err != nil {
 		return fmt.Errorf("Error starting proxy: %s", err)
 	}
 
-	klog.Infof("Adding annotation %s to pod %s/%s", annotationStatus, podNamespace, podName)
-	pod, err = p.kubernetes.updatePodWithRetries(podNamespace, podName, func(pod *v1.Pod) {
+	klog.Infof("Adding annotation %s to pod %s/%s", annotationStatus, pod.Namespace, pod.Name)
+	pod, err = p.kubernetes.updatePodWithRetries(pod.Namespace, pod.Name, func(pod *v1.Pod) {
 		pod.Annotations[annotationStatus] = status
+		pod.Annotations[annotationInjectionType] = annotationInjectionTypeValue
 	})
 
 	if err != nil {
 		return fmt.Errorf("Error adding annotation to pod: %s", err)
 	}
-
 	return err
 }
 

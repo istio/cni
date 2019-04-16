@@ -306,17 +306,21 @@ func getRemoteRuntimeEndpoint() string {
 }
 
 func (p *CRIRuntime) StopProxy(podSandboxID string) error {
-	containerID, err := p.findProxyContainerID(podSandboxID)
+	container, err := p.findProxyContainer(podSandboxID)
 	if err != nil {
 		return err
 	}
 
-	err = p.runtimeService.StopContainer(containerID, 30000) // TODO: make timeout configurable
+	if container == nil {
+		return SidecarNotFoundError{}
+	}
+
+	err = p.runtimeService.StopContainer(container.Id, 30000) // TODO: make timeout configurable
 	if err != nil {
 		return err
 	}
 
-	err = p.runtimeService.RemoveContainer(containerID)
+	err = p.runtimeService.RemoveContainer(container.Id)
 	if err != nil {
 		return err
 	}
@@ -355,20 +359,22 @@ func (p *CRIRuntime) IsReady(podName, podNamespace, podIP, netNS string) (bool, 
 	return ready, err
 }
 
-func (p *CRIRuntime) findProxyContainerID(podSandboxId string) (string, error) {
+func (p *CRIRuntime) findProxyContainer(podSandboxId string) (*criapi.Container, error) {
 	containers, err := p.runtimeService.ListContainers(&criapi.ContainerFilter{
 		PodSandboxId: podSandboxId,
+		LabelSelector: map[string]string{
+			sidecarLabelKey: sidecarLabelValue,
+		},
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	for _, c := range containers {
-		if c.Labels[sidecarLabelKey] == sidecarLabelValue {
-			return c.Id, nil
-		}
+	if len(containers) == 0 {
+		return nil, nil
 	}
-	return "", SidecarNotFoundError{}
+
+	return containers[0], nil
 }
 
 type SidecarNotFoundError struct {
@@ -431,31 +437,8 @@ func (p *CRIRuntime) createVolumeMounts(pod *v1.Pod, sidecar *v1.Container, volu
 	return mounts, nil
 }
 
-func (p *CRIRuntime) RestartStoppedSidecars() error {
-	// TODO: re-create containers instead of just re-starting them
-
-	containers, err := p.runtimeService.ListContainers(&criapi.ContainerFilter{
-		LabelSelector: map[string]string{
-			sidecarLabelKey: sidecarLabelValue,
-		},
-		State: &criapi.ContainerStateValue{
-			State: criapi.ContainerState_CONTAINER_EXITED,
-		},
-	})
-	if err != nil {
-		return err
-	}
-	for _, c := range containers {
-		containerID := c.Id
-		klog.Infof("Restarting proxy sidecar for pod %s", c.Labels[podNameLabelKey])
-		err = p.runtimeService.StartContainer(containerID)
-		if err != nil {
-			klog.Warningf("Error restarting sidecar container: %v", err)
-		} else {
-			klog.Infof("Restarted proxy sidecar container: %s", containerID)
-		}
-	}
-	return nil
+func (p *CRIRuntime) ListPodSandboxes() ([]*criapi.PodSandbox, error) {
+	return p.runtimeService.ListPodSandbox(&criapi.PodSandboxFilter{})
 }
 
 func createEmptyDirVolume(podUID types.UID, volumeName string) (string, error) {
