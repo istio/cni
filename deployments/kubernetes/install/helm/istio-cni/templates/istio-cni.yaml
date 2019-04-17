@@ -121,6 +121,8 @@ spec:
                 configMapKeyRef:
                   name: istio-cni-config
                   key: cni_network_config
+            - name: CNI_NET_DIR
+              value: {{ default "/etc/cni/net.d" .Values.cniConfDir }}
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
