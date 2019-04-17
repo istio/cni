@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"istio.io/cni/pkg/istioproxyagent/server"
 )
@@ -23,7 +24,7 @@ func main() {
 		panic(err)
 	}
 
-	err = agent.Run()
+	err = agent.Run(context.TODO())
 	if err != nil {
 		panic(err)
 	}

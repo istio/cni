@@ -15,6 +15,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/ghodss/yaml"
@@ -73,7 +74,9 @@ func NewProxyAgent(config ProxyAgentConfig) (*server, error) {
 	}, nil
 }
 
-func (p *server) Run() error {
+func (p *server) Run(ctx context.Context) error {
+	p.kubernetes.Start(ctx.Done())
+
 	syncChan := time.NewTicker(5 * time.Second)
 	go p.RunPodSyncLoop(syncChan.C)
 
