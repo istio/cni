@@ -275,14 +275,14 @@ Workflow:
 1.  Check k8s pod namespace against exclusion list (plugin config)
     1.  Config must exclude namespace that Istio control-plane is installed in
     1.  If excluded, ignore the pod and return prevResult
-1.  Get k8s pod info
-    1.  Determine containerPort list
-1.  Determine if the pod needs to be setup for Istio sidecar proxy
-    1.  If pod has a container named `istio-proxy` AND pod has more than 1 container
-        1.  If pod has annotation with key `sidecar.istio.io/inject` with value `false` then skip redirect
-        1.  Else, do redirect
-1.  Setup iptables with the required port list
-    1.  `nsenter --net=<k8s pod netns> /opt/cni/bin/istio-iptables.sh ...`
+1.  Setup redirect rules for the pods:
+    1. Get the port list from from pods definition
+    1. Setup iptables with required port list: `nsenter --net=<k8s pod netns> /opt/cni/bin/istio-iptables.sh ...`
+
+    Following conditions will prevent the redirect rules to be setup in the pods:
+
+        1. Pods only have 1 container(no sidecar proxy injected)
+        2. Pods have annotation `sidecar.istio.io/inject` set to `false` or has no key `sidecar.istio.io/status` in annotations
 1.  Return prevResult
 
 **TBD** istioctl / auto-sidecar-inject logic for handling things like specific include/exclude IPs and any
