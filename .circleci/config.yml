@@ -268,7 +268,7 @@ jobs:
       ISTIO_TAG: ipv6-13117
       ISTIO_REMOTE: https://github.com/tiswanso/istio.git
       ISTIO_REMOTE_BRANCH: simpletest_ipv6
-      CNI_ENABLE: true
+      CNI_ENABLE: false
     <<: *e2e-dind-test
 
 workflows:
