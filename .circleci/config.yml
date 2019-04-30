@@ -209,15 +209,23 @@ jobs:
       - <<: *initWorkingDir
       - checkout
       - run: GOOS=linux make build
-      - run: TAG=nightly-${CIRCLE_BRANCH} make docker.all
-      - run: TAG=nightly-${CIRCLE_BRANCH} make test
+      - run: HUB=${DOCKER_USER:-istio} TAG=nightly-${CIRCLE_BRANCH} make docker.all
+      - run: HUB=${DOCKER_USER:-istio} TAG=nightly-${CIRCLE_BRANCH} make test
       - run:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
               echo "Pushing docker images"
 
               docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
-              TAG=nightly-${CIRCLE_BRANCH} make docker.push
+              HUB=${DOCKER_USER} TAG=nightly-${CIRCLE_BRANCH} make docker.push
+            fi
+      - run:
+          command: |
+            if [ ! -z "${DOCKER_USER}" ] ; then
+              echo "Pushing images tagged with git version"
+              docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
+              TAG=$(git describe)
+              HUB=${DOCKER_USER} TAG=${TAG} make docker.all docker.push
             fi
 
   e2e-dind-istio1.1:
@@ -264,6 +272,7 @@ workflows:
           branches:
             only:
             - master
+            - release-1.1
     jobs:
     - build
     - nightly:
