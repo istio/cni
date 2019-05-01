@@ -268,7 +268,7 @@ jobs:
       ISTIO_TAG: ipv6-13563
       ISTIO_REMOTE: https://github.com/tiswanso/istio.git
       ISTIO_REMOTE_BRANCH: simpletest_ipv6
-      CNI_ENABLE: false
+      CNI_ENABLE: true
     <<: *e2e-dind-test
 
 workflows:
@@ -285,12 +285,12 @@ workflows:
       - e2e-dind-ipv6:
           requires:
             - build
-#      - e2e-dind:
-#          requires:
-#           - build
-#      - e2e-dind-istio1.1:
-#          requires:
-#            - build
+      - e2e-dind:
+          requires:
+            - build
+      - e2e-dind-istio1.1:
+          requires:
+            - build
 
   # Nightly test
   nightly:
