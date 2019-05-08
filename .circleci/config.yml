@@ -265,11 +265,11 @@ jobs:
     environment:
       <<: *dind-env-ipv6
       ISTIO_BRANCH: master
-      ISTIO_HUB: docker.io/tiswanso
-      ISTIO_TAG: ipv6-13117
+      ISTIO_HUB: gcr.io/istio-release
+      ISTIO_TAG: master-latest-daily
       ISTIO_REMOTE: https://github.com/tiswanso/istio.git
       ISTIO_REMOTE_BRANCH: simpletest_ipv6
-      CNI_ENABLE: false
+      CNI_ENABLE: true
     <<: *e2e-dind-test
 
 workflows:
