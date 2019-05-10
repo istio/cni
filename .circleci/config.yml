@@ -265,8 +265,8 @@ jobs:
     environment:
       <<: *dind-env-ipv6
       ISTIO_BRANCH: master
-      ISTIO_HUB: gcr.io/istio-release
-      ISTIO_TAG: master-latest-daily
+      ISTIO_HUB: tiswanso
+      ISTIO_TAG: ipv6-13985
       ISTIO_REMOTE: https://github.com/tiswanso/istio.git
       ISTIO_REMOTE_BRANCH: simpletest_ipv6
       CNI_ENABLE: true
