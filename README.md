@@ -1,3 +1,8 @@
+[![CircleCI](https://circleci.com/gh/istio/cni.svg?style=svg)](https://circleci.com/gh/istio/cni)
+[![Mergify Status](https://gh.mergify.io/badges/istio/cni.png?style=cut)](https://mergify.io)
+[![Go Report Card](https://goreportcard.com/badge/github.com/istio/cni)](https://goreportcard.com/report/github.com/istio/cni)
+[![GolangCI](https://golangci.com/badges/github.com/istio/cni.svg)](https://golangci.com/r/github.com/istio/cni)
+
 # Istio CNI plugin
 
 For application pods in the Istio service mesh, all traffic to/from the pods needs to go through the
