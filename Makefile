@@ -305,3 +305,5 @@ selected-pkg-test:
 .PHONY: cmd-test
 cmd-test:
 	go test ./cmd/...
+
+include Makefile.common.mk
