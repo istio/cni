@@ -175,7 +175,23 @@ jobs:
           root: _save
           paths:
           - images.tar
-      - run: make lint
+
+  shellcheck:
+    docker:
+      - image: koalaman/shellcheck-alpine:v0.6.0
+    steps:
+      - checkout
+      - run:
+          name: Check shell scripts
+          command: /root/project/bin/check_shell_scripts.sh
+
+  lint:
+    <<: *defaults
+    steps:
+      - checkout
+      - run:
+          name: Run linters
+          command: make lint
 
   install-cni:
     <<: *integrationDefaults
@@ -251,6 +267,8 @@ workflows:
 
   all:
     jobs:
+      - shellcheck
+      - lint
       - build
       - install-cni:
           requires:
