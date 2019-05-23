@@ -269,7 +269,7 @@ workflows:
 
   all:
     jobs:
-      # - shellcheck
+      - shellcheck
       - lint
       - build
       - install-cni:
