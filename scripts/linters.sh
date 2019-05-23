@@ -21,7 +21,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -ex
+set -e
 
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
@@ -36,6 +36,7 @@ fi
 # run any specialized per-repo linters
 if test -f "${ROOTDIR}/repolinters.sh"
 then
+    # shellcheck source=/dev/null
     source "${ROOTDIR}/repolinters.sh"
 fi
 
@@ -44,6 +45,6 @@ GOLANGCI_VERSION="v1.16.0"
 curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
 golangci-lint --version
 
-echo 'Running golangci-lint ...'
+echo 'Linting Go code...'
 env GOGC=25 golangci-lint run ${FIX} -j 1 -v ./...
 
