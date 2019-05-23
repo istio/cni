@@ -288,30 +288,6 @@ iptables -t nat -X ISTIO_REDIRECT 2>/dev/null
 iptables -t nat -F ISTIO_IN_REDIRECT 2>/dev/null
 iptables -t nat -X ISTIO_IN_REDIRECT 2>/dev/null
 
-# IPv6 cleanup
-# Remove the old chains, to generate new configs.
-ip6tables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
-ip6tables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
-ip6tables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT 2>/dev/null || true
-
-# Flush and delete the istio chains.
-ip6tables -t nat -F ISTIO_OUTPUT 2>/dev/null || true
-ip6tables -t nat -X ISTIO_OUTPUT 2>/dev/null || true
-ip6tables -t nat -F ISTIO_INBOUND 2>/dev/null || true
-ip6tables -t nat -X ISTIO_INBOUND 2>/dev/null || true
-ip6tables -t mangle -F ISTIO_INBOUND 2>/dev/null || true
-ip6tables -t mangle -X ISTIO_INBOUND 2>/dev/null || true
-ip6tables -t mangle -F ISTIO_DIVERT 2>/dev/null || true
-ip6tables -t mangle -X ISTIO_DIVERT 2>/dev/null || true
-ip6tables -t mangle -F ISTIO_TPROXY 2>/dev/null || true
-ip6tables -t mangle -X ISTIO_TPROXY 2>/dev/null || true
-
-# Must be last, the others refer to it
-ip6tables -t nat -F ISTIO_REDIRECT 2>/dev/null || true
-ip6tables -t nat -X ISTIO_REDIRECT 2>/dev/null|| true
-ip6tables -t nat -F ISTIO_IN_REDIRECT 2>/dev/null || true
-ip6tables -t nat -X ISTIO_IN_REDIRECT 2>/dev/null || true
-
 if [ "${1:-}" = "clean" ]; then
   echo "Only cleaning, no new rules added"
   exit 0
@@ -352,42 +328,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 set -x # echo on
-
-# Maximum time to wait for an iptables call to succeed when populating the redirection rules.
-# During that time, iptables call will be attempted for every one second.
-IPTABLES_WAIT=30
-# The iptables command path
-IPTABLES_CMD=`which iptables`
-IP4TABLES_CMD=${IPTABLES_CMD}
-IP6TABLES_CMD=`which ip6tables`
-
-# Make sure this function is placed after the iptables calls to cleanup
-# the existing redirection rules and before any iptables call to populate
-# the iptables for traffic redirection.
-function iptables {
-    local iptables_wait=$IPTABLES_WAIT
-    set +o errexit
-    while true; do
-        $IPTABLES_CMD $@
-        local err_code=$?
-        if [[ $err_code == 0 ]]; then
-            break
-        fi
-        iptables_wait=$(( iptables_wait - 1 ))
-        if (( $iptables_wait > 0 )); then
-            sleep 1
-        else
-            exit $err_code
-        fi
-    done
-    set -o errexit
-}
-
-function ip6tables {
-    IPTABLES_CMD=${IP6TABLES_CMD}
-    iptables $@
-    IPTABLES_CMD=${IP4TABLES_CMD}
-}
 
 # Create a new chain for redirecting outbound traffic to the common Envoy port.
 # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
@@ -542,6 +482,29 @@ fi
 # If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
 set +o nounset
 if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
+  # Remove the old chains, to generate new configs.
+  ip6tables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
+  ip6tables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
+  ip6tables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT 2>/dev/null || true
+
+  # Flush and delete the istio chains.
+  ip6tables -t nat -F ISTIO_OUTPUT 2>/dev/null || true
+  ip6tables -t nat -X ISTIO_OUTPUT 2>/dev/null || true
+  ip6tables -t nat -F ISTIO_INBOUND 2>/dev/null || true
+  ip6tables -t nat -X ISTIO_INBOUND 2>/dev/null || true
+  ip6tables -t mangle -F ISTIO_INBOUND 2>/dev/null || true
+  ip6tables -t mangle -X ISTIO_INBOUND 2>/dev/null || true
+  ip6tables -t mangle -F ISTIO_DIVERT 2>/dev/null || true
+  ip6tables -t mangle -X ISTIO_DIVERT 2>/dev/null || true
+  ip6tables -t mangle -F ISTIO_TPROXY 2>/dev/null || true
+  ip6tables -t mangle -X ISTIO_TPROXY 2>/dev/null || true
+
+  # Must be last, the others refer to it
+  ip6tables -t nat -F ISTIO_REDIRECT 2>/dev/null || true
+  ip6tables -t nat -X ISTIO_REDIRECT 2>/dev/null|| true
+  ip6tables -t nat -F ISTIO_IN_REDIRECT 2>/dev/null || true
+  ip6tables -t nat -X ISTIO_IN_REDIRECT 2>/dev/null || true
+
   # Create a new chain for redirecting outbound traffic to the common Envoy port.
   # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
   # redirects to Envoy.
