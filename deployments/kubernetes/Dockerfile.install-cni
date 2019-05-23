@@ -1,17 +1,16 @@
-FROM amd64/alpine:3.8
+FROM ubuntu:xenial
 
 LABEL description="Istio CNI plugin installer."
 
-# add bash to allow install-cni.sh to trap process signals
-RUN apk --update add jq bash && \
-    rm -rf /var/lib/apt/lists/* && \
-    rm /var/cache/apk/*
+RUN apt-get update && apt-get install -qqy --no-install-recommends \
+jq='1.5*' \
+&& rm -rf /var/lib/apt/lists/*
 
-ADD istio-cni /opt/cni/bin/
-ADD istio-iptables.sh /opt/cni/bin/
-ADD install-cni.sh /install-cni.sh
-ADD filter.jq /filter.jq
-ADD istio-cni.conf.default /istio-cni.conf.tmp
+COPY istio-cni /opt/cni/bin/
+COPY istio-iptables.sh /opt/cni/bin/
+COPY install-cni.sh /install-cni.sh
+COPY filter.jq /filter.jq
+COPY istio-cni.conf.default /istio-cni.conf.tmp
 
 ENV PATH=$PATH:/opt/cni/bin
 VOLUME /opt/cni
