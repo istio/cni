@@ -116,6 +116,77 @@ function isIPv6() {
   done
   return 0
 }
+#
+# Maximum time to wait for an iptables call to succeed when populating the redirection rules.
+# During that time, iptables call will be attempted for every one second.
+#
+IPTABLES_WAIT=30
+#
+# The path to the iptables command.
+#
+# shellcheck disable=SC2230
+IPTABLES_CMD=$(which iptables)
+#
+# The path to the ip6tables command.
+#
+# shellcheck disable=SC2230
+IP6TABLES_CMD=$(which ip6tables)
+#
+# If true, retries iptables & ip6tables commands in case they fails.
+#
+IPTABLES_RETRY=false
+#
+# Function wrapping iptables to retry in case of failure if IPTABLES_RETRY is "true".
+#
+function iptables {
+    if [ "${IPTABLES_RETRY}" != "true" ]; then
+        "$IPTABLES_CMD" "$@"
+        exit $?
+    fi
+
+    local iptables_wait=$IPTABLES_WAIT
+    set +o errexit
+    while true; do
+        "$IPTABLES_CMD" "$@"
+        local err_code=$?
+        if [[ $err_code == 0 ]]; then
+            break
+        fi
+        iptables_wait=$(( iptables_wait - 1 ))
+        if (( iptables_wait > 0 )); then
+            sleep 1
+        else
+            exit $err_code
+        fi
+    done
+    set -o errexit
+}
+#
+# Function wrapping ip6tables to retry in case of failure if IPTABLES_RETRY is "true".
+#
+function ip6tables {
+    if [ "${IPTABLES_RETRY}" != "true" ]; then
+        "$IP6TABLES_CMD" "$@"
+        exit $?
+    fi
+
+    local iptables_wait=$IPTABLES_WAIT
+    set +o errexit
+    while true; do
+        "$IP6TABLES_CMD" "$@"
+        local err_code=$?
+        if [[ $err_code == 0 ]]; then
+            break
+        fi
+        iptables_wait=$(( iptables_wait - 1 ))
+        if (( iptables_wait > 0 )); then
+            sleep 1
+        else
+            exit $err_code
+        fi
+    done
+    set -o errexit
+}
 
 # Use a comma as the separator for multi-value arguments.
 IFS=,
@@ -328,6 +399,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 set -x # echo on
+IPTABLES_RETRY=true
 
 # Create a new chain for redirecting outbound traffic to the common Envoy port.
 # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
@@ -482,6 +554,8 @@ fi
 # If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
 set +o nounset
 if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
+  IPTABLES_RETRY=false
+
   # Remove the old chains, to generate new configs.
   ip6tables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
   ip6tables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
@@ -504,6 +578,8 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   ip6tables -t nat -X ISTIO_REDIRECT 2>/dev/null|| true
   ip6tables -t nat -F ISTIO_IN_REDIRECT 2>/dev/null || true
   ip6tables -t nat -X ISTIO_IN_REDIRECT 2>/dev/null || true
+
+  IPTABLES_RETRY=true
 
   # Create a new chain for redirecting outbound traffic to the common Envoy port.
   # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
