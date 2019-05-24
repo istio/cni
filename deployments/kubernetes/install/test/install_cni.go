@@ -174,7 +174,7 @@ func docker(cmd, containerID string, t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to execute 'docker %s %s', err: %v", cmd, containerID, err)
 	}
-	t.Logf("docker %s %s - out: %s", cmd, containerID, out)
+	t.Logf("docker %s %s - out:\n%s", cmd, containerID, out)
 }
 
 // compareConfResult does a string compare of 2 test files.
@@ -242,6 +242,11 @@ func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
 	setEnv(cniNetworkConfigName, cniNetworkConfig, t)
 
 	containerID := startDocker(testNum, wd, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir, envPreconf, t)
+	defer func() {
+		docker("stop", containerID, t)
+		docker("logs", containerID, t)
+		docker("rm", containerID, t)
+	}()
 	time.Sleep(10 * time.Second)
 
 	compareConfResult(testWorkRootDir, tempCNIConfDir, resultFileName, expectedOutputFile, t)
@@ -257,9 +262,6 @@ func doTest(testNum int, wd, preConfFile, resultFileName, expectedOutputFile,
 		compareConfResult(testWorkRootDir, tempCNIConfDir, resultFileName, expectedPostCleanFile, t)
 	}
 	checkBinDir(t, tempCNIBinDir, "del", "istio-cni", "istio-iptables.sh")
-
-	docker("logs", containerID, t)
-	docker("rm", containerID, t)
 }
 
 // RunInstallCNITest sets up temporary directories and runs the test.
