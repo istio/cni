@@ -328,6 +328,8 @@ set -x # echo on
 IPTABLES_WAIT=30
 # The iptables command path
 IPTABLES_CMD=`which iptables`
+IP4TABLES_CMD=${IPTABLES_CMD}
+IP6TABLES_CMD=`which ip6tables`
 
 # Make sure this function is placed after the iptables calls to cleanup
 # the existing redirection rules and before any iptables call to populate
@@ -349,6 +351,12 @@ function iptables {
         fi
     done
     set -o errexit
+}
+
+function ip6tables {
+    IPTABLES_CMD=${IP6TABLES_CMD}
+    iptables $@
+    IPTABLES_CMD=${IP4TABLES_CMD}
 }
 
 # Create a new chain for redirecting outbound traffic to the common Envoy port.
