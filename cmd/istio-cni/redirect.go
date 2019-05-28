@@ -114,12 +114,12 @@ func splitPorts(portsString string) []string {
 	return strings.Split(portsString, ",")
 }
 
-func parsePort(portStr string) (int, error) {
+func parsePort(portStr string) (uint16, error) {
 	port, err := strconv.ParseUint(strings.TrimSpace(portStr), 10, 16)
 	if err != nil {
-		return 0, fmt.Errorf("failed parsing port '%d': %v", port, err)
+		return 0, fmt.Errorf("failed parsing port %q: %v", portStr, err)
 	}
-	return int(port), nil
+	return uint16(port), nil
 }
 
 func parsePorts(portsString string) ([]int, error) {
@@ -129,7 +129,7 @@ func parsePorts(portsString string) ([]int, error) {
 		for _, portStr := range splitPorts(portsString) {
 			port, err := parsePort(portStr)
 			if err != nil {
-				return nil, fmt.Errorf("failed parsing port '%d': %v", port, err)
+				return nil, err
 			}
 			ports = append(ports, int(port))
 		}
@@ -139,7 +139,7 @@ func parsePorts(portsString string) ([]int, error) {
 
 func validatePortList(ports string) error {
 	if _, err := parsePorts(ports); err != nil {
-		return fmt.Errorf("portList \"%s\" invalid: %v", ports, err)
+		return fmt.Errorf("portList %q invalid: %v", ports, err)
 	}
 	return nil
 }
@@ -188,12 +188,14 @@ func NewRedirect(ports []string, annotations map[string]string, logger *logrus.E
 	if valErr != nil {
 		logger.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"redirectMode", isFound, valErr)
+		return nil, valErr
 	}
 	redir.noRedirectUID = defaultNoRedirectUID
 	isFound, redir.includeIPCidrs, valErr = getAnnotationOrDefault("includeIPCidrs", annotations)
 	if valErr != nil {
 		logger.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"includeIPCidrs", isFound, valErr)
+		return nil, valErr
 	}
 	isFound, redir.includePorts, valErr = getAnnotationOrDefault("includePorts", annotations)
 	if !isFound || valErr != nil {
@@ -201,22 +203,26 @@ func NewRedirect(ports []string, annotations map[string]string, logger *logrus.E
 		if valErr != nil {
 			logger.Errorf("Annotation value error for redirect ports, using ContainerPorts=\"%s\": %v",
 				redir.includePorts, valErr)
+			return nil, valErr
 		}
 	}
 	isFound, redir.excludeIPCidrs, valErr = getAnnotationOrDefault("excludeIPCidrs", annotations)
 	if valErr != nil {
 		logger.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"excludeIPCidrs", isFound, valErr)
+		return nil, valErr
 	}
 	isFound, redir.excludePorts, valErr = getAnnotationOrDefault("excludePorts", annotations)
 	if valErr != nil {
 		logger.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"excludePorts", isFound, valErr)
+		return nil, valErr
 	}
 	isFound, redir.kubevirtInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", annotations)
 	if valErr != nil {
 		logger.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"kubevirtInterfaces", isFound, valErr)
+		return nil, valErr
 	}
 
 	return redir, nil
@@ -243,7 +249,7 @@ func (rdrct *Redirect) doRedirect(netns string) error {
 	out, err := exec.Command("nsenter", nsenterArgs...).CombinedOutput()
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
-			"out": string(out[:]),
+			"out": string(out),
 			"err": err,
 		}).Errorf("nsenter failed: %v", err)
 		rdrct.logger.Infof("nsenter out: %s", out)

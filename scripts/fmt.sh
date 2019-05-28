@@ -41,7 +41,7 @@ fi
 # need to pin goimports to align with golangci-lint. SHA is from x/tools repo
 if [ $GO_FMT_TOOL = "goimportsdocker" ]; then
   GO_IMPORTS_DOCKER="gcr.io/istio-testing/goimports:379209517ffe"
-  tool="docker run -i --rm -v "${ROOTDIR}:${ROOTDIR}" -w "${ROOTDIR}" "${GO_IMPORTS_DOCKER}" /goimports"
+  tool="docker run -i --rm -v ${ROOTDIR}:${ROOTDIR} -w ${ROOTDIR} ${GO_IMPORTS_DOCKER} /goimports"
   fmt_args="-w -local istio.io"
 fi
 
@@ -51,5 +51,6 @@ if [ $GO_FMT_TOOL = "gofmt" ]; then
 fi
 
 echo "Formatting the source files"
+# shellcheck disable=SC2086
 $tool ${fmt_args} ${GO_FILES}
 exit $?

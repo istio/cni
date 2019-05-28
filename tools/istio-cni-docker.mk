@@ -59,6 +59,10 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 $(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
         time (docker push $(HUB)/$(subst docker.,,$(TGT)):$(TAG))))
 
+# create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
+DOCKER_PUSH_TARGETS:=
+$(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
+
 # Will build and push docker images.
 docker.push: $(DOCKER_PUSH_TARGETS)
 
@@ -77,13 +81,3 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT}/docker/
 docker.save: $(DOCKER_TAR_TARGETS)
-
-# for each docker.XXX target create a push.docker.XXX target that pushes
-# the local docker image to another hub
-# a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
-$(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
-        time (docker push $(HUB)/$(subst docker.,,$(TGT)):$(TAG))))
-
-# create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
-DOCKER_PUSH_TARGETS:=
-$(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
