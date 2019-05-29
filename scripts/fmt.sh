@@ -27,11 +27,11 @@ set -e
 
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
+cd "${ROOTDIR}"
 
 # Go format tool to use
 # While 'goimports' is preferred we temporarily use 'gofmt' until https://github.com/golang/go/issues/28200 is resolved
 GO_FMT_TOOL=goimportsdocker
-cd "$ROOTDIR"
 
 PKGS=${PKGS:-"."}
 if [[ -z ${GO_FILES} ]];then
