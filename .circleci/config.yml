@@ -114,7 +114,7 @@ e2e-dind-test: &e2e-dind-test
           export IP_MODE=${IP_MODE:-ipv4}
           export DIND_PORT_FORWARDER_WAIT=1
           export DIND_PORT_FORWARDER="${PWD}/build/portforward.sh"
-          ./fixed/dind-cluster-v1.10.sh up
+          ./fixed/dind-cluster-v1.12.sh up
     - run:
         name: Display cluster status (1)
         <<: *dind-display_cluster_state
