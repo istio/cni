@@ -294,4 +294,11 @@ selected-pkg-test:
 cmd-test:
 	go test ./cmd/...
 
+lint:
+	@scripts/check_license.sh
+	@scripts/run_golangci.sh
+
+fmt:
+	@scripts/go_runfmt.sh
+
 include Makefile.common.mk
