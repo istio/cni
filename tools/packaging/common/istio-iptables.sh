@@ -141,7 +141,7 @@ IPTABLES_RETRY=false
 function iptables {
     if [ "${IPTABLES_RETRY}" != "true" ]; then
         "$IPTABLES_CMD" "$@"
-        exit $?
+        return $?
     fi
 
     local iptables_wait=$IPTABLES_WAIT
@@ -167,7 +167,7 @@ function iptables {
 function ip6tables {
     if [ "${IPTABLES_RETRY}" != "true" ]; then
         "$IP6TABLES_CMD" "$@"
-        exit $?
+        return $?
     fi
 
     local iptables_wait=$IPTABLES_WAIT
