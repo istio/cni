@@ -136,18 +136,17 @@ IP6TABLES_CMD=$(which ip6tables)
 #
 IPTABLES_RETRY=false
 #
-# Function wrapping iptables to retry in case of failure if IPTABLES_RETRY is "true".
+# Function wrapping a command to retry in case of failure if IPTABLES_RETRY is "true".
 #
-function iptables {
+function iptables_retry {
     if [ "${IPTABLES_RETRY}" != "true" ]; then
-        "$IPTABLES_CMD" "$@"
+        "$@"
         return $?
     fi
-
     local iptables_wait=$IPTABLES_WAIT
     set +o errexit
     while true; do
-        "$IPTABLES_CMD" "$@"
+        "$@"
         local err_code=$?
         if [[ $err_code == 0 ]]; then
             break
@@ -162,30 +161,18 @@ function iptables {
     set -o errexit
 }
 #
+# Function wrapping iptables to retry in case of failure if IPTABLES_RETRY is "true".
+#
+function iptables {
+    iptables_retry "$IPTABLES_CMD" "$@"
+    return $?
+}
+#
 # Function wrapping ip6tables to retry in case of failure if IPTABLES_RETRY is "true".
 #
 function ip6tables {
-    if [ "${IPTABLES_RETRY}" != "true" ]; then
-        "$IP6TABLES_CMD" "$@"
-        return $?
-    fi
-
-    local iptables_wait=$IPTABLES_WAIT
-    set +o errexit
-    while true; do
-        "$IP6TABLES_CMD" "$@"
-        local err_code=$?
-        if [[ $err_code == 0 ]]; then
-            break
-        fi
-        iptables_wait=$(( iptables_wait - 1 ))
-        if (( iptables_wait > 0 )); then
-            sleep 1
-        else
-            exit $err_code
-        fi
-    done
-    set -o errexit
+    iptables_retry "$IP6TABLES_CMD" "$@"
+    return $?
 }
 
 # Use a comma as the separator for multi-value arguments.
@@ -358,6 +345,29 @@ iptables -t nat -F ISTIO_REDIRECT 2>/dev/null
 iptables -t nat -X ISTIO_REDIRECT 2>/dev/null
 iptables -t nat -F ISTIO_IN_REDIRECT 2>/dev/null
 iptables -t nat -X ISTIO_IN_REDIRECT 2>/dev/null
+
+# Remove the old chains, to generate new configs.
+ip6tables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
+ip6tables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
+ip6tables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT 2>/dev/null || true
+
+# Flush and delete the istio chains.
+ip6tables -t nat -F ISTIO_OUTPUT 2>/dev/null || true
+ip6tables -t nat -X ISTIO_OUTPUT 2>/dev/null || true
+ip6tables -t nat -F ISTIO_INBOUND 2>/dev/null || true
+ip6tables -t nat -X ISTIO_INBOUND 2>/dev/null || true
+ip6tables -t mangle -F ISTIO_INBOUND 2>/dev/null || true
+ip6tables -t mangle -X ISTIO_INBOUND 2>/dev/null || true
+ip6tables -t mangle -F ISTIO_DIVERT 2>/dev/null || true
+ip6tables -t mangle -X ISTIO_DIVERT 2>/dev/null || true
+ip6tables -t mangle -F ISTIO_TPROXY 2>/dev/null || true
+ip6tables -t mangle -X ISTIO_TPROXY 2>/dev/null || true
+
+# Must be last, the others refer to it
+ip6tables -t nat -F ISTIO_REDIRECT 2>/dev/null || true
+ip6tables -t nat -X ISTIO_REDIRECT 2>/dev/null|| true
+ip6tables -t nat -F ISTIO_IN_REDIRECT 2>/dev/null || true
+ip6tables -t nat -X ISTIO_IN_REDIRECT 2>/dev/null || true
 
 if [ "${1:-}" = "clean" ]; then
   echo "Only cleaning, no new rules added"
@@ -554,33 +564,6 @@ fi
 # If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
 set +o nounset
 if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
-  IPTABLES_RETRY=false
-
-  # Remove the old chains, to generate new configs.
-  ip6tables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT 2>/dev/null || true
-
-  # Flush and delete the istio chains.
-  ip6tables -t nat -F ISTIO_OUTPUT 2>/dev/null || true
-  ip6tables -t nat -X ISTIO_OUTPUT 2>/dev/null || true
-  ip6tables -t nat -F ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t nat -X ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t mangle -F ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t mangle -X ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t mangle -F ISTIO_DIVERT 2>/dev/null || true
-  ip6tables -t mangle -X ISTIO_DIVERT 2>/dev/null || true
-  ip6tables -t mangle -F ISTIO_TPROXY 2>/dev/null || true
-  ip6tables -t mangle -X ISTIO_TPROXY 2>/dev/null || true
-
-  # Must be last, the others refer to it
-  ip6tables -t nat -F ISTIO_REDIRECT 2>/dev/null || true
-  ip6tables -t nat -X ISTIO_REDIRECT 2>/dev/null|| true
-  ip6tables -t nat -F ISTIO_IN_REDIRECT 2>/dev/null || true
-  ip6tables -t nat -X ISTIO_IN_REDIRECT 2>/dev/null || true
-
-  IPTABLES_RETRY=true
-
   # Create a new chain for redirecting outbound traffic to the common Envoy port.
   # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
   # redirects to Envoy.
