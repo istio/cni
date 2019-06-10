@@ -170,6 +170,18 @@ func (p *CRIRuntime) StartProxy(podSandboxID string, pod *v1.Pod, sidecar *v1.Co
 	klog.Infof("podSandboxConfig: %v", toDebugJSON(podSandboxConfig))
 	klog.Infof("containerConfig: %v", toDebugJSON(containerConfig))
 
+	existingContainer, err := p.findProxyContainer(podSandboxID)
+	if err != nil {
+		return fmt.Errorf("Error checking if sidecar container already exists: %v", err)
+	}
+	if existingContainer != nil {
+		klog.Infof("Removing existing proxy sidecar container for pod %s", pod.Name)
+		err := p.runtimeService.RemoveContainer(existingContainer.Id)
+		if err != nil {
+			return fmt.Errorf("Error removing existing sidecar container: %v", err)
+		}
+	}
+
 	klog.Infof("Creating proxy sidecar container for pod %s", pod.Name)
 	containerID, err := p.runtimeService.CreateContainer(podSandboxID, &containerConfig, &podSandboxConfig)
 	if err != nil {
