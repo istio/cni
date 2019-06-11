@@ -144,14 +144,6 @@ e2e-dind-test: &e2e-dind-test
         <<: *dind-dump_cluster
     - store_artifacts:
         path: /tmp/cluster_state
-    - run:
-        name: Bring down the cluster
-        command: |
-          ./dind-cluster.sh down
-    - run:
-        name: Clean the cluster
-        command: |
-          ./dind-cluster.sh clean
 
 
 

@@ -116,6 +116,64 @@ function isIPv6() {
   done
   return 0
 }
+#
+# Maximum time to wait for an iptables call to succeed when populating the redirection rules.
+# During that time, iptables call will be attempted for every one second.
+#
+IPTABLES_WAIT=30
+#
+# The path to the iptables command.
+#
+# shellcheck disable=SC2230
+IPTABLES_CMD=$(which iptables)
+#
+# The path to the ip6tables command.
+#
+# shellcheck disable=SC2230
+IP6TABLES_CMD=$(which ip6tables)
+#
+# If true, retries iptables & ip6tables commands in case they fails.
+#
+IPTABLES_RETRY=false
+#
+# Function wrapping a command to retry in case of failure if IPTABLES_RETRY is "true".
+#
+function iptables_retry {
+    if [ "${IPTABLES_RETRY}" != "true" ]; then
+        "$@"
+        return $?
+    fi
+    local iptables_wait=$IPTABLES_WAIT
+    set +o errexit
+    while true; do
+        "$@"
+        local err_code=$?
+        if [[ $err_code == 0 ]]; then
+            break
+        fi
+        iptables_wait=$(( iptables_wait - 1 ))
+        if (( iptables_wait > 0 )); then
+            sleep 1
+        else
+            exit $err_code
+        fi
+    done
+    set -o errexit
+}
+#
+# Function wrapping iptables to retry in case of failure if IPTABLES_RETRY is "true".
+#
+function iptables {
+    iptables_retry "$IPTABLES_CMD" "$@"
+    return $?
+}
+#
+# Function wrapping ip6tables to retry in case of failure if IPTABLES_RETRY is "true".
+#
+function ip6tables {
+    iptables_retry "$IP6TABLES_CMD" "$@"
+    return $?
+}
 
 # Use a comma as the separator for multi-value arguments.
 IFS=,
@@ -288,7 +346,6 @@ iptables -t nat -X ISTIO_REDIRECT 2>/dev/null
 iptables -t nat -F ISTIO_IN_REDIRECT 2>/dev/null
 iptables -t nat -X ISTIO_IN_REDIRECT 2>/dev/null
 
-# IPv6 cleanup
 # Remove the old chains, to generate new configs.
 ip6tables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
 ip6tables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
@@ -352,42 +409,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 set -x # echo on
-
-# Maximum time to wait for an iptables call to succeed when populating the redirection rules.
-# During that time, iptables call will be attempted for every one second.
-IPTABLES_WAIT=30
-# The iptables command path
-IPTABLES_CMD=`which iptables`
-IP4TABLES_CMD=${IPTABLES_CMD}
-IP6TABLES_CMD=`which ip6tables`
-
-# Make sure this function is placed after the iptables calls to cleanup
-# the existing redirection rules and before any iptables call to populate
-# the iptables for traffic redirection.
-function iptables {
-    local iptables_wait=$IPTABLES_WAIT
-    set +o errexit
-    while true; do
-        $IPTABLES_CMD $@
-        local err_code=$?
-        if [[ $err_code == 0 ]]; then
-            break
-        fi
-        iptables_wait=$(( iptables_wait - 1 ))
-        if (( $iptables_wait > 0 )); then
-            sleep 1
-        else
-            exit $err_code
-        fi
-    done
-    set -o errexit
-}
-
-function ip6tables {
-    IPTABLES_CMD=${IP6TABLES_CMD}
-    iptables $@
-    IPTABLES_CMD=${IP4TABLES_CMD}
-}
+IPTABLES_RETRY=true
 
 # Create a new chain for redirecting outbound traffic to the common Envoy port.
 # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'

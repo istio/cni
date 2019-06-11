@@ -12,7 +12,7 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
-.PHONY: docker docker.save
+.PHONY: docker docker.save update-istio-iptables.sh
 
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
@@ -33,11 +33,11 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
 # tell make which files are copied from the source tree
-DOCKER_FILES_FROM_SOURCE:=tools/deb/istio-iptables.sh
+DOCKER_FILES_FROM_SOURCE:=tools/packaging/common/istio-iptables.sh
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
 
-docker.install-cni: $(ISTIO_OUT)/istio-cni tools/deb/istio-iptables.sh \
+docker.install-cni: $(ISTIO_OUT)/istio-cni tools/packaging/common/istio-iptables.sh \
 		deployments/kubernetes/install/scripts/install-cni.sh \
 		deployments/kubernetes/install/scripts/istio-cni.conf.default \
 		deployments/kubernetes/Dockerfile.install-cni \
@@ -81,3 +81,9 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT}/docker/
 docker.save: $(DOCKER_TAR_TARGETS)
+
+# Update the local copy of https://github.com/istio/istio/blob/master/tools/packaging/common/istio-iptables.sh,
+# and attempt to apply a patch to retry iptables calls when they fail.
+update-istio-iptables.sh: tools/packaging/common/iptables-retry.diff
+	@curl -s -Lo - https://raw.githubusercontent.com/istio/istio/master/tools/packaging/common/istio-iptables.sh > tools/packaging/common/istio-iptables.sh
+	@git apply < tools/packaging/common/iptables-retry.diff
