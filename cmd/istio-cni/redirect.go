@@ -40,7 +40,8 @@ const (
 	includeIPCidrsKey = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 	excludeIPCidrsKey = "traffic.sidecar.istio.io/excludeOutboundIPRanges"
 	includePortsKey   = "traffic.sidecar.istio.io/includeInboundPorts"
-	excludePortsKey   = "traffic.sidecar.istio.io/excludeInboundPorts"
+	excludeInboundPortsKey   = "traffic.sidecar.istio.io/excludeInboundPorts"
+	excludeOutboundPortsKey   = "traffic.sidecar.istio.io/excludeOutboundPorts"
 
 	sidecarInterceptModeKey = "sidecar.istio.io/interceptionMode"
 	sidecarPortListKey      = "status.sidecar.istio.io/port"
@@ -50,28 +51,30 @@ const (
 
 var (
 	annotationRegistry = map[string]*annotationParam{
-		"inject":             {injectAnnotationKey, "", alwaysValidFunc},
-		"status":             {sidecarStatusKey, "", alwaysValidFunc},
-		"redirectMode":       {sidecarInterceptModeKey, defaultRedirectMode, validateInterceptionMode},
-		"ports":              {sidecarPortListKey, "", validatePortList},
-		"includeIPCidrs":     {includeIPCidrsKey, defaultRedirectIPCidr, validateCIDRListWithWildcard},
-		"excludeIPCidrs":     {excludeIPCidrsKey, defaultRedirectExcludeIPCidr, validateCIDRList},
-		"includePorts":       {includePortsKey, "", validatePortListWithWildcard},
-		"excludePorts":       {excludePortsKey, defaultRedirectExcludePort, validatePortList},
-		"kubevirtInterfaces": {kubevirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc},
+		"inject":             	{injectAnnotationKey, "", alwaysValidFunc},
+		"status":             	{sidecarStatusKey, "", alwaysValidFunc},
+		"redirectMode":       	{sidecarInterceptModeKey, defaultRedirectMode, validateInterceptionMode},
+		"ports":              	{sidecarPortListKey, "", validatePortList},
+		"includeIPCidrs":     	{includeIPCidrsKey, defaultRedirectIPCidr, validateCIDRListWithWildcard},
+		"excludeIPCidrs":     	{excludeIPCidrsKey, defaultRedirectExcludeIPCidr, validateCIDRList},
+		"includePorts":       	{includePortsKey, "", validatePortListWithWildcard},
+		"excludeInboundPorts":  {excludeInboundPortsKey, defaultRedirectExcludePort, validatePortList},
+		"excludeOutboundPorts": {excludeOutboundPortsKey, defaultRedirectExcludePort, validatePortList},
+		"kubevirtInterfaces": 	{kubevirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc},
 	}
 )
 
 // Redirect -- the istio-cni redirect object
 type Redirect struct {
-	targetPort         string
-	redirectMode       string
-	noRedirectUID      string
-	includeIPCidrs     string
-	includePorts       string
-	excludeIPCidrs     string
-	excludePorts       string
-	kubevirtInterfaces string
+	targetPort         		string
+	redirectMode       		string
+	noRedirectUID      		string
+	includeIPCidrs     		string
+	includePorts       		string
+	excludeIPCidrs     		string
+	excludeInboundPorts   string
+	excludeOutboundPorts  string
+	kubevirtInterfaces 		string
 
 	logger *logrus.Entry
 }
@@ -212,10 +215,16 @@ func NewRedirect(ports []string, annotations map[string]string, logger *logrus.E
 			"excludeIPCidrs", isFound, valErr)
 		return nil, valErr
 	}
-	isFound, redir.excludePorts, valErr = getAnnotationOrDefault("excludePorts", annotations)
+	isFound, redir.excludeInboundPorts, valErr = getAnnotationOrDefault("excludeInboundPorts", annotations)
 	if valErr != nil {
 		logger.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
-			"excludePorts", isFound, valErr)
+			"excludeInboundPorts", isFound, valErr)
+		return nil, valErr
+	}
+	isFound, redir.excludeOutboundPorts, valErr = getAnnotationOrDefault("excludeOutboundPorts", annotations)
+	if valErr != nil {
+		logger.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
+			"excludeOutboundPorts", isFound, valErr)
 		return nil, valErr
 	}
 	isFound, redir.kubevirtInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", annotations)
@@ -239,7 +248,8 @@ func (rdrct *Redirect) doRedirect(netns string) error {
 		"-m", rdrct.redirectMode,
 		"-i", rdrct.includeIPCidrs,
 		"-b", rdrct.includePorts,
-		"-d", rdrct.excludePorts,
+		"-d", rdrct.excludeInboundPorts,
+		"-o", rdrct.excludeOutboundPorts,
 		"-x", rdrct.excludeIPCidrs,
 		"-k", rdrct.kubevirtInterfaces,
 	}
