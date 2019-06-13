@@ -243,6 +243,15 @@ jobs:
       ISTIO_TAG: release-1.1-latest-daily
     <<: *e2e-dind-test  
 
+  e2e-dind-istio1.2:
+    <<: *dind-defaults
+    environment:
+      <<: *dind-env
+      ISTIO_BRANCH: release-1.2
+      ISTIO_HUB: gcr.io/istio-release
+      ISTIO_TAG: release-1.2-latest-daily
+    <<: *e2e-dind-test
+
   e2e-dind:
     <<: *dind-defaults
     environment:
@@ -284,6 +293,9 @@ workflows:
       - e2e-dind-istio1.1:
           requires:
             - build
+      - e2e-dind-istio1.2:
+          requires:
+            - build
 
   # Nightly test
   nightly:
@@ -296,6 +308,7 @@ workflows:
             only:
             - master
             - release-1.1
+            - release-1.2
     jobs:
     - build
     - nightly:
@@ -306,5 +319,8 @@ workflows:
         requires:
           - build
     - e2e-dind-istio1.1:
+        requires:
+          - build
+    - e2e-dind-istio1.2:
         requires:
           - build

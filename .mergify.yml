@@ -6,6 +6,7 @@ pull_request_rules:
       - "status-success=ci/circleci: install-cni"
       - "status-success=ci/circleci: e2e-dind"
       - "status-success=ci/circleci: e2e-dind-istio1.1"
+      - "status-success=ci/circleci: e2e-dind-istio1.2"
       - status-success=cla/google
       - "#approved-reviews-by>=1"
       - label!=do-not-merge
