@@ -141,8 +141,7 @@ func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
 	if cniConfFileName != "" {
 		args = append(args, "-e", cniConfName+"="+cniConfFileName)
 	}
-	args = append(args, dockerImage)
-	args = append(args, "/install-cni.sh")
+	args = append(args, dockerImage, "/install-cni.sh")
 
 	// Create a temporary log file to write docker command error log.
 	errFile, err := os.Create(errFileName)
@@ -273,9 +272,7 @@ func RunInstallCNITest(testNum int, preConfFile, resultFileName, expectedOutputF
 	expectedPostCleanFile string, cniConfDirOrderedFiles []string, t *testing.T) {
 
 	wd := pwd(t)
-	// root := filepath.Dir(wd)
 	testWorkRootDir := env("TEST_WORK_ROOTDIR", "/tmp")
-	// defaultCNIConf := env("DEFAULT_CNICONF", "10-calico.conflist")
 
 	tempCNIConfDir := mktemp(testWorkRootDir, "cni-confXXXXX", t)
 	defer rm(tempCNIConfDir, t)

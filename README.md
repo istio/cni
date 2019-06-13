@@ -232,7 +232,7 @@ $ gcloud logging read "resource.type=gce_instance AND jsonPayload.SYSLOG_IDENTIF
     - if so, calls `istio-iptables.sh` with params to setup pod netns
 
 - [istio-iptables.sh](tools/istio-cni-docker.mk)
-  - direct copy of Istio's [istio-iptables.sh0(https://github.com/istio/istio/blob/master/tools/deb/istio-iptables.sh)
+  - fork of Istio's [istio-iptables.sh](https://github.com/istio/istio/blob/master/tools/packaging/common/istio-iptables.sh)
   - sets up iptables to redirect a list of ports to the port envoy will listen
 
 ### Background
