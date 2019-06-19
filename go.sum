@@ -2,6 +2,7 @@ github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 h1:xJ4a3vCFaGF/jqvzLM
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/containernetworking/cni v0.7.0-alpha1 h1:a3TVZWNd0f5Ml+l8CQC/KzzbGBVP96wXHIft1QgvWuQ=
 github.com/containernetworking/cni v0.7.0-alpha1/go.mod h1:LGwApLUm2FpoOfxTDEeq8T9ipbpZ61X79hmU3w8FmsY=
+github.com/containernetworking/plugins v0.7.3 h1:cj32EM6IBzyqbx+qyB7Tz3lWMVtEHQJKfECNdhwZkFk=
 github.com/containernetworking/plugins v0.7.3/go.mod h1:dagHaAhNjXjT9QYOklkKJDGaQPTg4pf//FrUcJeb7FU=
 github.com/ghodss/yaml v1.0.0 h1:wQHKEahhL6wmXdzwWG11gIVCkOv05bNOh+Rxn0yngAk=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
