@@ -82,7 +82,8 @@ No special set up is required for IKS, as it currently uses the default `cni-con
 
 #### Red Hat OpenShift Setup
 
-1. Run the DaemonSet container as privileged so that it has proper write permission in the host filesystem: Modify [istio-cni.yaml](deployments/kubernetes/install/manifests/istio-cni.yaml#L105) adding this section within the `install-cni` container:
+Add the following section into [istio-cni.yaml](deployments/kubernetes/install/helm/istio-cni/templates/istio-cni.yaml#L109)
+to run the `install-cni` DaemonSet container as privileged so that it has proper write permission in the host filesystem:
 
 ```yaml
 securityContext:
@@ -94,6 +95,7 @@ securityContext:
 ```console
 $ oc adm policy add-scc-to-user privileged -z istio-cni -n kube-system
 ```
+
 ## Build
 
 First, clone this repository under `$GOPATH/src/istio.io/`.
@@ -213,8 +215,8 @@ $ gcloud logging read "resource.type=gce_instance AND jsonPayload.SYSLOG_IDENTIF
 
 ### Overview
 
-- [istio-cni.yaml](deployments/kubernetes/install/manifests/istio-cni.yaml)
-   - manifest for deploying `install-cni` container as daemonset
+- [istio-cni.yaml](deployments/kubernetes/install/helm/istio-cni/templates/istio-cni.yaml)
+   - Helm chart manifest for deploying `install-cni` container as daemonset
    - `istio-cni-config` configmap with CNI plugin config to add to CNI plugin chained config
    - creates service-account `istio-cni` with `ClusterRoleBinding` to allow gets on pods' info
 
