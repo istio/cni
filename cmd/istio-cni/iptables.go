@@ -23,6 +23,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	nsSetupProg = "istio-iptables.sh"
+)
+
 type iptables struct {
 }
 

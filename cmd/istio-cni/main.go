@@ -33,9 +33,7 @@ import (
 )
 
 var (
-	nsSetupBinDir = "/opt/cni/bin"
-	nsSetupProg   = "istio-iptables.sh"
-
+	nsSetupBinDir       = "/opt/cni/bin"
 	injectAnnotationKey = "sidecar.istio.io/inject"
 	sidecarStatusKey    = "sidecar.istio.io/status"
 )
