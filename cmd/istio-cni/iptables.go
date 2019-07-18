@@ -34,7 +34,9 @@ func newIPTables() Tables {
 	return &iptables{}
 }
 
-func (ipt *iptables) program(netns string, rdrct *Redirect) error {
+// Program defines a method which programs iptables based on the parameters
+// provided in Redirect.
+func (ipt *iptables) Program(netns string, rdrct *Redirect) error {
 	netnsArg := fmt.Sprintf("--net=%s", netns)
 	nsSetupExecutable := fmt.Sprintf("%s/%s", nsSetupBinDir, nsSetupProg)
 	nsenterArgs := []string{

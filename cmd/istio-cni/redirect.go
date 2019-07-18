@@ -65,7 +65,7 @@ var (
 
 // Tables defines interface which must be implemented by tables mechanism driver (ex. ip tables )
 type Tables interface {
-	program(string, *Redirect) error
+	Program(netns string, redirect *Redirect) error
 }
 
 // Redirect -- the istio-cni redirect object
