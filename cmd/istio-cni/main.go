@@ -216,7 +216,9 @@ func cmdAdd(args *skel.CmdArgs) error {
 							// TODO Depending on a parameters, either iptables or nftables interface must be selected
 							// and instantiated, for now defaulting to iptables.
 							tables := newIPTables()
-							return tables.Program(args.Netns, redirect)
+							if err := tables.Program(args.Netns, redirect); err != nil {
+								return err
+							}
 						}
 					}
 				}
