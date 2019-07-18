@@ -214,8 +214,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 					} else {
 						if setupRedirect != nil {
 							_ = setupRedirect(args.Netns, ports)
-						} else if err := redirect.doRedirect(args.Netns); err != nil {
-							return err
+						} else {
+							// TODO Depending on a parameters, either iptables or nftables interface must be selected
+							// and instantiated, for now defaulting to iptables.
+							tables := newIPTables()
+							return tables.program(args.Netns, redirect)
 						}
 					}
 				}

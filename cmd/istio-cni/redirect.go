@@ -18,7 +18,6 @@ package main
 import (
 	"fmt"
 	"net"
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -63,6 +62,11 @@ var (
 		"kubevirtInterfaces":   {kubevirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc},
 	}
 )
+
+// Tables defines interface which must be implemented by tables mechanism driver (ex. ip tables )
+type Tables interface {
+	program(string, *Redirect) error
+}
 
 // Redirect -- the istio-cni redirect object
 type Redirect struct {
@@ -235,36 +239,4 @@ func NewRedirect(ports []string, annotations map[string]string, logger *logrus.E
 	}
 
 	return redir, nil
-}
-
-func (rdrct *Redirect) doRedirect(netns string) error {
-	netnsArg := fmt.Sprintf("--net=%s", netns)
-	nsSetupExecutable := fmt.Sprintf("%s/%s", nsSetupBinDir, nsSetupProg)
-	nsenterArgs := []string{
-		netnsArg,
-		nsSetupExecutable,
-		"-p", rdrct.targetPort,
-		"-u", rdrct.noRedirectUID,
-		"-m", rdrct.redirectMode,
-		"-i", rdrct.includeIPCidrs,
-		"-b", rdrct.includePorts,
-		"-d", rdrct.excludeInboundPorts,
-		"-o", rdrct.excludeOutboundPorts,
-		"-x", rdrct.excludeIPCidrs,
-		"-k", rdrct.kubevirtInterfaces,
-	}
-	logrus.WithFields(logrus.Fields{
-		"nsenterArgs": nsenterArgs,
-	}).Infof("nsenter args")
-	out, err := exec.Command("nsenter", nsenterArgs...).CombinedOutput()
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"out": string(out),
-			"err": err,
-		}).Errorf("nsenter failed: %v", err)
-		rdrct.logger.Infof("nsenter out: %s", out)
-	} else {
-		rdrct.logger.Infof("nsenter done: %s", out)
-	}
-	return err
 }
