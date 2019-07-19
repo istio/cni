@@ -63,8 +63,8 @@ var (
 	}
 )
 
-// Tables defines interface which must be implemented by tables mechanism driver (ex. ip tables )
-type Tables interface {
+// InterceptRulesMgr defines interface which must be implemented by tables mechanism driver (ex. ip tables )
+type InterceptRulesMgr interface {
 	// Program is method implemented by tables mechanism driver.
 	// It will program security/redirection tables rules.
 	// Example: iptables driver will program required iptables rules, nftables driver
