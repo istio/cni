@@ -63,12 +63,8 @@ var (
 	}
 )
 
-// InterceptRulesMgr defines interface which must be implemented by tables mechanism driver (ex. ip tables )
+// InterceptRulesMgr configures networking tables (e.g. iptables or nftables) for redirecting traffic to an Istio proxy.
 type InterceptRulesMgr interface {
-	// Program is method implemented by tables mechanism driver.
-	// It will program security/redirection tables rules.
-	// Example: iptables driver will program required iptables rules, nftables driver
-	// will program nft rules.
 	Program(netns string, redirect *Redirect) error
 }
 
