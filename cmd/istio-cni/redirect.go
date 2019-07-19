@@ -63,8 +63,8 @@ var (
 	}
 )
 
-// InterceptRulesMgr configures networking tables (e.g. iptables or nftables) for redirecting traffic to an Istio proxy.
-type InterceptRulesMgr interface {
+// InterceptRuleMgr configures networking tables (e.g. iptables or nftables) for redirecting traffic to an Istio proxy.
+type InterceptRuleMgr interface {
 	Program(netns string, redirect *Redirect) error
 }
 

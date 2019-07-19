@@ -30,7 +30,7 @@ var (
 type iptables struct {
 }
 
-func newIPTables() InterceptRulesMgr {
+func newIPTables() InterceptRuleMgr {
 	return &iptables{}
 }
 
