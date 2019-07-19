@@ -33,9 +33,7 @@ import (
 )
 
 var (
-	nsSetupBinDir = "/opt/cni/bin"
-	nsSetupProg   = "istio-iptables.sh"
-
+	nsSetupBinDir       = "/opt/cni/bin"
 	injectAnnotationKey = "sidecar.istio.io/inject"
 	sidecarStatusKey    = "sidecar.istio.io/status"
 )
@@ -214,8 +212,13 @@ func cmdAdd(args *skel.CmdArgs) error {
 					} else {
 						if setupRedirect != nil {
 							_ = setupRedirect(args.Netns, ports)
-						} else if err := redirect.doRedirect(args.Netns); err != nil {
-							return err
+						} else {
+							// TODO Depending on a parameters, either iptables or nftables interface must be selected
+							// and instantiated, for now defaulting to iptables.
+							rulesMgr := newIPTables()
+							if err := rulesMgr.Program(args.Netns, redirect); err != nil {
+								return err
+							}
 						}
 					}
 				}
