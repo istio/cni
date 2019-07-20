@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -82,15 +83,23 @@ var conf = `{
     "kubernetes": {
         "k8s_api_root": "APIRoot",
         "kubeconfig": "testK8sConfig",
+		"intercept_type": "mock",
         "node_name": "testNodeName",
         "exclude_namespaces": ["testExcludeNS"],
         "cni_bin_dir": "/testDirectory"
     }
     }`
 
-func mockNsenterRedirect(netns string, ports []string) error {
+type mockInterceptRuleMgr struct {
+}
+
+func (mrdir *mockInterceptRuleMgr) Program(netns string, redirect *Redirect) error {
 	nsenterFuncCalled = true
 	return nil
+}
+
+func NewMockInterceptRuleMgr() InterceptRuleMgr {
+	return &mockInterceptRuleMgr{}
 }
 
 func mocknewK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset, error) {
@@ -121,7 +130,7 @@ func resetGlobalTestVariables() {
 	testAnnotations = map[string]string{}
 	testPorts = []string{"9080"}
 
-	setupRedirect = nil
+	interceptRuleMgrType = "mock"
 	testAnnotations[sidecarStatusKey] = "true"
 }
 
@@ -205,7 +214,6 @@ func TestCmdAddTwoContainersWithAnnotation(t *testing.T) {
 func TestCmdAddTwoContainers(t *testing.T) {
 	defer resetGlobalTestVariables()
 
-	setupRedirect = mockNsenterRedirect
 	testAnnotations[injectAnnotationKey] = "true"
 	testContainers = []string{"mockContainer", "mockContainer2"}
 
@@ -244,7 +252,6 @@ func TestCmdAddExcludePod(t *testing.T) {
 func TestCmdAddWithKubevirtInterfaces(t *testing.T) {
 	defer resetGlobalTestVariables()
 
-	setupRedirect = mockNsenterRedirect
 	testAnnotations[kubevirtInterfacesKey] = "net1,net2"
 	testContainers = []string{"mockContainer"}
 
@@ -324,4 +331,15 @@ func TestCmdDel(t *testing.T) {
 
 func TestCmdDelInvalidVersion(t *testing.T) {
 	testCmdInvalidVersion(t, cmdDel)
+}
+
+func MockInterceptRuleMgrCtor() InterceptRuleMgr {
+	return NewMockInterceptRuleMgr()
+}
+func TestMain(m *testing.M) {
+	// call flag.Parse() here if TestMain uses flags
+
+	InterceptRuleMgrTypes["mock"] = MockInterceptRuleMgrCtor
+
+	os.Exit(m.Run())
 }
