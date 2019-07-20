@@ -196,7 +196,7 @@ $(ISTIO_OUT) $(ISTIO_BIN):
 
 # Target run by the pre-commit script, to automate formatting and lint
 # If pre-commit script is not used, please run this manually.
-precommit: format lint
+precommit: fmt lint
 
 #-----------------------------------------------------------------------------
 # Target: go build
@@ -299,6 +299,6 @@ lint:
 	@scripts/run_golangci.sh
 
 fmt:
-	@scripts/go_runfmt.sh
+	@scripts/run_gofmt.sh
 
 include Makefile.common.mk

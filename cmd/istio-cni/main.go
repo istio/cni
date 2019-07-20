@@ -33,21 +33,20 @@ import (
 )
 
 var (
-	nsSetupBinDir       = "/opt/cni/bin"
-	injectAnnotationKey = "sidecar.istio.io/inject"
-	sidecarStatusKey    = "sidecar.istio.io/status"
+	nsSetupBinDir        = "/opt/cni/bin"
+	injectAnnotationKey  = "sidecar.istio.io/inject"
+	sidecarStatusKey     = "sidecar.istio.io/status"
+	interceptRuleMgrType = defInterceptRuleMgrType
 )
-
-// setupRedirect is a unit test override variable.
-var setupRedirect func(string, []string) error
 
 // Kubernetes a K8s specific struct to hold config
 type Kubernetes struct {
-	K8sAPIRoot        string   `json:"k8s_api_root"`
-	Kubeconfig        string   `json:"kubeconfig"`
-	NodeName          string   `json:"node_name"`
-	ExcludeNamespaces []string `json:"exclude_namespaces"`
-	CniBinDir         string   `json:"cni_bin_dir"`
+	K8sAPIRoot           string   `json:"k8s_api_root"`
+	Kubeconfig           string   `json:"kubeconfig"`
+	InterceptRuleMgrType string   `json:"intercept_type"`
+	NodeName             string   `json:"node_name"`
+	ExcludeNamespaces    []string `json:"exclude_namespaces"`
+	CniBinDir            string   `json:"cni_bin_dir"`
 }
 
 // PluginConf is whatever you expect your configuration json to be. This is whatever
@@ -156,11 +155,15 @@ func cmdAdd(args *skel.CmdArgs) error {
 	if conf.Kubernetes.CniBinDir != "" {
 		nsSetupBinDir = conf.Kubernetes.CniBinDir
 	}
+	if conf.Kubernetes.InterceptRuleMgrType != "" {
+		interceptRuleMgrType = conf.Kubernetes.InterceptRuleMgrType
+	}
 
 	logger := logrus.WithFields(logrus.Fields{
-		"ContainerID": args.ContainerID,
-		"Pod":         string(k8sArgs.K8S_POD_NAME),
-		"Namespace":   string(k8sArgs.K8S_POD_NAMESPACE),
+		"ContainerID":   args.ContainerID,
+		"Pod":           string(k8sArgs.K8S_POD_NAME),
+		"Namespace":     string(k8sArgs.K8S_POD_NAMESPACE),
+		"InterceptType": interceptRuleMgrType,
 	})
 
 	// Check if the workload is running under Kubernetes.
@@ -210,12 +213,13 @@ func cmdAdd(args *skel.CmdArgs) error {
 					if redirect, redirErr := NewRedirect(ports, annotations, logger); redirErr != nil {
 						logger.Errorf("Pod redirect failed due to bad params: %v", redirErr)
 					} else {
-						if setupRedirect != nil {
-							_ = setupRedirect(args.Netns, ports)
+						// Get the constructor for the configured type of InterceptRuleMgr
+						interceptMgrCtor := GetInterceptRuleMgrCtor(interceptRuleMgrType)
+						if interceptMgrCtor == nil {
+							logger.Errorf("Pod redirect failed due to unavailable InterceptRuleMgr of type %s",
+								interceptRuleMgrType)
 						} else {
-							// TODO Depending on a parameters, either iptables or nftables interface must be selected
-							// and instantiated, for now defaulting to iptables.
-							rulesMgr := newIPTables()
+							rulesMgr := interceptMgrCtor()
 							if err := rulesMgr.Program(args.Netns, redirect); err != nil {
 								return err
 							}
