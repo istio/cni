@@ -105,7 +105,7 @@ e2e-dind-test: &e2e-dind-test
         name: Get KDC
         working_directory: ~/kubeadm-dind-cluster
         command: |
-          git clone https://github.com/kubernetes-sigs/kubeadm-dind-cluster .
+          git clone --branch v0.3.0 https://github.com/kubernetes-sigs/kubeadm-dind-cluster .
     - run:
         <<: *dind-setup
     - run:
@@ -268,8 +268,6 @@ jobs:
       ISTIO_BRANCH: master
       ISTIO_HUB: gcr.io/istio-release
       ISTIO_TAG: master-latest-daily
-      ISTIO_REMOTE: https://github.com/tiswanso/istio.git
-      ISTIO_REMOTE_BRANCH: simpletest_ipv6
       CNI_ENABLE: true
     <<: *e2e-dind-test
 
