@@ -312,3 +312,4 @@ custom synchronization between the controller and pod initialization.
 Kubernetes has already solved this problem by not starting any containers in new pods until the full CNI plugin
 chain has completed successfully.  Also, architecturally, the CNI plugins are the components responsible for network
 setup for container runtimes.
+
