@@ -198,6 +198,9 @@ $(ISTIO_OUT) $(ISTIO_BIN):
 # If pre-commit script is not used, please run this manually.
 precommit: fmt lint
 
+prow-e2e:
+	./test/prow-e2e.sh
+
 #-----------------------------------------------------------------------------
 # Target: go build
 #-----------------------------------------------------------------------------
