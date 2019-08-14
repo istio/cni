@@ -51,7 +51,6 @@ setup_kind_cluster
 setup_docker
 
 mkdir -p "${ARTIFACTS}/out"
-# TODO hub and tag
 helm template --name=istio-cni --namespace=kube-system  --set hub=istio-testing --set tag=istio-testing --set "excludeNamespaces={}" --set pullPolicy=IfNotPresent --set logLevel=debug deployments/kubernetes/install/helm/istio-cni > "${ARTIFACTS}/out/istio-cni_install.yaml"
 kubectl apply -f "${ARTIFACTS}/out/istio-cni_install.yaml"
 kubectl get pods --all-namespaces -o wide
