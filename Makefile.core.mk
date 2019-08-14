@@ -36,6 +36,9 @@ export GOPATH
 GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
 export GO_TOP
 
+export GO111MODULE ?= on
+export GOPROXY ?= https://proxy.golang.org
+
 # Note that disabling cgo here adversely affects go get.  Instead we'll rely on this
 # to be handled in bin/gobuild.sh
 # export CGO_ENABLED=0
