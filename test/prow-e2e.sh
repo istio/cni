@@ -32,8 +32,13 @@ function setup_kind_cluster() {
 
   trap cleanup_kind_cluster EXIT
 
+#  CONFIG=""
+#  if [[ -z "${IPV6_ENABLED:-}" ]] ; then
+    CONFIG="--config test/kind-ipv6.yaml"
+#  fi
+
   # Create KinD cluster
-  if ! (kind create cluster --name=istio-testing --loglevel debug --retain --wait 30s); then
+  if ! (kind create cluster --name=istio-testing ${CONFIG} --loglevel debug --retain --wait 30s); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     exit 1
   fi
