@@ -9,12 +9,6 @@ defaults: &defaults
     GOPATH: /go
     SKIP_CLEANUP: true
 
-dind-env: &dind-env
-  GOPATH: /go
-  SKIP_CLEANUP: true
-  DOCKER_VERSION: "17.03.0-ce"
-  CNI_PLUGIN: flannel
-
 dind-env-ipv6: &dind-env-ipv6
   GOPATH: /go
   SKIP_CLEANUP: true
@@ -56,7 +50,6 @@ dind-dump_cluster: &dind-dump_cluster
     else
       ./dind-cluster.sh dump | gzip >"${out}"
     fi
-
 
 # VM environment. Includes docker.
 integrationDefaults: &integrationDefaults
@@ -145,8 +138,6 @@ e2e-dind-test: &e2e-dind-test
     - store_artifacts:
         path: /tmp/cluster_state
 
-
-
 jobs:
   build:
     <<: *defaults
@@ -165,45 +156,6 @@ jobs:
           root: _save
           paths:
           - images.tar
-
-  shellcheck:
-    docker:
-      - image: koalaman/shellcheck-alpine:v0.6.0
-    steps:
-      - checkout
-      - run:
-          name: Check shell scripts
-          command: /root/project/bin/check_shell_scripts.sh
-
-  lint:
-    <<: *defaults
-    steps:
-      - checkout
-      - run:
-          name: Run linters
-          command: make lint
-
-  install-cni:
-    <<: *integrationDefaults
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/istio-cni ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build
-            fi
-            make docker.all
-      - run: make test
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-      - store_test_results:
-          path: /go/out/tests
 
   # nightly test & publish
   # NOTE: publish only happens for CircleCI orgs with DOCKER_USER & DOCKER_PASS set.
@@ -234,33 +186,6 @@ jobs:
               HUB=${DOCKER_USER} TAG=${TAG} make docker.all docker.push
             fi
 
-  e2e-dind-istio1.1:
-    <<: *dind-defaults
-    environment:
-      <<: *dind-env
-      ISTIO_BRANCH: release-1.1
-      ISTIO_HUB: gcr.io/istio-release
-      ISTIO_TAG: release-1.1-latest-daily
-    <<: *e2e-dind-test  
-
-  e2e-dind-istio1.2:
-    <<: *dind-defaults
-    environment:
-      <<: *dind-env
-      ISTIO_BRANCH: release-1.2
-      ISTIO_HUB: gcr.io/istio-release
-      ISTIO_TAG: release-1.2-latest-daily
-    <<: *e2e-dind-test
-
-  e2e-dind:
-    <<: *dind-defaults
-    environment:
-      <<: *dind-env
-      ISTIO_BRANCH: master
-      ISTIO_HUB: gcr.io/istio-release
-      ISTIO_TAG: master-latest-daily
-    <<: *e2e-dind-test
-
   e2e-dind-ipv6:
     <<: *dind-defaults
     environment:
@@ -276,22 +201,8 @@ workflows:
 
   all:
     jobs:
-      - shellcheck
-      - lint
       - build
-      - install-cni:
-          requires:
-            - build
       - e2e-dind-ipv6:
-          requires:
-            - build
-      - e2e-dind:
-          requires:
-            - build
-      - e2e-dind-istio1.1:
-          requires:
-            - build
-      - e2e-dind-istio1.2:
           requires:
             - build
 
@@ -311,14 +222,5 @@ workflows:
     - build
     - nightly:
         context: org-global
-        requires:
-          - build
-    - e2e-dind:
-        requires:
-          - build
-    - e2e-dind-istio1.1:
-        requires:
-          - build
-    - e2e-dind-istio1.2:
         requires:
           - build
