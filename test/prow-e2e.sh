@@ -58,5 +58,5 @@ kubectl get pods --all-namespaces -o wide
 pushd ../istio || exit
   make istioctl
 
-  HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=true E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector" make test/local/auth/e2e_simple
+  HUB=gcr.io/istio-release TAG=release-1.3-latest-daily ENABLE_ISTIO_CNI=true E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector" make test/local/auth/e2e_simple
 popd
