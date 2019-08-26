@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2017 Istio Authors
+# Copyright Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -45,10 +45,10 @@ if [[ -n ${ISTIO_DOCKER_HUB} ]]; then
   DOCKER_HUB="${ISTIO_DOCKER_HUB}"
 fi
 
-# used by bin/gobuild.sh
-echo "istio.io/cni/pkg/version.buildVersion=${VERSION}"
-echo "istio.io/cni/pkg/version.buildGitRevision=${BUILD_GIT_REVISION}"
-echo "istio.io/cni/pkg/version.buildUser=$(whoami)"
-echo "istio.io/cni/pkg/version.buildHost=$(hostname -f)"
-echo "istio.io/cni/pkg/version.buildDockerHub=${DOCKER_HUB}"
-echo "istio.io/cni/pkg/version.buildStatus=${tree_status}"
+# used by common/scripts/gobuild.sh
+echo "istio.io/pkg/version.buildVersion=${VERSION}"
+echo "istio.io/pkg/version.buildGitRevision=${BUILD_GIT_REVISION}"
+echo "istio.io/pkg/version.buildUser=$(whoami)"
+echo "istio.io/pkg/version.buildHost=$(hostname -f)"
+echo "istio.io/pkg/version.buildDockerHub=${DOCKER_HUB}"
+echo "istio.io/pkg/version.buildStatus=${tree_status}"

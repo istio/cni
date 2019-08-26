@@ -40,7 +40,7 @@ export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
 
 # Note that disabling cgo here adversely affects go get.  Instead we'll rely on this
-# to be handled in bin/gobuild.sh
+# to be handled in common/scripts/gobuild.sh
 # export CGO_ENABLED=0
 
 # It's more concise to use GO?=$(shell which go)
@@ -213,7 +213,7 @@ prow-e2e:
 
 .PHONY: istio-cni
 istio-cni ${ISTIO_OUT}/istio-cni:
-	bin/gobuild.sh ${ISTIO_OUT}/istio-cni ./cmd/istio-cni
+	common/scripts/gobuild.sh ${ISTIO_OUT}/istio-cni ./cmd/istio-cni
 
 # Non-static istio-cnis. These are typically a build artifact.
 ${ISTIO_OUT}/istio-cni-linux: depend
@@ -232,7 +232,6 @@ build: depend istio-cni
 # istio-cni-all makes all of the non-static istio-cni executables for each supported OS
 .PHONY: istio-cni-all
 istio-cni-all: ${ISTIO_OUT}/istio-cni-linux
-#istio-cni-all: ${ISTIO_OUT}/istio-cni-linux ${ISTIO_OUT}/istio-cni-osx ${ISTIO_OUT}/istio-cni-win.exe
 
 # istio-cni-install builds then installs istio-cni into $GOPATH/BIN
 # Used for debugging istio-cni during dev work
@@ -307,4 +306,4 @@ lint:
 fmt:
 	@scripts/run_gofmt.sh
 
-include Makefile.common.mk
+include common/Makefile.common.mk
