@@ -1,4 +1,3 @@
-[![CircleCI](https://circleci.com/gh/istio/cni.svg?style=svg)](https://circleci.com/gh/istio/cni)
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/cni)](https://goreportcard.com/report/github.com/istio/cni)
 [![GolangCI](https://golangci.com/badges/github.com/istio/cni.svg)](https://golangci.com/r/github.com/istio/cni)
 

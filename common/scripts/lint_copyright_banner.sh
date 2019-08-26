@@ -5,9 +5,9 @@
 # The original version of this file is located in the https://github.com/istio/common-files repo.
 # If you're looking at this file in a different repo and want to make a change, please go to the
 # common-files repo, make the change there and check it in. Then come back to this repo and run
-# "make updatecommon".
+# "make update-common".
 
-# Copyright 2019 Istio Authors
+# Copyright Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,30 +23,17 @@
 
 set -e
 
-SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}")" && pwd )"
-ROOTDIR=$(dirname "${SCRIPTPATH}")
-cd "${ROOTDIR}"
+ec=0
+for fn in "$@"; do
+  if ! grep -L -q -e "Apache License, Version 2" "${fn}"; then
+    echo "Missing license: ${fn}"
+    ec=1
+  fi
 
-CD_TMPFILE=$(mktemp /tmp/check_dockerfile.XXXXXX)
-HL_TMPFILE=$(mktemp /tmp/hadolint.XXXXXX)
-
-# shellcheck disable=SC2044
-for df in $(find "${ROOTDIR}" -path "${ROOTDIR}/vendor" -prune -o -name 'Dockerfile*'); do
-  docker run --rm -i hadolint/hadolint:v1.17.1 < "$df" > "${HL_TMPFILE}"
-  if [ "" != "$(cat "${HL_TMPFILE}")" ]
-  then
-    {
-      echo "$df:"
-      cut -d":" -f2- < "${HL_TMPFILE}"
-      echo
-    } >> "${CD_TMPFILE}"
+  if ! grep -L -q -e "Copyright" "${fn}"; then
+    echo "Missing copyright: ${fn}"
+    ec=1
   fi
 done
 
-rm -f "${HL_TMPFILE}"
-if [ "" != "$(cat "${CD_TMPFILE}")" ]; then
-  cat "${CD_TMPFILE}"
-  rm -f "${CD_TMPFILE}"
-  exit 1
-fi
-rm -f "${CD_TMPFILE}"
+exit $ec
