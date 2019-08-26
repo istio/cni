@@ -307,4 +307,4 @@ lint:
 fmt:
 	@scripts/run_gofmt.sh
 
-include Makefile.common.mk
+include common/Makefile.common.mk
