@@ -51,6 +51,7 @@ require (
 	gopkg.in/go-playground/validator.v8 v8.18.2 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tchap/go-patricia.v2 v2.3.0 // indirect
+	istio.io/api v0.0.0-20190827203453-55bf99d69a1f
 	k8s.io/api v0.0.0-20180601181742-8b7507fac302 // indirect
 	k8s.io/apimachinery v0.0.0-20180601181227-17529ec7eadb
 	k8s.io/client-go v0.0.0-20180817174322-745ca8300397
