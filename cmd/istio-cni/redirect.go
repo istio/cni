@@ -22,6 +22,8 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
+
+	"istio.io/api/annotation"
 )
 
 const (
@@ -35,20 +37,20 @@ const (
 	defaultRedirectExcludeIPCidr = ""
 	defaultRedirectExcludePort   = defaultProxyStatusPort
 	defaultKubevirtInterfaces    = ""
-
-	includeIPCidrsKey       = "traffic.sidecar.istio.io/includeOutboundIPRanges"
-	excludeIPCidrsKey       = "traffic.sidecar.istio.io/excludeOutboundIPRanges"
-	includePortsKey         = "traffic.sidecar.istio.io/includeInboundPorts"
-	excludeInboundPortsKey  = "traffic.sidecar.istio.io/excludeInboundPorts"
-	excludeOutboundPortsKey = "traffic.sidecar.istio.io/excludeOutboundPorts"
-
-	sidecarInterceptModeKey = "sidecar.istio.io/interceptionMode"
-	sidecarPortListKey      = "status.sidecar.istio.io/port"
-
-	kubevirtInterfacesKey = "traffic.sidecar.istio.io/kubevirtInterfaces"
 )
 
 var (
+	includeIPCidrsKey       = annotation.SidecarTrafficIncludeOutboundIPRanges.Name
+	excludeIPCidrsKey       = annotation.SidecarTrafficExcludeOutboundIPRanges.Name
+	includePortsKey         = annotation.SidecarTrafficIncludeInboundPorts.Name
+	excludeInboundPortsKey  = annotation.SidecarTrafficExcludeInboundPorts.Name
+	excludeOutboundPortsKey = annotation.SidecarTrafficExcludeOutboundPorts.Name
+
+	sidecarInterceptModeKey = annotation.SidecarInterceptionMode.Name
+	sidecarPortListKey      = annotation.SidecarStatusPort.Name
+
+	kubevirtInterfacesKey = annotation.SidecarTrafficKubevirtInterfaces.Name
+
 	annotationRegistry = map[string]*annotationParam{
 		"inject":               {injectAnnotationKey, "", alwaysValidFunc},
 		"status":               {sidecarStatusKey, "", alwaysValidFunc},
