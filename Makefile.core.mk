@@ -28,10 +28,6 @@ VERSION ?= 0.1-dev
 DIRS_TO_CLEAN:=
 FILES_TO_CLEAN:=
 
-# If GOPATH is not set by the env, set it to a sane value
-GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
-export GOPATH
-
 # If GOPATH is made up of several paths, use the first one for our targets in this Makefile
 GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
 export GO_TOP
@@ -74,6 +70,7 @@ endif
 export GOOS ?= $(GOOS_LOCAL)
 
 export ENABLE_COREDUMP ?= false
+
 #-----------------------------------------------------------------------------
 # Output control
 #-----------------------------------------------------------------------------
@@ -114,9 +111,14 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 
 export ISTIO_BIN=$(GO_TOP)/bin
 # Using same package structure as pkg/
+
+ifeq ($(BUILD_WITH_CONTAINER),1)
+export OUT_DIR=/work/out
+else
 export OUT_DIR=$(GO_TOP)/out
-export ISTIO_OUT:=$(GO_TOP)/out/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
-export HELM=$(ISTIO_OUT)/helm
+endif
+
+export ISTIO_OUT:=$(OUT_DIR)/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
@@ -162,27 +164,7 @@ where-is-docker-tar:
 #-----------------------------------------------------------------------------
 .PHONY: depend depend.diff init
 
-# Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
-# that allows the three components to be checked in a single comparison.
-VER_TO_INT:=awk '{split(substr($$0, match ($$0, /[0-9\.]+/)), a, "."); print a[1]*10000+a[2]*100+a[3]}'
-
-# using a sentinel file so this check is only performed once per version.  Performance is
-# being favored over the unlikely situation that go gets downgraded to an older version
-check-go-version: | $(ISTIO_BIN) ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
-${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
-	@if test $(shell $(GO) version | $(VER_TO_INT) ) -lt \
-                 $(shell echo "$(GO_VERSION_REQUIRED)" | $(VER_TO_INT) ); \
-                 then printf "go version $(GO_VERSION_REQUIRED)+ required, found: "; $(GO) version; exit 1; fi
-	@touch ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
-
-# Ensure expected GOPATH setup
-.PHONY: check-tree
-check-tree:
-	@if [ "$(ISTIO_GO)" != "$(GO_TOP)/src/$(ISTIO_CNI_RELPATH)" ]; then \
-		echo Not building in expected path \'GOPATH/src/$(ISTIO_CNI_RELPATH)\'. Make sure to clone Istio into that path. Istio root=$(ISTIO_GO), GO_TOP=$(GO_TOP) ; \
-		exit 1; fi
-
-init: check-tree check-go-version
+init:
 	mkdir -p ${OUT_DIR}/logs
 
 # Pull dependencies, based on the checked in Gopkg.lock file.
@@ -217,13 +199,13 @@ istio-cni ${ISTIO_OUT}/istio-cni:
 
 # Non-static istio-cnis. These are typically a build artifact.
 ${ISTIO_OUT}/istio-cni-linux: depend
-	STATIC=0 GOOS=linux   bin/gobuild.sh $@ ./cmd/istio-cni
+	STATIC=0 GOOS=linux   common/scripts/gobuild.sh $@ ./cmd/istio-cni
 
 # Below is pattern for building for more platforms
 #${ISTIO_OUT}/istio-cni-osx: depend
-#	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ ./cmd/istio-cni
+#	STATIC=0 GOOS=darwin  common/scripts/gobuild.sh $@ ./cmd/istio-cni
 #${ISTIO_OUT}/istio-cni-win.exe: depend
-#	STATIC=0 GOOS=windows bin/gobuild.sh $@ ./cmd/istio-cni
+#	STATIC=0 GOOS=windows common/scripts/gobuild.sh $@ ./cmd/istio-cni
 
 .PHONY: build
 # Build will rebuild the go binaries.
@@ -236,8 +218,7 @@ istio-cni-all: ${ISTIO_OUT}/istio-cni-linux
 # istio-cni-install builds then installs istio-cni into $GOPATH/BIN
 # Used for debugging istio-cni during dev work
 .PHONY: istio-cni-install
-istio-cni-install:
-	go install $(ISTIO_GO)/cmd/istio-cni
+istio-cni-install: build
 
 #-----------------------------------------------------------------------------
 # Target: clean
@@ -305,5 +286,11 @@ lint:
 
 fmt:
 	@scripts/run_gofmt.sh
+
+.PHONY: lint_modern
+lint_modern: lint-copyright-banner lint-go lint-dockerfiles lint-scripts lint-helm lint-yaml
+
+.PHONY: fmt_modern
+fmt_modern: format-go
 
 include common/Makefile.common.mk
