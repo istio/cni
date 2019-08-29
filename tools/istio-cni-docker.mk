@@ -43,8 +43,9 @@ docker.install-cni: $(ISTIO_OUT)/istio-cni tools/packaging/common/istio-iptables
 		deployments/kubernetes/install/scripts/filter.jq
 	mkdir -p $(ISTIO_DOCKER)/install-cni
 	cp $^ $(ISTIO_DOCKER)/install-cni
-	time (cd $(ISTIO_DOCKER)/install-cni && \
-		docker build -t $(HUB)/install-cni:$(TAG) -f Dockerfile.install-cni .)
+	time docker build -t $(HUB)/install-cni:$(TAG) \
+		-f $(ISTIO_DOCKER)/install-cni/Dockerfile.install-cni \
+		$(ISTIO_DOCKER)/install-cni
 
 DOCKER_TARGETS:=docker.install-cni
 
