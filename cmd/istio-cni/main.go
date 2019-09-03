@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/api/annotation"
+
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
@@ -34,8 +36,8 @@ import (
 
 var (
 	nsSetupBinDir        = "/opt/cni/bin"
-	injectAnnotationKey  = "sidecar.istio.io/inject"
-	sidecarStatusKey     = "sidecar.istio.io/status"
+	injectAnnotationKey  = annotation.SidecarInject.Name
+	sidecarStatusKey     = annotation.SidecarStatus.Name
 	interceptRuleMgrType = defInterceptRuleMgrType
 )
 
