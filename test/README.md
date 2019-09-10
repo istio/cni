@@ -110,6 +110,7 @@ make cmd-test
 ```
 
 #### Functional Tests
+
 1. install-test (`make install-test`)
    1. Requires docker
    1. docker runs the `install-cni` container with test dirs mounted and env vars set to known Kubernetes settings
@@ -123,27 +124,31 @@ with the istio/istio code base.  Both the istio/istio repo and the istio/cni rep
 that the CNI works properly.
 
 In order to run the e2e tests in a local environment confirm:
+
 1. That you can successfully run the desired Istio e2e tests in your local environment without the CNI enabled
 
-2. That your local environment supports the requirements for the CNI plugin
+1. That your local environment supports the requirements for the CNI plugin
 
 To run any of the Istio e2e test follow these steps:
 
 1. Clone the Istio repo in your local environment.
 
-2. Install the CNI components as described in the Usage section: [Usage](../README.md#Usage). This might include building your own images and/or charts or pulling the images and charts from official repositories.
+1. Install the CNI components as described in the Usage section: [Usage](../README.md#Usage). This might include building your own images and/or charts or pulling the images and charts from official repositories.
 
-3. Step 2 includes setting appropriate Helm values.
+1. Step 2 includes setting appropriate Helm values.
 The HUB and TAG value can be overridden using the environement variables:
+
 ```console
 export ISTIO_CNI_HUB=yourhub
 export ISTIO_CNI_TAG=yourtag
 ```
+
 ```console
 --set "excludeNamespaces={}"
 ```
 
-4. Run any of the Istio e2e targets after setting up a few environment variables:
+1. Run any of the Istio e2e targets after setting up a few environment variables:
+
 ```console
 export ENABLE_ISTIO_CNI=true
 export E2E_ARGS=--kube_inject_configmap=istio-sidecar-injector
