@@ -287,8 +287,10 @@ lint:
 fmt:
 	@scripts/run_gofmt.sh
 
+MARKDOWN_LINT_WHITELIST=127.0.0.1
+
 .PHONY: lint_modern
-lint_modern: lint-copyright-banner lint-go lint-dockerfiles lint-scripts lint-helm lint-yaml
+lint_modern: lint-all
 
 .PHONY: fmt_modern
 fmt_modern: format-go
