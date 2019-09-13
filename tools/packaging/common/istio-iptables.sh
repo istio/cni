@@ -675,6 +675,7 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
     fi
   fi
 else
+  IPTABLES_RETRY=false
   # Drop all inbound traffic except established connections.
   ip6tables -F INPUT || true
   ip6tables -A INPUT -m state --state ESTABLISHED -j ACCEPT || true

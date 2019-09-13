@@ -1,5 +1,5 @@
 diff --git a/tools/packaging/common/istio-iptables.sh b/tools/packaging/common/istio-iptables.sh
-index 178b0268..187ef3c2 100755
+index 178b0268..349d0301 100755
 --- a/tools/packaging/common/istio-iptables.sh
 +++ b/tools/packaging/common/istio-iptables.sh
 @@ -116,6 +116,64 @@ function isIPv6() {
@@ -135,3 +135,11 @@ index 178b0268..187ef3c2 100755
    # Create a new chain for redirecting outbound traffic to the common Envoy port.
    # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
    # redirects to Envoy.
+@@ -616,6 +675,7 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
+     fi
+   fi
+ else
++  IPTABLES_RETRY=false
+   # Drop all inbound traffic except established connections.
+   ip6tables -F INPUT || true
+   ip6tables -A INPUT -m state --state ESTABLISHED -j ACCEPT || true
