@@ -42,8 +42,8 @@ linters:
     - nakedret
     - prealloc
     - scopelint
-    - funlen
-    - bodyclose
+    # - funlen
+    # - bodyclose
   fast: false
 
 linters-settings:
