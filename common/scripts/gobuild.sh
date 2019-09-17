@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2017 Istio Authors. All Rights Reserved.
+# Copyright Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# This script builds and link stamps the output
+
+# This script builds and version stamps the output
 
 VERBOSE=${VERBOSE:-"0"}
 V=""
@@ -23,7 +23,7 @@ if [[ "${VERBOSE}" == "1" ]];then
     set -x
 fi
 
-ROOTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 OUT=${1:?"output path"}
 BUILDPATH=${2:?"path to build"}
@@ -33,7 +33,6 @@ set -e
 BUILD_GOOS=${GOOS:-linux}
 BUILD_GOARCH=${GOARCH:-amd64}
 GOBINARY=${GOBINARY:-go}
-GOPKG="$GOPATH/pkg"
 BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
 LDFLAGS="-extldflags -static"
@@ -53,7 +52,7 @@ fi
 # at the beginning of the build and used throughout
 if [[ -z ${BUILDINFO} ]];then
     BUILDINFO=$(mktemp)
-    "${ROOTDIR}/bin/get_workspace_status.sh" > "${BUILDINFO}"
+    "${SCRIPTPATH}/report_build_info.sh" > "${BUILDINFO}"
 fi
 
 # BUILD LD_EXTRAFLAGS
@@ -62,9 +61,7 @@ while read -r line; do
     LD_EXTRAFLAGS="${LD_EXTRAFLAGS} -X ${line}"
 done < "${BUILDINFO}"
 
-# forgoing -i (incremental build) because it will be deprecated by tool chain.
 time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
         ${V} "${GOBUILDFLAGS_ARRAY[@]}" ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
         -o "${OUT}" \
-        -pkgdir="${GOPKG}/${BUILD_GOOS}_${BUILD_GOARCH}" \
         -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${BUILDPATH}"
