@@ -146,7 +146,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 
 ---
-{{- if .Values.psp_cluster_role }}
+{{- if hasKey .Values "psp_cluster_role" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
