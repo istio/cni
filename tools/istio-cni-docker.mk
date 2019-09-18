@@ -16,7 +16,6 @@
 
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
-#docker: build test-bins docker.all
 docker: build docker.all
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
@@ -84,6 +83,6 @@ docker.save: $(DOCKER_TAR_TARGETS)
 
 # Update the local copy of https://github.com/istio/istio/blob/release-1.3/tools/packaging/common/istio-iptables.sh,
 # and attempt to apply a patch to retry iptables calls when they fail.
-update-istio-iptables.sh: tools/packaging/common/iptables-retry.diff
-	@curl -s -Lo - https://raw.githubusercontent.com/istio/istio/release-1.3/tools/packaging/common/istio-iptables.sh > tools/packaging/common/istio-iptables.sh
+update-istio-iptables: tools/packaging/common/iptables-retry.diff
+	@curl -sL -o tools/packaging/common/istio-iptables.sh https://raw.githubusercontent.com/istio/istio/release-1.3/tools/packaging/common/istio-iptables.sh
 	@git apply < tools/packaging/common/iptables-retry.diff
