@@ -93,7 +93,7 @@ e2e-dind-test: &e2e-dind-test
         command: |
           mkdir .circleci/helm
           cp -r deployments/kubernetes/install/helm/istio-cni .circleci/helm/
-          docker build --build-arg istio_branch=${ISTIO_BRANCH:-master} -t e2e-runner:latest .circleci
+          docker build --build-arg istio_branch=${ISTIO_BRANCH:-release-1.3} -t e2e-runner:latest .circleci
     - run:
         name: Get KDC
         working_directory: ~/kubeadm-dind-cluster
@@ -126,7 +126,7 @@ e2e-dind-test: &e2e-dind-test
     - run:
         name: Run e2e test
         command: |
-          docker run --name=istio-e2e --network=container:kube-master -t -e CNI_TAG=${CIRCLE_SHA1} -e CNI_HUB='docker.io/istio' -e HUB=${ISTIO_HUB:-gcr.io/istio-release} -e TAG=${ISTIO_TAG:-master-latest-daily} -e ISTIO_REMOTE=${ISTIO_REMOTE} -e ISTIO_REMOTE_BRANCH=${ISTIO_REMOTE_BRANCH} -e CNI_ENABLE=${CNI_ENABLE:-true} -e SKIP_CLEAN='1' e2e-runner:latest /go/run_e2e.sh
+          docker run --name=istio-e2e --network=container:kube-master -t -e CNI_TAG=${CIRCLE_SHA1} -e CNI_HUB='docker.io/istio' -e HUB=${ISTIO_HUB:-gcr.io/istio-release} -e TAG=${ISTIO_TAG:-release-1.3-latest-daily} -e ISTIO_REMOTE=${ISTIO_REMOTE} -e ISTIO_REMOTE_BRANCH=${ISTIO_REMOTE_BRANCH} -e CNI_ENABLE=${CNI_ENABLE:-true} -e SKIP_CLEAN='1' e2e-runner:latest /go/run_e2e.sh
     - run:
         name: Display cluster status (2)
         when: always
@@ -190,9 +190,9 @@ jobs:
     <<: *dind-defaults
     environment:
       <<: *dind-env-ipv6
-      ISTIO_BRANCH: master
+      ISTIO_BRANCH: release-1.3
       ISTIO_HUB: gcr.io/istio-release
-      ISTIO_TAG: master-latest-daily
+      ISTIO_TAG: release-1.3-latest-daily
       CNI_ENABLE: true
     <<: *e2e-dind-test
 

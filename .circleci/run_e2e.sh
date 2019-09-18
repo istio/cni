@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Copyright 2019 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +27,7 @@ cd /go/src/istio.io/istio || exit
 if [[ "${ISTIO_REMOTE}" != "" ]]; then
     git remote add nonorigin "${ISTIO_REMOTE}"
     git fetch nonorigin
-    git checkout "nonorigin/${ISTIO_REMOTE_BRANCH:-master}"
+    git checkout "nonorigin/${ISTIO_REMOTE_BRANCH:-release-1.3}"
 fi
 
 echo "k8s version"
@@ -46,7 +48,7 @@ echo "k8s: All pods (CNI enabled: ${CNI_ENABLE})"
 kubectl get pods --all-namespaces -o wide
 
 HUB=${HUB:-gcr.io/istio-release}
-TAG=${TAG:-master-latest-daily}
+TAG=${TAG:-release-1.3-latest-daily}
 
 HUB=${HUB} TAG=${TAG} make istioctl
 
