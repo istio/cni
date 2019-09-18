@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Copyright 2019 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
