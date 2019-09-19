@@ -29,7 +29,7 @@
 export BUILD_WITH_CONTAINER ?= 0
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
-IMG = gcr.io/istio-testing/build-tools:2019-09-12T11-19-01
+IMG = gcr.io/istio-testing/build-tools:2019-09-17T18-24-15
 UID = $(shell id -u)
 PWD = $(shell pwd)
 GOBIN_SOURCE ?= $(GOPATH)/bin
