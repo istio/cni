@@ -43,7 +43,7 @@ function setup_kind_cluster() {
 }
 
 function setup_docker() {
-  HUB=istio-testing TAG=istio-testing make docker
+  HUB=istio-testing TAG=istio-testing make -f Makefile.core.mk docker
   kind --loglevel debug --name istio-testing load docker-image istio-testing/install-cni:istio-testing
 }
 

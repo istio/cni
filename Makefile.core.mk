@@ -246,7 +246,7 @@ include tools/istio-cni-docker.mk
 #-----------------------------------------------------------------------------
 # Target: test
 #-----------------------------------------------------------------------------
-.PHONY: test
+.PHONY: test-cni
 
 JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
 
@@ -261,10 +261,14 @@ ifeq ($(WHAT),)
 else
        TEST_OBJ = selected-pkg-test
 endif
-test: | $(JUNIT_REPORT)
+
+/var/run/secrets/kubernetes.io/serviceaccount/token:
+	echo "dummy-token" > /var/run/secrets/kubernetes.io/serviceaccount/token
+
+test-cni: /var/run/secrets/kubernetes.io/serviceaccount/token | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
-	$(MAKE) --keep-going $(TEST_OBJ) \
+	set -o pipefail; unset GOOS && unset GOARCH && CGO_ENABLED=1 && \
+	$(MAKE) -f Makefile.core.mk --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 .PHONY: install-test
