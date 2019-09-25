@@ -3,6 +3,8 @@
 
 # Istio CNI plugin
 
+This is a Do nothing PR.  Do not merge.
+
 For application pods in the Istio service mesh, all traffic to/from the pods needs to go through the
 sidecar proxies (istio-proxy containers).  This `istio-cni` CNI plugin will set up the
 pods' networking to fulfill this requirement in place of the current Istio injected pod `initContainers`
