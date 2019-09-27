@@ -48,6 +48,7 @@ Helm chart parameters:
 | cniBinDir | | `/opt/cni/bin` | Must be the same as the environment's `--cni-bin-dir` setting (`kubelet` param) |
 | cniConfDir | | `/etc/cni/net.d` | Must be the same as the environment's `--cni-conf-dir` setting (`kubelet` param) |
 | cniConfFileName | | None | Leave unset to auto-find the first file in the `cni-conf-dir` (as `kubelet` does).  Primarily used for testing `install-cni` plugin config.  If set, `install-cni` will inject the plugin config into this file in the `cni-conf-dir` |
+| psp_cluster_role | | | A `ClusterRole` that sets the according use of [PodSecurityPolicy](https://kubernetes.io/docs/concepts/policy/pod-security-policy) for the `ServiceAccount`|
 
 ### Hosted Kubernetes Usage
 
