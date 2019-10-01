@@ -181,7 +181,7 @@ $(ISTIO_OUT) $(ISTIO_BIN):
 
 # Target run by the pre-commit script, to automate formatting and lint
 # If pre-commit script is not used, please run this manually.
-precommit: fmt lint
+precommit: lint_modern fmt_modern
 
 prow-e2e:
 	./test/prow-e2e.sh
@@ -283,13 +283,6 @@ selected-pkg-test:
 .PHONY: cmd-test
 cmd-test:
 	go test ./cmd/...
-
-lint:
-	@scripts/check_license.sh
-	@scripts/run_golangci.sh
-
-fmt:
-	@scripts/run_gofmt.sh
 
 MARKDOWN_LINT_WHITELIST=127.0.0.1
 
