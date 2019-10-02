@@ -184,7 +184,12 @@ $(ISTIO_OUT) $(ISTIO_BIN):
 precommit: lint_modern fmt_modern
 
 prow-e2e:
-	./test/prow-e2e.sh
+# Needed as the volume mount /home in the container is mounted as UID 0.
+# Kind needs to write to /home, so we chown it to our UID.
+ifeq ($(BUILD_WITH_CONTAINER),1)
+	@/usr/local/bin/su-exec 0:0 chown $(shell id -u) /home
+endif
+	@./test/prow-e2e.sh
 
 #-----------------------------------------------------------------------------
 # Target: go build
