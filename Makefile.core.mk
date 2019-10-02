@@ -112,7 +112,7 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 export ISTIO_BIN=$(GO_TOP)/bin
 # Using same package structure as pkg/
 
-ifeq ($(BUILD_WITH_CONTAINER),1)
+ifeq ($(IN_BUILD_CONTAINER),1)
 export OUT_DIR=/work/out
 else
 export OUT_DIR=$(GO_TOP)/out
@@ -186,8 +186,8 @@ precommit: lint_modern fmt_modern
 prow-e2e:
 # Needed as the volume mount /home in the container is mounted as UID 0.
 # Kind needs to write to /home, so we chown it to our UID.
-ifeq ($(BUILD_WITH_CONTAINER),1)
-	@/usr/local/bin/su-exec 0:0 chown $(shell id -u) /home
+ifeq ($(IN_BUILD_CONTAINER),1)
+	@su-exec 0:0 chown $(shell id -u) /home
 endif
 	@./test/prow-e2e.sh
 
