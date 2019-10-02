@@ -177,12 +177,6 @@ $(ISTIO_OUT) $(ISTIO_BIN):
 #-----------------------------------------------------------------------------
 # Target: precommit
 #-----------------------------------------------------------------------------
-.PHONY: precommit
-
-# Target run by the pre-commit script, to automate formatting and lint
-# If pre-commit script is not used, please run this manually.
-precommit: lint_modern fmt_modern
-
 prow-e2e:
 	./test/prow-e2e.sh
 
@@ -242,7 +236,6 @@ clean.go: ; $(info $(H) cleaning...)
 # for now docker is limited to Linux compiles - why ?
 include tools/istio-cni-docker.mk
 
-
 #-----------------------------------------------------------------------------
 # Target: test
 #-----------------------------------------------------------------------------
@@ -286,10 +279,15 @@ cmd-test:
 
 MARKDOWN_LINT_WHITELIST=127.0.0.1
 
-.PHONY: lint_modern
-lint_modern: lint-all
+.PHONY: lint
+lint: lint-all
 
-.PHONY: fmt_modern
-fmt_modern: format-go
+.PHONY: fmt
+fmt: format-go
+
+# delete once CI no longer uses these
+.PHONY: lint_modern fmt_modern
+lint_modern: lint
+format_modern: fmt
 
 include common/Makefile.common.mk
