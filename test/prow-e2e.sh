@@ -40,6 +40,7 @@ function setup_kind_cluster() {
 
   KUBECONFIG="$(kind get kubeconfig-path --name="istio-testing")"
   export KUBECONFIG
+  kubectl cluster-info
 }
 
 function setup_docker() {
