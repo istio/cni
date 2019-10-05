@@ -177,7 +177,7 @@ $(ISTIO_OUT) $(ISTIO_BIN):
 #-----------------------------------------------------------------------------
 # Target: precommit
 #-----------------------------------------------------------------------------
-prow-e2e:
+e2e:
 # Needed as the volume mount /home in the container is mounted as UID 0.
 # Kind needs to write to /home, so we chown it to our UID.
 ifeq ($(IN_BUILD_CONTAINER),1)

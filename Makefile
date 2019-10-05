@@ -78,6 +78,8 @@ RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):docker --rm \
 	$(CONTAINER_OPTIONS) \
 	--mount type=bind,source="$(PWD)",destination="/work" \
 	--mount type=bind,source="$(TARGET_OUT)",destination="/targetout" \
+	--mount type=bind,source="/sys/fs/cgroup",destination="/sys/fs/cgroup" \
+	--mount type=bind,source="/lib/modules",destination="/lib/modules",readonly \
 	--mount type=volume,source=home,destination="/home" \
 	-w /work $(IMG)
 else

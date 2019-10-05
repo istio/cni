@@ -40,7 +40,12 @@ function setup_kind_cluster() {
 
   KUBECONFIG="$(kind get kubeconfig-path --name="istio-testing")"
   export KUBECONFIG
+  kind get kubeconfig --internal --name="istio-testing" > $KUBECONFIG
   kubectl cluster-info
+}
+
+function initialize_docker() {
+  ../common/scripts/init_docker.sh
 }
 
 function setup_docker() {
@@ -56,7 +61,12 @@ helm template --name=istio-cni --namespace=kube-system  --set hub=istio-testing 
 kubectl apply -f "${ARTIFACTS}/out/istio-cni_install.yaml"
 kubectl get pods --all-namespaces -o wide
 
-pushd ../istio || exit
+ISTIO_DIR="${GOPATH}/src/istio.io/istio"
+if [[ ! -d "${ISTIO_DIR}" ]]
+then
+    git clone https://github.com/istio/istio.git "${ISTIO_DIR}"
+fi
+pushd ${ISTIO_DIR} || exit
   make istioctl
 
   HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=true E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector" make test/local/auth/e2e_simple
