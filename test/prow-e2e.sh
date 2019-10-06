@@ -40,7 +40,7 @@ function setup_kind_cluster() {
 
   KUBECONFIG="$(kind get kubeconfig-path --name="istio-testing")"
   export KUBECONFIG
-  kind get kubeconfig --internal --name="istio-testing" > $KUBECONFIG
+  kind get kubeconfig --internal --name="istio-testing" > "${KUBECONFIG}"
   kubectl cluster-info
 }
 
@@ -66,7 +66,7 @@ if [[ ! -d "${ISTIO_DIR}" ]]
 then
     git clone https://github.com/istio/istio.git "${ISTIO_DIR}"
 fi
-pushd ${ISTIO_DIR} || exit
+pushd "${ISTIO_DIR}" || exit
   make istioctl
 
   HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=true E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector" make test/local/auth/e2e_simple
