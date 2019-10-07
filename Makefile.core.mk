@@ -177,13 +177,13 @@ $(ISTIO_OUT) $(ISTIO_BIN):
 #-----------------------------------------------------------------------------
 # Target: precommit
 #-----------------------------------------------------------------------------
-prow-e2e:
+e2e:
 # Needed as the volume mount /home in the container is mounted as UID 0.
 # Kind needs to write to /home, so we chown it to our UID.
 ifeq ($(IN_BUILD_CONTAINER),1)
 	@su-exec 0:0 chown $(shell id -u) /home
 endif
-	@./test/prow-e2e.sh
+	@./test/e2e.sh
 
 #-----------------------------------------------------------------------------
 # Target: go build
