@@ -57,7 +57,7 @@ TARGET_OUT ?= $(HOME)/istio_out/$(REPO_NAME)
 ifeq ($(BUILD_WITH_CONTAINER),1)
 CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
-IMG ?= gcr.io/istio-testing/build-tools:2019-10-03T17-21-57
+IMG ?= gcr.io/istio-testing/build-tools:2019-10-05T18-10-09
 UID = $(shell id -u)
 PWD = $(shell pwd)
 
@@ -79,7 +79,6 @@ RUN = $(CONTAINER_CLI) run --net=host -t -i --sig-proxy=true -u $(UID):docker --
 	--mount type=bind,source="$(PWD)",destination="/work" \
 	--mount type=bind,source="$(TARGET_OUT)",destination="/targetout" \
 	--mount type=volume,source=home,destination="/home" \
-	--mount type=bind,source=/tmp,destination=/tmp \
 	-w /work $(IMG)
 else
 $(info Building with your local toolchain.)
