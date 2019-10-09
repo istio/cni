@@ -60,6 +60,7 @@ ISTIO_DIR="${GOPATH}/src/istio.io/istio"
 if [[ ! -d "${ISTIO_DIR}" ]]
 then
   git clone https://github.com/istio/istio.git "${ISTIO_DIR}"
+  git checkout 33ccbfe10f75e4a4215dc16a0344e3c562a3cac2
 fi
 pushd "${ISTIO_DIR}" || exit
   make istioctl
