@@ -64,5 +64,5 @@ fi
 pushd "${ISTIO_DIR}" || exit
   make istioctl
 
-  HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=true E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector" make test/local/auth/e2e_simple
+  HUB=gcr.io/istio-release TAG=master-latest-daily ENABLE_ISTIO_CNI=true E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector --test_logs_path=${ARTIFACTS}" make test/local/auth/e2e_simple
 popd
