@@ -14,4 +14,4 @@
 
 # this repo is on the container plan by default
 BUILD_WITH_CONTAINER ?= 1
-CONTAINER_OPTIONS = --mount type=bind,source=/tmp,destination=/tmp
+CONTAINER_OPTIONS = --mount type=bind,source=/tmp,destination=/tmp --net=host
