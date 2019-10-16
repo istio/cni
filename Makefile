@@ -73,6 +73,8 @@ RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):docker --rm \
 	-e TARGET_ARCH="$(TARGET_ARCH)" \
 	-e TARGET_OS="$(TARGET_OS)" \
 	-e TARGET_OUT="$(TARGET_OUT)" \
+	-e HUB="$(HUB)" \
+	-e TAG="$(TAG)" \
 	-v /etc/passwd:/etc/passwd:ro \
 	$(DOCKER_SOCKET_MOUNT) \
 	$(CONTAINER_OPTIONS) \
