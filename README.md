@@ -163,7 +163,7 @@ To make use of the `istio-cni` chart from another chart:
 
 1. Run `helm dependency update <chart>` on the chart that needs to depend on istio-cni.
 
-    1. NOTE: for [istio/istio](https://github.com/istio/istio/tree/master/install/kubernetes/helm/istio) the charts
+    1. NOTE: for [istio/istio](https://github.com/istio/istio/tree/release-1.4/install/kubernetes/helm/istio) the charts
        need to be reorganized to make `helm dependency update` work.  The child charts (pilot, galley, etc) need to
        be made independent charts in the directorkefiy at the same level as the main `istio` chart
        (<https://github.com/istio/istio/pull/9306>).
@@ -238,7 +238,7 @@ $ gcloud logging read "resource.type=gce_instance AND jsonPayload.SYSLOG_IDENTIF
         - if so, calls `istio-iptables.sh` with params to setup pod netns
 
 - [istio-iptables.sh](tools/istio-cni-docker.mk)
-    - fork of Istio's [istio-iptables.sh](https://github.com/istio/istio/blob/master/tools/packaging/common/istio-iptables.sh)
+    - fork of Istio's [istio-iptables.sh](https://github.com/istio/istio/blob/release-1.4/tools/packaging/common/istio-iptables.sh)
     - sets up iptables to redirect a list of ports to the port envoy will listen
 
 ### Background
