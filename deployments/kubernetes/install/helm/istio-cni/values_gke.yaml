@@ -16,3 +16,7 @@ cniConfDir: /etc/cni/net.d
 
 excludeNamespaces:
   - istio-system
+
+# Custom annotations on pod level, if you need them
+podAnnotations: {}
+
