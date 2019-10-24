@@ -85,9 +85,9 @@ spec:
         # priority scheduling and that its resources are reserved
         # if it ever gets evicted.
         scheduler.alpha.kubernetes.io/critical-pod: ''
-{{- range $key, $value := .Values.cniCustomPodAnnotations }}
-        {{ $key }}: {{ $value | quote }}
-{{- end }}
+        {{- if .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | indent 8 }}
+        {{- end }}
     spec:
       nodeSelector:
         beta.kubernetes.io/os: linux
