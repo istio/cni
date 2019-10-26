@@ -20,8 +20,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"strconv"
 	"os"
+	"strconv"
 
 	"istio.io/api/annotation"
 
