@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"os"
 
 	"istio.io/api/annotation"
 
@@ -246,8 +247,9 @@ func cmdDel(args *skel.CmdArgs) error {
 func main() {
 	loggingOptions.OutputPaths = []string{"stderr"}
 	loggingOptions.JSONEncoding = true
-	log.Configure(loggingOptions)
-
+	if err := log.Configure(loggingOptions); err != nil {
+		os.Exit(1)
+	}
 	// TODO: implement plugin version
 	skel.PluginMain(cmdAdd, cmdGet, cmdDel, version.All, "istio-cni")
 }
