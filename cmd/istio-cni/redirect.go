@@ -21,8 +21,8 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/pkg/log"
 	"istio.io/api/annotation"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -183,7 +183,6 @@ func NewRedirect(ports []string, annotations map[string]string) (*Redirect, erro
 	var valErr error
 
 	redir := &Redirect{}
-//	redir.log = log
 	redir.targetPort = defaultRedirectToPort
 	isFound, redir.redirectMode, valErr = getAnnotationOrDefault("redirectMode", annotations)
 	if valErr != nil {

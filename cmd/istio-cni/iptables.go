@@ -20,8 +20,9 @@ import (
 	"fmt"
 	"os/exec"
 
-	"istio.io/pkg/log"
 	"go.uber.org/zap"
+
+	"istio.io/pkg/log"
 )
 
 var (

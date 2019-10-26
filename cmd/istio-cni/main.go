@@ -28,8 +28,9 @@ import (
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
-	"istio.io/pkg/log"
 	"go.uber.org/zap"
+
+	"istio.io/pkg/log"
 )
 
 var (
@@ -37,7 +38,7 @@ var (
 	injectAnnotationKey  = annotation.SidecarInject.Name
 	sidecarStatusKey     = annotation.SidecarStatus.Name
 	interceptRuleMgrType = defInterceptRuleMgrType
-        loggingOptions       = log.DefaultOptions()
+	loggingOptions       = log.DefaultOptions()
 )
 
 // Kubernetes a K8s specific struct to hold config
