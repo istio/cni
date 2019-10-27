@@ -7,8 +7,6 @@ require (
 	github.com/containernetworking/plugins v0.7.3
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/imdario/mergo v0.3.6 // indirect
-	github.com/sirupsen/logrus v1.2.0
-	github.com/uber-go/zap v1.11.0 // indirect
 	go.uber.org/zap v1.10.0
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	istio.io/api v0.0.0-20190827203453-55bf99d69a1f
