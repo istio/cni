@@ -280,15 +280,9 @@ MARKDOWN_LINT_WHITELIST=127.0.0.1
 lint: lint-all
 
 .PHONY: fmt
-fmt: format-go
+fmt: format-go tidy-go
 
 gen: tidy-go mirror-licenses
 
 gen-check: gen check-clean-repo
-
-# delete once CI no longer uses these
-.PHONY: lint_modern fmt_modern
-lint_modern: lint
-format_modern: fmt
-
 include common/Makefile.common.mk
