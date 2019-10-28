@@ -22,7 +22,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 
 	"istio.io/api/annotation"
 
@@ -30,8 +29,9 @@ import (
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
-	"github.com/projectcalico/libcalico-go/lib/logutils"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
+
+	"istio.io/pkg/log"
 )
 
 var (
@@ -39,6 +39,7 @@ var (
 	injectAnnotationKey  = annotation.SidecarInject.Name
 	sidecarStatusKey     = annotation.SidecarStatus.Name
 	interceptRuleMgrType = defInterceptRuleMgrType
+	loggingOptions       = log.DefaultOptions()
 )
 
 // Kubernetes a K8s specific struct to hold config
@@ -80,9 +81,9 @@ type PluginConf struct {
 type K8sArgs struct {
 	types.CommonArgs
 	IP                         net.IP
-	K8S_POD_NAME               types.UnmarshallableString // nolint: golint
-	K8S_POD_NAMESPACE          types.UnmarshallableString // nolint: golint
-	K8S_POD_INFRA_CONTAINER_ID types.UnmarshallableString // nolint: golint
+	K8S_POD_NAME               types.UnmarshallableString // nolint: golint, stylecheck
+	K8S_POD_NAMESPACE          types.UnmarshallableString // nolint: golint, stylecheck
+	K8S_POD_INFRA_CONTAINER_ID types.UnmarshallableString // nolint: golint, stylecheck
 }
 
 // parseConfig parses the supplied configuration (and prevResult) from stdin.
@@ -114,46 +115,30 @@ func parseConfig(stdin []byte) (*PluginConf, error) {
 	return &conf, nil
 }
 
-// ConfigureLogging sets up logging using the provided log level,
-func ConfigureLogging(logLevel string) {
-	if strings.EqualFold(logLevel, "debug") {
-		logrus.SetLevel(logrus.DebugLevel)
-	} else if strings.EqualFold(logLevel, "info") {
-		logrus.SetLevel(logrus.InfoLevel)
-	} else {
-		// Default level
-		logrus.SetLevel(logrus.WarnLevel)
-	}
-
-	logrus.SetOutput(os.Stderr)
-}
-
 // cmdAdd is called for ADD requests
 func cmdAdd(args *skel.CmdArgs) error {
-	logrus.Info("istio-cni cmdAdd parsing config")
 	conf, err := parseConfig(args.StdinData)
 	if err != nil {
+		log.Errorf("istio-cni cmdAdd parsing config %v", err)
 		return err
 	}
-	ConfigureLogging(conf.LogLevel)
 
 	if conf.PrevResult == nil {
-		logrus.Error("must be called as chained plugin")
+		log.Error("must be called as chained plugin")
 		return fmt.Errorf("must be called as chained plugin")
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"version":    conf.CNIVersion,
-		"prevResult": conf.PrevResult,
-	}).Info("cmdAdd config parsed")
+	log.Info("CmdAdd config parsed",
+		zap.String("version", conf.CNIVersion),
+		zap.Reflect("prevResult", conf.PrevResult))
 
 	// Determine if running under k8s by checking the CNI args
 	k8sArgs := K8sArgs{}
 	if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
 		return err
 	}
-	logrus.Infof("Getting identifiers with arguments: %s", args.Args)
-	logrus.Infof("Loaded k8s arguments: %v", k8sArgs)
+	log.Infof("Getting identifiers with arguments: %s", args.Args)
+	log.Infof("Loaded k8s arguments: %v", k8sArgs)
 	if conf.Kubernetes.CniBinDir != "" {
 		nsSetupBinDir = conf.Kubernetes.CniBinDir
 	}
@@ -161,12 +146,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 		interceptRuleMgrType = conf.Kubernetes.InterceptRuleMgrType
 	}
 
-	logger := logrus.WithFields(logrus.Fields{
-		"ContainerID":   args.ContainerID,
-		"Pod":           string(k8sArgs.K8S_POD_NAME),
-		"Namespace":     string(k8sArgs.K8S_POD_NAMESPACE),
-		"InterceptType": interceptRuleMgrType,
-	})
+	log.Info("",
+		zap.String("ContainerID", args.ContainerID),
+		zap.String("Pod", string(k8sArgs.K8S_POD_NAME)),
+		zap.String("Namespace", string(k8sArgs.K8S_POD_NAMESPACE)),
+		zap.String("InterceptType", interceptRuleMgrType))
 
 	// Check if the workload is running under Kubernetes.
 	if string(k8sArgs.K8S_POD_NAMESPACE) != "" && string(k8sArgs.K8S_POD_NAME) != "" {
@@ -178,47 +162,47 @@ func cmdAdd(args *skel.CmdArgs) error {
 			}
 		}
 		if !excludePod {
-			client, err := newKubeClient(*conf, logger)
+			client, err := newKubeClient(*conf)
 			if err != nil {
 				return err
 			}
-			logrus.WithField("client", client).Debug("Created Kubernetes client")
+			log.Debug("Created Kubernetes client",
+				zap.Reflect("client", client))
 			containers, _, annotations, ports, k8sErr := getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
 			if k8sErr != nil {
-				logger.Warnf("Error getting Pod data %v", k8sErr)
+				log.Warnf("Error getting Pod data %v", k8sErr)
 			}
-			logger.Infof("Found containers %v", containers)
+			log.Infof("Found containers %v", containers)
 			if len(containers) > 1 {
-				logrus.WithFields(logrus.Fields{
-					"ContainerID": args.ContainerID,
-					"netns":       args.Netns,
-					"pod":         string(k8sArgs.K8S_POD_NAME),
-					"Namespace":   string(k8sArgs.K8S_POD_NAMESPACE),
-					"ports":       ports,
-					"annotations": annotations,
-				}).Infof("Checking annotations prior to redirect for Istio proxy")
+				log.Info("Checking annotations prior to redirect for Istio proxy",
+					zap.String("ContainerID", args.ContainerID),
+					zap.String("netns", args.Netns),
+					zap.String("pod", string(k8sArgs.K8S_POD_NAME)),
+					zap.String("Namespace", string(k8sArgs.K8S_POD_NAMESPACE)),
+					zap.Strings("ports", ports),
+					zap.Reflect("annotations", annotations))
 				if val, ok := annotations[injectAnnotationKey]; ok {
-					logrus.Infof("Pod %s contains inject annotation: %s", string(k8sArgs.K8S_POD_NAME), val)
+					log.Infof("Pod %s contains inject annotation: %s", string(k8sArgs.K8S_POD_NAME), val)
 					if injectEnabled, err := strconv.ParseBool(val); err == nil {
 						if !injectEnabled {
-							logrus.Infof("Pod excluded due to inject-disabled annotation")
+							log.Infof("Pod excluded due to inject-disabled annotation")
 							excludePod = true
 						}
 					}
 				}
 				if _, ok := annotations[sidecarStatusKey]; !ok {
-					logrus.Infof("Pod %s excluded due to not containing sidecar annotation", string(k8sArgs.K8S_POD_NAME))
+					log.Infof("Pod %s excluded due to not containing sidecar annotation", string(k8sArgs.K8S_POD_NAME))
 					excludePod = true
 				}
 				if !excludePod {
-					logrus.Infof("setting up redirect")
-					if redirect, redirErr := NewRedirect(ports, annotations, logger); redirErr != nil {
-						logger.Errorf("Pod redirect failed due to bad params: %v", redirErr)
+					log.Infof("setting up redirect")
+					if redirect, redirErr := NewRedirect(ports, annotations); redirErr != nil {
+						log.Errorf("Pod redirect failed due to bad params: %v", redirErr)
 					} else {
 						// Get the constructor for the configured type of InterceptRuleMgr
 						interceptMgrCtor := GetInterceptRuleMgrCtor(interceptRuleMgrType)
 						if interceptMgrCtor == nil {
-							logger.Errorf("Pod redirect failed due to unavailable InterceptRuleMgr of type %s",
+							log.Errorf("Pod redirect failed due to unavailable InterceptRuleMgr of type %s",
 								interceptRuleMgrType)
 						} else {
 							rulesMgr := interceptMgrCtor()
@@ -230,10 +214,10 @@ func cmdAdd(args *skel.CmdArgs) error {
 				}
 			}
 		} else {
-			logger.Infof("Pod excluded")
+			log.Infof("Pod excluded")
 		}
 	} else {
-		logger.Infof("No Kubernetes Data")
+		log.Infof("No Kubernetes Data")
 	}
 
 	// Pass through the result for the next plugin
@@ -241,19 +225,18 @@ func cmdAdd(args *skel.CmdArgs) error {
 }
 
 func cmdGet(args *skel.CmdArgs) error {
-	logrus.Info("cmdGet not implemented")
+	log.Info("cmdGet not implemented")
 	// TODO: implement
 	return fmt.Errorf("not implemented")
 }
 
 // cmdDel is called for DELETE requests
 func cmdDel(args *skel.CmdArgs) error {
-	logrus.Info("istio-cni cmdDel parsing config")
+	log.Info("istio-cni cmdDel parsing config")
 	conf, err := parseConfig(args.StdinData)
 	if err != nil {
 		return err
 	}
-	ConfigureLogging(conf.LogLevel)
 	_ = conf
 
 	// Do your delete here
@@ -262,12 +245,11 @@ func cmdDel(args *skel.CmdArgs) error {
 }
 
 func main() {
-	// Set up logging formatting.
-	logrus.SetFormatter(&logutils.Formatter{})
-
-	// Install a hook that adds file/line no information.
-	logrus.AddHook(&logutils.ContextHook{})
-
+	loggingOptions.OutputPaths = []string{"stderr"}
+	loggingOptions.JSONEncoding = true
+	if err := log.Configure(loggingOptions); err != nil {
+		os.Exit(1)
+	}
 	// TODO: implement plugin version
 	skel.PluginMain(cmdAdd, cmdGet, cmdDel, version.All, "istio-cni")
 }

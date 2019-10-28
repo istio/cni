@@ -24,7 +24,6 @@ import (
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/plugins/pkg/testutils"
-	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -102,7 +101,7 @@ func NewMockInterceptRuleMgr() InterceptRuleMgr {
 	return &mockInterceptRuleMgr{}
 }
 
-func mocknewK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset, error) {
+func mocknewK8sClient(conf PluginConf) (*kubernetes.Clientset, error) {
 	var cs kubernetes.Clientset
 
 	getKubePodInfoCalled = true

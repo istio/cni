@@ -282,6 +282,10 @@ lint: lint-all
 .PHONY: fmt
 fmt: format-go
 
+gen: tidy-go mirror-licenses
+
+gen-check: gen check-clean-repo
+
 # delete once CI no longer uses these
 .PHONY: lint_modern fmt_modern
 lint_modern: lint

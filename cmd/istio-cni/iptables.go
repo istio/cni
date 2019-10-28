@@ -20,7 +20,9 @@ import (
 	"fmt"
 	"os/exec"
 
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
+
+	"istio.io/pkg/log"
 )
 
 var (
@@ -52,18 +54,16 @@ func (ipt *iptables) Program(netns string, rdrct *Redirect) error {
 		"-x", rdrct.excludeIPCidrs,
 		"-k", rdrct.kubevirtInterfaces,
 	}
-	logrus.WithFields(logrus.Fields{
-		"nsenterArgs": nsenterArgs,
-	}).Infof("nsenter args")
+	log.Info("nsenter args",
+		zap.Reflect("nsenterArgs", nsenterArgs))
 	out, err := exec.Command("nsenter", nsenterArgs...).CombinedOutput()
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"out": string(out),
-			"err": err,
-		}).Errorf("nsenter failed: %v", err)
-		rdrct.logger.Infof("nsenter out: %s", out)
+		log.Error("nsenter failed",
+			zap.String("out", string(out)),
+			zap.Error(err))
+		log.Infof("nsenter out: %s", out)
 	} else {
-		rdrct.logger.Infof("nsenter done: %s", out)
+		log.Infof("nsenter done: %s", out)
 	}
 	return err
 }

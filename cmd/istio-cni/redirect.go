@@ -21,9 +21,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sirupsen/logrus"
-
 	"istio.io/api/annotation"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -76,8 +75,6 @@ type Redirect struct {
 	excludeInboundPorts  string
 	excludeOutboundPorts string
 	kubevirtInterfaces   string
-
-	logger *logrus.Entry
 }
 
 type annotationValidationFunc func(value string) error
@@ -181,23 +178,22 @@ func getAnnotationOrDefault(name string, annotations map[string]string) (isFound
 }
 
 // NewRedirect returns a new Redirect Object constructed from a list of ports and annotations
-func NewRedirect(ports []string, annotations map[string]string, logger *logrus.Entry) (*Redirect, error) {
+func NewRedirect(ports []string, annotations map[string]string) (*Redirect, error) {
 	var isFound bool
 	var valErr error
 
 	redir := &Redirect{}
-	redir.logger = logger
 	redir.targetPort = defaultRedirectToPort
 	isFound, redir.redirectMode, valErr = getAnnotationOrDefault("redirectMode", annotations)
 	if valErr != nil {
-		logger.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
+		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"redirectMode", isFound, valErr)
 		return nil, valErr
 	}
 	redir.noRedirectUID = defaultNoRedirectUID
 	isFound, redir.includeIPCidrs, valErr = getAnnotationOrDefault("includeIPCidrs", annotations)
 	if valErr != nil {
-		logger.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
+		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"includeIPCidrs", isFound, valErr)
 		return nil, valErr
 	}
@@ -205,32 +201,32 @@ func NewRedirect(ports []string, annotations map[string]string, logger *logrus.E
 	if !isFound || valErr != nil {
 		redir.includePorts = strings.Join(ports, ",")
 		if valErr != nil {
-			logger.Errorf("Annotation value error for redirect ports, using ContainerPorts=\"%s\": %v",
+			log.Errorf("Annotation value error for redirect ports, using ContainerPorts=\"%s\": %v",
 				redir.includePorts, valErr)
 			return nil, valErr
 		}
 	}
 	isFound, redir.excludeIPCidrs, valErr = getAnnotationOrDefault("excludeIPCidrs", annotations)
 	if valErr != nil {
-		logger.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
+		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"excludeIPCidrs", isFound, valErr)
 		return nil, valErr
 	}
 	isFound, redir.excludeInboundPorts, valErr = getAnnotationOrDefault("excludeInboundPorts", annotations)
 	if valErr != nil {
-		logger.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
+		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"excludeInboundPorts", isFound, valErr)
 		return nil, valErr
 	}
 	isFound, redir.excludeOutboundPorts, valErr = getAnnotationOrDefault("excludeOutboundPorts", annotations)
 	if valErr != nil {
-		logger.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
+		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"excludeOutboundPorts", isFound, valErr)
 		return nil, valErr
 	}
 	isFound, redir.kubevirtInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", annotations)
 	if valErr != nil {
-		logger.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
+		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"kubevirtInterfaces", isFound, valErr)
 		return nil, valErr
 	}

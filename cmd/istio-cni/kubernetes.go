@@ -17,10 +17,12 @@ package main
 import (
 	"strconv"
 
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/pkg/log"
 )
 
 // newKubeClient is a unit test override variable for interface create.
@@ -30,7 +32,7 @@ var newKubeClient = newK8sClient
 var getKubePodInfo = getK8sPodInfo
 
 // newK8sClient returns a Kubernetes client
-func newK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset, error) {
+func newK8sClient(conf PluginConf) (*kubernetes.Clientset, error) {
 	// Some config can be passed in a kubeconfig file
 	kubeconfig := conf.Kubernetes.Kubeconfig
 
@@ -42,12 +44,12 @@ func newK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset,
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig},
 		configOverrides).ClientConfig()
 	if err != nil {
-		logger.Infof("Failed setting up kubernetes client with kubeconfig %s", kubeconfig)
+		log.Infof("Failed setting up kubernetes client with kubeconfig %s", kubeconfig)
 		return nil, err
 	}
 
-	logger.Infof("Set up kubernetes client with kubeconfig %s", kubeconfig)
-	logger.Infof("Kubernetes config %v", config)
+	log.Infof("Set up kubernetes client with kubeconfig %s", kubeconfig)
+	log.Infof("Kubernetes config %v", config)
 
 	// Create the clientset
 	return kubernetes.NewForConfig(config)
@@ -57,17 +59,16 @@ func newK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset,
 func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
 	labels map[string]string, annotations map[string]string, ports []string, err error) {
 	pod, err := client.CoreV1().Pods(podNamespace).Get(podName, metav1.GetOptions{})
-	logrus.Infof("pod info %+v", pod)
+	log.Infof("pod info %+v", pod)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
 	containers = make([]string, len(pod.Spec.Containers))
 	for containerIdx, container := range pod.Spec.Containers {
-		logrus.WithFields(logrus.Fields{
-			"pod":       podName,
-			"container": container.Name,
-		}).Debug("Inspecting container")
+		log.Debug("Inspecting container",
+			zap.String("pod", podName),
+			zap.String("container", container.Name))
 		containers[containerIdx] = container.Name
 
 		if container.Name == "istio-proxy" {
@@ -75,18 +76,16 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 			continue
 		}
 		for _, containerPort := range container.Ports {
-			logrus.WithFields(logrus.Fields{
-				"pod":       podName,
-				"container": container.Name,
-				"port":      containerPort,
-			}).Debug("Added pod port")
+			log.Debug("Added pod port",
+				zap.String("pod", podName),
+				zap.String("container", container.Name),
+				zap.Reflect("port", containerPort))
 
 			ports = append(ports, strconv.Itoa(int(containerPort.ContainerPort)))
-			logrus.WithFields(logrus.Fields{
-				"ports":     ports,
-				"pod":       podName,
-				"container": container.Name,
-			}).Debug("port")
+			log.Debug("port",
+				zap.Strings("ports", ports),
+				zap.String("pod", podName),
+				zap.String("container", container.Name))
 		}
 	}
 
