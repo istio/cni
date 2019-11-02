@@ -93,7 +93,9 @@ function cleanup() {
   if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
     echo "Removing istio-cni config from CNI chain config in ${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}"
     CNI_CONF_DATA=$(jq 'del( .plugins[]? | select(.type == "istio-cni"))' < "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}")
-    echo "${CNI_CONF_DATA}" > "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}"
+    # Rewrite the config file atomically: write into a temp file in the same directory then rename.
+    echo "${CNI_CONF_DATA}" > "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}.tmp"
+    mv "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}.tmp" "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}"
   fi
   if [ -e "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}" ]; then
     echo "Removing istio-cni kubeconfig file: ${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}"
@@ -122,20 +124,17 @@ CFGCHECK_INTERVAL=${CFGCHECK_INTERVAL:-1}
 
 trap cleanup EXIT
 
-# Clean up any existiang binaries / config / assets.
-rm_bin_files
-
 # Choose which default cni binaries should be copied
 SKIP_CNI_BINARIES=${SKIP_CNI_BINARIES:-""}
 SKIP_CNI_BINARIES=",$SKIP_CNI_BINARIES,"
 UPDATE_CNI_BINARIES=${UPDATE_CNI_BINARIES:-"true"}
 
-# Place the new binaries if the directory is writeable.
+# Place the new binaries if the directory is writable.
 for dir in /host/opt/cni/bin /host/secondary-bin-dir
 do
   if [ ! -w "$dir" ];
   then
-    echo "$dir is non-writeable, skipping"
+    echo "$dir is non-writable, skipping"
     continue
   fi
   for path in /opt/cni/bin/*;
@@ -152,13 +151,17 @@ do
       echo "$dir/$filename is already here and UPDATE_CNI_BINARIES isn't true, skipping"
       continue
     fi
-    cp "$path" "$dir/" || exit_with_error "Failed to copy $path to $dir. This may be caused by selinux configuration on the host, or something else."
+    # Copy files atomically by first copying into the same directory then renaming.
+    # shellcheck disable=SC2015
+    cp "${path}" "${dir}/${filename}.tmp" && mv "${dir}/${filename}.tmp" "${dir}/${filename}" || exit_with_error "Failed to copy $path into $dir. This may be caused by selinux configuration on the host."
   done
 
   echo "Wrote Istio CNI binaries to $dir."
 done
 
-TMP_CONF='/istio-cni.conf.tmp'
+# Create a temp file in the same directory as the target, in order for the final rename to be atomic.
+TMP_CONF="${MOUNTED_CNI_NET_DIR}/istio-cni.conf.tmp"
+true > "${TMP_CONF}"
 # If specified, overwrite the network configuration file.
 : "${CNI_NETWORK_CONFIG_FILE:=}"
 : "${CNI_NETWORK_CONFIG:=}"
@@ -167,7 +170,7 @@ if [ -e "${CNI_NETWORK_CONFIG_FILE}" ]; then
   cp "${CNI_NETWORK_CONFIG_FILE}" "${TMP_CONF}"
 elif [ -n "${CNI_NETWORK_CONFIG}" ]; then
   echo "Using CNI config template from CNI_NETWORK_CONFIG environment variable."
-  cat >$TMP_CONF <<EOF
+  cat >"${TMP_CONF}" <<EOF
 ${CNI_NETWORK_CONFIG}
 EOF
 fi
@@ -199,9 +202,10 @@ if [ -f "$SERVICE_ACCOUNT_PATH/token" ]; then
   # to skip TLS verification for now.  We should eventually support
   # writing more complete kubeconfig files. This is only used
   # if the provided CNI network config references it.
-  touch "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}"
-  chmod "${KUBECONFIG_MODE:-600}" "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}"
-  cat > "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}" <<EOF
+  # Create / overwrite this file atomically.
+  touch "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}.tmp"
+  chmod "${KUBECONFIG_MODE:-600}" "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}.tmp"
+  cat > "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}.tmp" <<EOF
 # Kubeconfig file for Istio CNI plugin.
 apiVersion: v1
 kind: Config
@@ -221,6 +225,7 @@ contexts:
     user: istio-cni
 current-context: istio-cni-context
 EOF
+  mv "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}.tmp" "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}"
 
 fi
 
@@ -232,15 +237,16 @@ sed -e "s/__KUBERNETES_SERVICE_HOST__/${KUBERNETES_SERVICE_HOST}/g" \
     -e "s/__KUBECONFIG_FILENAME__/${KUBECFG_FILE_NAME}/g" \
     -e "s~__KUBECONFIG_FILEPATH__~${HOST_CNI_NET_DIR}/${KUBECFG_FILE_NAME}~g" \
     -e "s~__LOG_LEVEL__~${LOG_LEVEL:-warn}~g" \
-    -i $TMP_CONF
+    -i "${TMP_CONF}"
 
 CNI_OLD_CONF_NAME=${CNI_OLD_CONF_NAME:-${CNI_CONF_NAME}}
 
 # Log the config file before inserting service account token.
 # This way auth token is not visible in the logs.
-echo "CNI config: $(cat ${TMP_CONF})"
+echo -n "CNI config: "
+cat "${TMP_CONF}"
 
-sed -e "s/__SERVICEACCOUNT_TOKEN__/${SERVICEACCOUNT_TOKEN:-}/g" -i $TMP_CONF
+sed -e "s/__SERVICEACCOUNT_TOKEN__/${SERVICEACCOUNT_TOKEN:-}/g" -i "${TMP_CONF}"
 
 if [ ! -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ] && [ "${CNI_CONF_NAME: -5}" = ".conf" ] && [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}list" ]; then
     echo "${CNI_CONF_NAME} doesn't exist, but ${CNI_CONF_NAME}list does; Using it instead."
@@ -249,9 +255,9 @@ fi
 
 if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
     # This section overwrites an existing plugins list entry to for istio-cni
-    CNI_TMP_CONF_DATA=$(cat ${TMP_CONF})
+    CNI_TMP_CONF_DATA=$(cat "${TMP_CONF}")
     CNI_CONF_DATA=$(jq --argjson CNI_TMP_CONF_DATA "$CNI_TMP_CONF_DATA" -f /filter.jq < "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}")
-    echo "${CNI_CONF_DATA}" > ${TMP_CONF}
+    echo "${CNI_CONF_DATA}" > "${TMP_CONF}"
 fi
 
 # If the old config filename ends with .conf, rename it to .conflist, because it has changed to be a list
@@ -266,7 +272,7 @@ if [ "${CNI_CONF_NAME}" != "${CNI_OLD_CONF_NAME}" ]; then
 fi
 
 # Move the temporary CNI config into place.
-mv $TMP_CONF "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" || \
+mv "${TMP_CONF}" "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" || \
   exit_with_error "Failed to mv files. This may be caused by selinux configuration on the host, or something else."
 
 echo "Created CNI config ${CNI_CONF_NAME}"
