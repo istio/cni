@@ -44,7 +44,7 @@ func newNFTables() InterceptRuleMgr {
 // provided in Redirect.
 func (nft *nftables) Program(netns string, rdrct *Redirect) error {
 	log.Info("nftables",
-		zap.String("netns", string(netns)))
+		zap.String("netns", netns))
 
 	fd, err := netnslib.GetFromPath(netns)
 	if err != nil {
@@ -54,7 +54,7 @@ func (nft *nftables) Program(netns string, rdrct *Redirect) error {
 	}
 
 	log.Info("nftables arguments",
-		zap.String("netns", string(netns)),
+		zap.String("netns", netns),
 		zap.String("fd", string(fd)))
 	// Initializing netlink connection
 	conn := nftableslib.InitConn(int(fd))
@@ -108,7 +108,7 @@ func (nft *nftables) Program(netns string, rdrct *Redirect) error {
 	}
 	// At this point all preparation is done, time to redirect traffic, starting with
 	// outgoing traffic, then following with incoming traffic.
-	if err := switchTraffic(ipv4ci, ipv6ci, rdrct); err != nil {
+	if err := switchTraffic(ipv4ci, ipv6ci); err != nil {
 		return err
 	}
 	// Get json like representation of all rules and print it for debugging purposes
@@ -119,7 +119,7 @@ func (nft *nftables) Program(netns string, rdrct *Redirect) error {
 	return nil
 }
 
-func switchTraffic(ipv4ci nftableslib.ChainsInterface, ipv6ci nftableslib.ChainsInterface, rdrct *Redirect) error {
+func switchTraffic(ipv4ci nftableslib.ChainsInterface, ipv6ci nftableslib.ChainsInterface) error {
 	tcpProto := uint32(unix.IPPROTO_TCP)
 	ra1ipv4, _ := nftableslib.SetVerdict(unix.NFT_GOTO, "istio_outbound_ipv4")
 	ipv4OutTraffic := nftableslib.Rule{
@@ -313,14 +313,14 @@ func setupTablesChains(rdrct *Redirect, ti nftableslib.TablesInterface) (nftable
 		case ch.family == definitions.TableFamilyIPv4:
 			if err := ipv4ci.Chains().CreateImm(ch.name, ch.attr); err != nil {
 				log.Error("Failed to create",
-					zap.String("ipv4 chain", string(ch.name)),
+					zap.String("ipv4 chain", ch.name),
 					zap.Error(err))
 				return nil, nil, err
 			}
 		case ch.family == definitions.TableFamilyIPv6:
 			if err := ipv6ci.Chains().CreateImm(ch.name, ch.attr); err != nil {
 				log.Error("Failed to create",
-					zap.String("ipv6 chain", string(ch.name)),
+					zap.String("ipv6 chain", ch.name),
 					zap.Error(err))
 				return nil, nil, err
 			}
