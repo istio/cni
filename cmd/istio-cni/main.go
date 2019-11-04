@@ -29,6 +29,7 @@ import (
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
+	"github.com/sbezverk/nftableslib"
 	"go.uber.org/zap"
 
 	"istio.io/pkg/log"
@@ -199,6 +200,14 @@ func cmdAdd(args *skel.CmdArgs) error {
 					if redirect, redirErr := NewRedirect(ports, annotations); redirErr != nil {
 						log.Errorf("Pod redirect failed due to bad params: %v", redirErr)
 					} else {
+						// Check if nftables interception is selected, if it is the case, then must
+						// verify if compute node supports. If it is not supported, fall back to iptables interception.
+						if interceptRuleMgrType == "nftables" {
+							if !nftableslib.IsNFTablesOn() {
+								// Falling back to default intercepting mechanism
+								interceptRuleMgrType = defInterceptRuleMgrType
+							}
+						}
 						// Get the constructor for the configured type of InterceptRuleMgr
 						interceptMgrCtor := GetInterceptRuleMgrCtor(interceptRuleMgrType)
 						if interceptMgrCtor == nil {

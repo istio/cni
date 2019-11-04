@@ -29,6 +29,7 @@ type InterceptRuleMgrCtor func() InterceptRuleMgr
 var (
 	InterceptRuleMgrTypes = map[string]InterceptRuleMgrCtor{
 		"iptables": IptablesInterceptRuleMgrCtor,
+		"nftables": NFtablesInterceptRuleMgrCtor,
 	}
 )
 
@@ -40,4 +41,9 @@ func GetInterceptRuleMgrCtor(interceptType string) InterceptRuleMgrCtor {
 // Constructor for iptables InterceptRuleMgr
 func IptablesInterceptRuleMgrCtor() InterceptRuleMgr {
 	return newIPTables()
+}
+
+// Constructor for nftables InterceptRuleMgr
+func NFtablesInterceptRuleMgrCtor() InterceptRuleMgr {
+	return newNFTables()
 }
