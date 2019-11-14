@@ -42,6 +42,8 @@ var (
 	loggingOptions       = log.DefaultOptions()
 )
 
+const ISTIOINIT = "istio-init"
+
 // Kubernetes a K8s specific struct to hold config
 type Kubernetes struct {
 	K8sAPIRoot           string   `json:"k8s_api_root"`
@@ -166,12 +168,20 @@ func cmdAdd(args *skel.CmdArgs) error {
 			if err != nil {
 				return err
 			}
-			log.Debug("Created Kubernetes client",
-				zap.Reflect("client", client))
-			containers, _, annotations, ports, k8sErr := getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
+			log.Debug("Created Kubernetes client", zap.Reflect("client", client))
+			containers, initContainersMap, _, annotations, ports, k8sErr := getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
 			if k8sErr != nil {
 				log.Warnf("Error getting Pod data %v", k8sErr)
 			}
+
+			// Check if istio-init container is present; in that case exclude pod
+			if _, present := initContainersMap[ISTIOINIT]; present {
+				log.Info("Pod excluded due to being already injected with istio-init container",
+					zap.String("pod", string(k8sArgs.K8S_POD_NAME)),
+					zap.String("namespace", string(k8sArgs.K8S_POD_NAMESPACE)))
+				excludePod = true
+			}
+
 			log.Infof("Found containers %v", containers)
 			if len(containers) > 1 {
 				log.Info("Checking annotations prior to redirect for Istio proxy",
