@@ -41,6 +41,8 @@ var (
 	interceptRuleMgrType = defInterceptRuleMgrType
 )
 
+const ISTIOINIT = "istio-init"
+
 // Kubernetes a K8s specific struct to hold config
 type Kubernetes struct {
 	K8sAPIRoot           string   `json:"k8s_api_root"`
@@ -183,10 +185,20 @@ func cmdAdd(args *skel.CmdArgs) error {
 				return err
 			}
 			logrus.WithField("client", client).Debug("Created Kubernetes client")
-			containers, _, annotations, ports, k8sErr := getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
+			containers, initContainersMap, _, annotations, ports, k8sErr := getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
 			if k8sErr != nil {
 				logger.Warnf("Error getting Pod data %v", k8sErr)
 			}
+
+			// Check if istio-init container is present; in that case exclude pod
+			if _, present := initContainersMap[ISTIOINIT]; present {
+				logrus.WithFields(logrus.Fields{
+					"pod":       string(k8sArgs.K8S_POD_NAME),
+					"Namespace": string(k8sArgs.K8S_POD_NAMESPACE),
+				}).Infof("Pod excluded due to being already injected with istio-init container")
+				excludePod = true
+			}
+
 			logger.Infof("Found containers %v", containers)
 			if len(containers) > 1 {
 				logrus.WithFields(logrus.Fields{

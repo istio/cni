@@ -55,13 +55,17 @@ func newK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Clientset,
 
 // getK8sPodInfo returns information of a POD
 func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
-	labels map[string]string, annotations map[string]string, ports []string, err error) {
+	initContainers map[string]struct{}, labels map[string]string, annotations map[string]string, ports []string, err error) {
 	pod, err := client.CoreV1().Pods(podNamespace).Get(podName, metav1.GetOptions{})
 	logrus.Infof("pod info %+v", pod)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
+	initContainers = map[string]struct{}{}
+	for _, initContainer := range pod.Spec.InitContainers {
+		initContainers[initContainer.Name] = struct{}{}
+	}
 	containers = make([]string, len(pod.Spec.Containers))
 	for containerIdx, container := range pod.Spec.Containers {
 		logrus.WithFields(logrus.Fields{
@@ -90,5 +94,5 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 		}
 	}
 
-	return containers, pod.Labels, pod.Annotations, ports, nil
+	return containers, initContainers, pod.Labels, pod.Annotations, ports, nil
 }
