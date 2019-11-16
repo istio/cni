@@ -38,10 +38,13 @@ var (
 	getKubePodInfoCalled = false
 	nsenterFuncCalled    = false
 
-	testContainers  = []string{"mockContainer"}
-	testLabels      = map[string]string{}
-	testAnnotations = map[string]string{}
-	testPorts       = []string{"9080"}
+	testContainers     = []string{"mockContainer"}
+	testLabels         = map[string]string{}
+	testAnnotations    = map[string]string{}
+	testPorts          = []string{"9080"}
+	testInitContainers = map[string]struct{}{
+		"foo-init": {},
+	}
 )
 
 var conf = `{
@@ -111,14 +114,15 @@ func mocknewK8sClient(conf PluginConf, logger *logrus.Entry) (*kubernetes.Client
 }
 
 func mockgetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
-	labels map[string]string, annotations map[string]string, ports []string, err error) {
+	initContainers map[string]struct{}, labels map[string]string, annotations map[string]string, ports []string, err error) {
 
 	containers = testContainers
 	labels = testLabels
 	annotations = testAnnotations
 	ports = testPorts
+	initContainers = testInitContainers
 
-	return containers, labels, annotations, ports, nil
+	return containers, initContainers, labels, annotations, ports, nil
 }
 
 func resetGlobalTestVariables() {
@@ -246,6 +250,25 @@ func TestCmdAddExcludePod(t *testing.T) {
 
 	if getKubePodInfoCalled == true {
 		t.Fatalf("failed to exclude pod")
+	}
+}
+
+func TestCmdAddExcludePodWithIstioInitContainer(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	k8Args = "K8S_POD_NAMESPACE=testNS;K8S_POD_NAME=testPodName"
+	testContainers = []string{"mockContainer"}
+	testInitContainers = map[string]struct{}{
+		"foo-init":   {},
+		"istio-init": {},
+	}
+	testAnnotations[sidecarStatusKey] = "true"
+	getKubePodInfoCalled = true
+
+	testCmdAdd(t)
+
+	if nsenterFuncCalled {
+		t.Fatalf("expected nsenterFunc to not get called")
 	}
 }
 
