@@ -255,6 +255,7 @@ func TestCmdAddExcludePod(t *testing.T) {
 func TestCmdAddExcludePodWithIstioInitContainer(t *testing.T) {
 	defer resetGlobalTestVariables()
 
+	k8Args = "K8S_POD_NAMESPACE=testNS;K8S_POD_NAME=testPodName"
 	testContainers = []string{"mockContainer"}
 	testInitContainers = map[string]struct{}{
 		"foo-init":   {},
