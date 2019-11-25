@@ -292,7 +292,7 @@ Workflow:
     1. Config must exclude namespace that Istio control-plane is installed in
     1. If excluded, ignore the pod and return prevResult
 1. Setup redirect rules for the pods:
-    1. Get the port list from from pods definition
+    1. Get the port list from pods definition
     1. Setup iptables with required port list: `nsenter --net=<k8s pod netns> /opt/cni/bin/istio-iptables.sh ...`
 
     Following conditions will prevent the redirect rules to be setup in the pods:
