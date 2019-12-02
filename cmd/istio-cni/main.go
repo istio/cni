@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 
 	"istio.io/api/annotation"
 
@@ -35,11 +36,13 @@ import (
 )
 
 var (
-	nsSetupBinDir        = "/opt/cni/bin"
-	injectAnnotationKey  = annotation.SidecarInject.Name
-	sidecarStatusKey     = annotation.SidecarStatus.Name
-	interceptRuleMgrType = defInterceptRuleMgrType
-	loggingOptions       = log.DefaultOptions()
+	nsSetupBinDir          = "/opt/cni/bin"
+	injectAnnotationKey    = annotation.SidecarInject.Name
+	sidecarStatusKey       = annotation.SidecarStatus.Name
+	interceptRuleMgrType   = defInterceptRuleMgrType
+	loggingOptions         = log.DefaultOptions()
+	podRetrievalMaxRetries = 30
+	podRetrievalInterval   = 1 * time.Second
 )
 
 const ISTIOINIT = "istio-init"
@@ -169,9 +172,22 @@ func cmdAdd(args *skel.CmdArgs) error {
 				return err
 			}
 			log.Debug("Created Kubernetes client", zap.Reflect("client", client))
-			containers, initContainersMap, _, annotations, ports, k8sErr := getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
+			var containers []string
+			var initContainersMap map[string]struct{}
+			var annotations map[string]string
+			var ports []string
+			var k8sErr error
+			for attempt := 1; attempt <= podRetrievalMaxRetries; attempt++ {
+				containers, initContainersMap, _, annotations, ports, k8sErr = getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
+				if k8sErr == nil {
+					break
+				}
+				log.Warn("Waiting for pod metadata", zap.Error(k8sErr), zap.Int("attempt", attempt))
+				time.Sleep(podRetrievalInterval)
+			}
 			if k8sErr != nil {
-				log.Warnf("Error getting Pod data %v", k8sErr)
+				log.Error("Failed to get pod data", zap.Error(k8sErr))
+				return k8sErr
 			}
 
 			// Check if istio-init container is present; in that case exclude pod
