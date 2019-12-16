@@ -12,7 +12,7 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
-.PHONY: docker docker.save update-istio-iptables.sh
+.PHONY: docker docker.save
 
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
@@ -81,9 +81,3 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT}/docker/
 docker.save: $(DOCKER_TAR_TARGETS)
-
-# Update the local copy of https://github.com/istio/istio/blob/master/tools/packaging/common/istio-iptables.sh,
-# and attempt to apply a patch to retry iptables calls when they fail.
-update-istio-iptables: tools/packaging/common/iptables-retry.diff
-	@curl -sL -o tools/packaging/common/istio-iptables.sh https://raw.githubusercontent.com/istio/istio/master/tools/packaging/common/istio-iptables.sh
-	@git apply < tools/packaging/common/iptables-retry.diff
