@@ -1,1 +1,2 @@
-Placeholder for istio-cni-daemonset to resolve the istio CNI race condition; see https://tinyurl.com/istio-cni-race
+The `istio-cni-daemonset` binary. Can be run as a standalone command line tool
+or as a daemon. 
