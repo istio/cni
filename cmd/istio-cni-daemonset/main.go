@@ -24,7 +24,6 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"istio.io/pkg/log"
 	client "k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/rest"
@@ -32,15 +31,16 @@ import (
 	"k8s.io/client-go/util/homedir"
 
 	"istio.io/cni/pkg/repair"
+	"istio.io/pkg/log"
 )
 
 type ControllerOptions struct {
-	DeletePods       bool            `json:"delete_pods"`
 	KubeConfigPath   string          `json:"kube_config_path"`
-	LabelPods        bool            `json:"label_pods"`
-	RunAsDaemon      bool            `json:"run_as_daemon"`
 	DaemonPollPeriod int             `json:"daemon_poll_period"`
 	RepairOptions    *repair.Options `json:"repair_options"`
+	DeletePods       bool            `json:"delete_pods"`
+	LabelPods        bool            `json:"label_pods"`
+	RunAsDaemon      bool            `json:"run_as_daemon"`
 }
 
 var (
@@ -52,10 +52,23 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 	// Parse command line flags
 	// Filter Options
 	pflag.String("node-name", "", "The name of the node we are managing (will manage all nodes if unset)")
-	pflag.String("sidecar-annotation", "sidecar.istio.io/status", "An annotation key that indicates this pod contains an istio sidecar. All pods without this annotation will be ignored. The value of the annotation is ignored.")
-	pflag.String("init-container-name", "istio-init", "The name of the istio init container (will crash-loop if CNI is not configured for the pod)")
-	pflag.String("init-container-termination-message", "", "The expected termination message for the init container when crash-looping because of CNI misconfiguration")
-	pflag.Int("init-container-exit-code", 126, "Expected exit code for the init container when crash-looping because of CNI misconfiguration")
+	pflag.String(
+		"sidecar-annotation",
+		"sidecar.istio.io/status",
+		"An annotation key that indicates this pod contains an istio sidecar. All pods without this annotation will be ignored."+
+			"The value of the annotation is ignored.")
+	pflag.String(
+		"init-container-name",
+		"istio-init",
+		"The name of the istio init container (will crash-loop if CNI is not configured for the pod)")
+	pflag.String(
+		"init-container-termination-message",
+		"",
+		"The expected termination message for the init container when crash-looping because of CNI misconfiguration")
+	pflag.Int(
+		"init-container-exit-code",
+		126,
+		"Expected exit code for the init container when crash-looping because of CNI misconfiguration")
 
 	pflag.StringSlice("label-selectors", []string{}, "A set of label selectors in label=value format that will be added to the pod list filters")
 	pflag.StringSlice("field-selectors", []string{}, "A set of field selectors in label=value format that will be added to the pod list filters")
@@ -65,8 +78,14 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 	pflag.Bool("label-pods", false, "Controller will label pods")
 	pflag.Bool("run-as-daemon", false, "Controller will run in a loop")
 	pflag.Int("daemon-poll-period", 10, "Polling period for daemon (in seconds)")
-	pflag.String("broken-pod-label-key", "cni.istio.io/uninitialized", "The key portion of the label which will be set by the reconciler if --label-pods is true")
-	pflag.String("broken-pod-label-value", "true", "The value portion of the label which will be set by the reconciler if --label-pods is true")
+	pflag.String(
+		"broken-pod-label-key",
+		"cni.istio.io/uninitialized",
+		"The key portion of the label which will be set by the reconciler if --label-pods is true")
+	pflag.String(
+		"broken-pod-label-value",
+		"true",
+		"The value portion of the label which will be set by the reconciler if --label-pods is true")
 
 	// Get kubernetes config
 	if home := homedir.HomeDir(); home != "" {
@@ -202,19 +221,17 @@ func main() {
 	logCurrentOptions(&podFixer, options)
 
 	reconcile := func(bpr repair.BrokenPodReconciler) error {
-		for {
-			if options.LabelPods {
-				if err := bpr.LabelBrokenPods(); err != nil {
-					return err
-				}
+		if options.LabelPods {
+			if err := bpr.LabelBrokenPods(); err != nil {
+				return err
 			}
-			if options.DeletePods {
-				if err := bpr.DeleteBrokenPods(); err != nil {
-					return err
-				}
-			}
-			return nil
 		}
+		if options.DeletePods {
+			if err := bpr.DeleteBrokenPods(); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	if options.RunAsDaemon {
@@ -224,10 +241,7 @@ func main() {
 			}
 			time.Sleep(time.Second * time.Duration(options.DaemonPollPeriod))
 		}
-	} else {
-		if err := reconcile(podFixer); err != nil {
-			log.Fatalf("Error encountered in reconcile: %s", err)
-		}
+	} else if err := reconcile(podFixer); err != nil {
+		log.Fatalf("Error encountered in reconcile: %s", err)
 	}
-
 }

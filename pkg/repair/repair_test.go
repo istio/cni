@@ -628,7 +628,7 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 			wantErr:    false,
 		},
 		{
-			name: "With already labelled pod",
+			name: "With already labeled pod",
 			fields: fields{
 				client: labelBrokenPodsClientset(workingPod, workingPodDiedPreviously, brokenPodTerminating),
 				Filters: &Filters{

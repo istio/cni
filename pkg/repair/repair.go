@@ -15,14 +15,13 @@
 package repair
 
 import (
-	"fmt"
 	"strings"
 
 	"istio.io/pkg/log"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	client "k8s.io/client-go/kubernetes"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 type Options struct {
@@ -71,7 +70,6 @@ func (a *KeyValueSelectorSet) AddSelectors(selectors ...string) {
 			a.KeyValueSelectors = append(a.KeyValueSelectors, selector)
 		}
 	}
-	return
 }
 
 // Returns a stringified KeyValueSelectorSet
@@ -146,8 +144,8 @@ func (bpr BrokenPodReconciler) ListBrokenPods() (list v1.PodList, err error) {
 
 	var rawList *v1.PodList
 	rawList, err = bpr.client.CoreV1().Pods("").List(metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s", bpr.Filters.GetLabelSelectors()),
-		FieldSelector: fmt.Sprintf("%s", bpr.Filters.GetFieldSelectors()),
+		LabelSelector: bpr.Filters.GetLabelSelectors().String(),
+		FieldSelector: bpr.Filters.GetFieldSelectors().String(),
 	})
 	if err != nil {
 		return
@@ -170,18 +168,16 @@ func (bpr BrokenPodReconciler) detectPod(pod v1.Pod) bool {
 		// If we are filtering on init container termination message and the termination message of 'state' does not match, exit
 		if s := strings.TrimSpace(bpr.Filters.InitContainerTerminationMessage); s == "" || s == strings.TrimSpace(state.Message) {
 			return true
-		} else {
-			return false
 		}
+		return false
 	}
 	// Helper function; checks that container exit code matches filter
 	matchExitCode := func(state *v1.ContainerStateTerminated) bool {
 		// If we are filtering on init container exit code and the termination message does not match, exit
 		if ec := bpr.Filters.InitContainerExitCode; ec == 0 || ec == int(state.ExitCode) {
 			return true
-		} else {
-			return false
 		}
+		return false
 	}
 
 	// Only check pods that have the sidecar annotation; the rest can be
@@ -205,13 +201,11 @@ func (bpr BrokenPodReconciler) detectPod(pod v1.Pod) bool {
 		if state := container.State.Terminated; state != nil {
 			if state.Reason == "Completed" || state.ExitCode == 0 {
 				continue
-			} else {
-				// Check if other conditions match
-				if matchTerminationMessage(state) && matchExitCode(state) {
-					return true
-				}
+			} else if matchTerminationMessage(state) && matchExitCode(state) {
+				return true
 			}
 		}
+
 		// Next check that the container previously terminated due to our error
 		if state := container.LastTerminationState.Terminated; state != nil {
 			// Finally, check that the container state matches our filter criteria
