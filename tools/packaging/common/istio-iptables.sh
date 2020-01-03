@@ -462,19 +462,29 @@ fi
 # 127.0.0.6 is bind connect from inbound passthrough cluster
 iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
 
-if [ -z "${DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK-}" ]; then
-  # Redirect app calls back to itself via Envoy when using the service VIP or endpoint
-  # address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-  iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -j ISTIO_IN_REDIRECT
-fi
-
 for uid in ${PROXY_UID}; do
+  # Redirect app calls back to itself via Envoy when using the service VIP
+  # e.g. appN => Envoy (client) => Envoy (server) => appN.
+  iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner "${uid}" -j ISTIO_IN_REDIRECT
+
+  # Do not redirect app calls to back itself via Envoy when using the endpoint address
+  # e.g. appN => appN by lo
+  iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner "${uid}" -j RETURN
+
   # Avoid infinite loops. Don't redirect Envoy traffic directly back to
   # Envoy for non-loopback traffic.
   iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner "${uid}" -j RETURN
 done
 
 for gid in ${PROXY_GID}; do
+  # Redirect app calls back to itself via Envoy when using the service VIP
+  # e.g. appN => Envoy (client) => Envoy (server) => appN.
+  iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner "${gid}" -j ISTIO_IN_REDIRECT
+
+  # Do not redirect app calls to back itself via Envoy when using the endpoint address
+  # e.g. appN => appN by lo
+  iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner "${gid}" -j RETURN
+
   # Avoid infinite loops. Don't redirect Envoy traffic directly back to
   # Envoy for non-loopback traffic.
   iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner "${gid}" -j RETURN
@@ -579,17 +589,29 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   # ::6 is bind when connect from inbound passthrough cluster
   ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN
 
-  # Redirect app calls to back itself via Envoy when using the service VIP or endpoint
-  # address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-  ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_IN_REDIRECT
-
   for uid in ${PROXY_UID}; do
+    # Redirect app calls back to itself via Envoy when using the service VIP
+    # e.g. appN => Envoy (client) => Envoy (server) => appN.
+    ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner "${uid}" -j ISTIO_IN_REDIRECT
+
+    # Do not redirect app calls to back itself via Envoy when using the endpoint address
+    # e.g. appN => appN by lo
+    ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner "${uid}" -j RETURN
+
     # Avoid infinite loops. Don't redirect Envoy traffic directly back to
     # Envoy for non-loopback traffic.
     ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner "${uid}" -j RETURN
   done
 
   for gid in ${PROXY_GID}; do
+    # Redirect app calls back to itself via Envoy when using the service VIP
+    # e.g. appN => Envoy (client) => Envoy (server) => appN.
+    ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner "${gid}" -j ISTIO_IN_REDIRECT
+
+    # Do not redirect app calls to back itself via Envoy when using the endpoint address
+    # e.g. appN => appN by lo
+    ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner "${gid}" -j RETURN
+
     # Avoid infinite loops. Don't redirect Envoy traffic directly back to
     # Envoy for non-loopback traffic.
     ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner "${gid}" -j RETURN
