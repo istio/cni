@@ -29,8 +29,11 @@ spec:
               fieldPath: spec.nodeName
         - name: "ICNID_LABEL-PODS"
           value: "true"
-        - name: "ICNID_DELETE-PODS"
+        - name: "ICNID_CREATE-EVENTS"
           value: "true"
+        # Set to true to enable pod deletion
+        - name: "ICNID_DELETE-PODS"
+          value: "false"
         - name: "ICNID_RUN-AS-DAEMON"
           value: "true"
         - name: "ICNID_SIDECAR-ANNOTATION"

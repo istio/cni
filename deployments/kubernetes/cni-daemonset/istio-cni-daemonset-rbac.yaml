@@ -15,8 +15,8 @@ metadata:
     k8s-app: istio-cni-daemonset
 rules:
 - apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get", "list", "watch", "delete", "patch", "update"]
+  resources: ["pods", "events"]
+  verbs: ["get", "list", "watch", "delete", "patch", "update", "create" ]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

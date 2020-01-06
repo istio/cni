@@ -36,6 +36,7 @@ type ControllerOptions struct {
 	RepairOptions    *repair.Options `json:"repair_options"`
 	DeletePods       bool            `json:"delete_pods"`
 	LabelPods        bool            `json:"label_pods"`
+	CreateEvents     bool            `json:"create_events"`
 	RunAsDaemon      bool            `json:"run_as_daemon"`
 }
 
@@ -72,6 +73,7 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 	// Repair Options
 	pflag.Bool("delete-pods", false, "Controller will delete pods")
 	pflag.Bool("label-pods", false, "Controller will label pods")
+	pflag.Bool("create-events", true, "Controller will create Kubernetes events")
 	pflag.Bool("run-as-daemon", false, "Controller will run in a loop")
 	pflag.Int("daemon-poll-period", 10, "Polling period for daemon (in seconds)")
 	pflag.String(
@@ -111,6 +113,7 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 		RunAsDaemon:      viper.GetBool("run-as-daemon"),
 		DaemonPollPeriod: viper.GetInt("daemon-poll-period"),
 		LabelPods:        viper.GetBool("label-pods"),
+		CreateEvents:     viper.GetBool("create-events"),
 		RepairOptions: &repair.Options{
 			PodLabelKey:   viper.GetString("broken-pod-label-key"),
 			PodLabelValue: viper.GetString("broken-pod-label-value"),
@@ -158,6 +161,9 @@ func logCurrentOptions(bpr *repair.BrokenPodReconciler, options *ControllerOptio
 	if options.DeletePods {
 		log.Info("Controller Option: Deleting broken pods")
 	}
+	if options.CreateEvents {
+		log.Info("Controller option: Creating Kubernetes Events for broken pods")
+	}
 
 	if bpr.Filters.SidecarAnnotation != "" {
 		log.Infof("Filter option: Only managing pods with an annotation with key %s", bpr.Filters.SidecarAnnotation)
@@ -203,6 +209,11 @@ func main() {
 	logCurrentOptions(&podFixer, options)
 
 	reconcile := func(bpr repair.BrokenPodReconciler) error {
+		if options.CreateEvents {
+			if err := bpr.CreateEventsForBrokenPods(); err != nil {
+				return err
+			}
+		}
 		if options.LabelPods {
 			if err := bpr.LabelBrokenPods(); err != nil {
 				return err

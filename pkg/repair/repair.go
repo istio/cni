@@ -17,11 +17,12 @@ package repair
 import (
 	"strings"
 
-	"istio.io/pkg/log"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	client "k8s.io/client-go/kubernetes"
+
+	"istio.io/pkg/log"
 )
 
 type Options struct {
@@ -122,6 +123,62 @@ func (bpr BrokenPodReconciler) LabelBrokenPods() (err error) {
 	return
 }
 
+func (bpr BrokenPodReconciler) CreateEventsForBrokenPods() error {
+	// Get a list of all broken pods
+	podList, err := bpr.ListBrokenPods()
+	if err != nil {
+		return err
+	}
+
+	eventList, err := bpr.ListEvents()
+	if err != nil {
+		return err
+	}
+
+	for _, pod := range podList.Items {
+		if event, ok := eventList[pod.UID]; ok {
+			log.Infof("Updating existing event for broken pod: %s/%s", pod.Namespace, pod.Name)
+			event.LastTimestamp = metav1.Now()
+			event.Count++
+			_, err := bpr.client.CoreV1().Events(pod.Namespace).Update(&event)
+			if err != nil {
+				return err
+			}
+		} else {
+			log.Infof("Creating event for broken pod: %s/%s", pod.Namespace, pod.Name)
+			_, err := bpr.client.CoreV1().Events(pod.Namespace).Create(&v1.Event{
+				Type: "Warning",
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName:      pod.Name,
+					Namespace:         pod.Namespace,
+					Generation:        0,
+					CreationTimestamp: metav1.Now(),
+					ClusterName:       pod.ClusterName,
+					Labels: map[string]string{
+						"istio-cni-daemonset-event": "true",
+					},
+				},
+				InvolvedObject: v1.ObjectReference{
+					Kind:            "pod",
+					Namespace:       pod.Namespace,
+					Name:            pod.Name,
+					UID:             pod.UID,
+					APIVersion:      pod.APIVersion,
+					ResourceVersion: pod.ResourceVersion,
+				},
+				Reason:         "BrokenIstioCNI",
+				Message:        "Pod detected with broken Istio CNI configuration.",
+				FirstTimestamp: metav1.Now(),
+				LastTimestamp:  metav1.Now(),
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // Delete all pods detected as broken by ListPods
 func (bpr BrokenPodReconciler) DeleteBrokenPods() error {
 	// Get a list of all broken pods
@@ -137,6 +194,22 @@ func (bpr BrokenPodReconciler) DeleteBrokenPods() error {
 		}
 	}
 	return nil
+}
+
+func (bpr BrokenPodReconciler) ListEvents() (list map[types.UID]v1.Event, err error) {
+	list = map[types.UID]v1.Event{}
+
+	var rawList *v1.EventList
+	rawList, err = bpr.client.CoreV1().Events("").List(metav1.ListOptions{
+		LabelSelector: "istio-cni-daemonset-event=true",
+	})
+	if err != nil {
+		return
+	}
+	for _, event := range rawList.Items {
+		list[event.InvolvedObject.UID] = event
+	}
+	return
 }
 
 // Lists all pods identified as broken by our Filter criteria
