@@ -1,0 +1,35 @@
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: istio-cni-daemonset-sa
+  namespace: istio-system
+  labels:
+    k8s-app: istio-cni-daemonset
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-cni-daemonset-role
+  namespace: istio-system
+  labels:
+    k8s-app: istio-cni-daemonset
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "delete", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-cni-daemonset-rolebinding
+  namespace: istio-system
+  labels:
+    k8s-app: istio-cni-daemonset
+subjects:
+- kind: ServiceAccount
+  name: istio-cni-daemonset-sa
+  namespace: istio-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-cni-daemonset-role

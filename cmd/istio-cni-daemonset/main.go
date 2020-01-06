@@ -19,23 +19,19 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	client "k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 
 	"istio.io/cni/pkg/repair"
 	"istio.io/pkg/log"
 )
 
 type ControllerOptions struct {
-	KubeConfigPath   string          `json:"kube_config_path"`
 	DaemonPollPeriod int             `json:"daemon_poll_period"`
 	RepairOptions    *repair.Options `json:"repair_options"`
 	DeletePods       bool            `json:"delete_pods"`
@@ -87,13 +83,6 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 		"true",
 		"The value portion of the label which will be set by the reconciler if --label-pods is true")
 
-	// Get kubernetes config
-	if home := homedir.HomeDir(); home != "" {
-		pflag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(option) absolute path to the kubeconfig file")
-	} else {
-		pflag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-	}
-
 	pflag.Bool("help", false, "Print usage information")
 
 	pflag.Parse()
@@ -106,6 +95,8 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 		os.Exit(0)
 	}
 
+	viper.SetEnvPrefix("icnid")
+	viper.AutomaticEnv()
 	// Pull runtime args into structs
 	filters = &repair.Filters{
 		InitContainerName:               viper.GetString("init-container-name"),
@@ -120,7 +111,6 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 		RunAsDaemon:      viper.GetBool("run-as-daemon"),
 		DaemonPollPeriod: viper.GetInt("daemon-poll-period"),
 		LabelPods:        viper.GetBool("label-pods"),
-		KubeConfigPath:   viper.GetString("kubeconfig"),
 		RepairOptions: &repair.Options{
 			PodLabelKey:   viper.GetString("broken-pod-label-key"),
 			PodLabelValue: viper.GetString("broken-pod-label-value"),
@@ -141,23 +131,15 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 }
 
 // Set up Kubernetes client using kubeconfig (or in-cluster config if no file provided)
-func clientSetup(options *ControllerOptions) (clientset *client.Clientset, err error) {
-	var kubeConfig *rest.Config
-
-	// Set up client
-	if options.KubeConfigPath == "" {
-		kubeConfig, err = rest.InClusterConfig()
-		if err != nil {
-			return
-		}
-	} else {
-		kubeConfig, err = clientcmd.BuildConfigFromFlags("", options.KubeConfigPath)
-		if err != nil {
-			return
-		}
+func clientSetup() (clientset *client.Clientset, err error) {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	configOverrides := &clientcmd.ConfigOverrides{}
+	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+	config, err := kubeConfig.ClientConfig()
+	if err != nil {
+		return
 	}
-
-	clientset, err = client.NewForConfig(kubeConfig)
+	clientset, err = client.NewForConfig(config)
 	return
 }
 
@@ -212,7 +194,7 @@ func main() {
 
 	// TODO:(stewartbutler) This should probably use client-go/tools/cache at some
 	//  point, but I'm not sure yet if it is needed.
-	clientSet, err := clientSetup(options)
+	clientSet, err := clientSetup()
 	if err != nil {
 		log.Fatalf("Could not construct clientSet: %s", err)
 	}

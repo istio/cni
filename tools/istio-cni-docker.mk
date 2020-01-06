@@ -26,7 +26,7 @@ $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 # directives to copy files to docker scratch directory
 
 # tell make which files are copied from go/out
-DOCKER_FILES_FROM_ISTIO_OUT:=istio-cni
+DOCKER_FILES_FROM_ISTIO_OUT:=istio-cni istio-cni-daemonset
 
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
@@ -47,7 +47,14 @@ docker.install-cni: $(ISTIO_OUT)/istio-cni tools/packaging/common/istio-iptables
 		-f $(ISTIO_DOCKER)/install-cni/Dockerfile.install-cni \
 		$(ISTIO_DOCKER)/install-cni
 
-DOCKER_TARGETS:=docker.install-cni
+docker.istio-cni-daemonset: $(ISTIO_OUT)/istio-cni-daemonset deployments/kubernetes/Dockerfile.istio-cni-daemonset
+	mkdir -p $(ISTIO_DOCKER)/istio-cni-daemonset
+	cp $^ $(ISTIO_DOCKER)/istio-cni-daemonset
+	time docker build -t $(HUB)/istio-cni-daemonset:$(TAG) \
+		-f $(ISTIO_DOCKER)/istio-cni-daemonset/Dockerfile.istio-cni-daemonset \
+		$(ISTIO_DOCKER)/istio-cni-daemonset
+
+DOCKER_TARGETS:=docker.install-cni docker.istio-cni-daemonset
 
 # create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
 DOCKER_PUSH_TARGETS:=

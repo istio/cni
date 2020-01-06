@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: istio-cni-daemonset
+  namespace: istio-system
+  labels:
+    k8s-app: istio-cni-daemonset
+spec:
+  selector:
+    matchLabels:
+      k8s-app: istio-cni-daemonset
+  template:
+    metadata:
+      labels:
+        k8s-app: istio-cni-daemonset
+    spec:
+      serviceAccountName: istio-cni-daemonset-sa
+      tolerations:
+      # Tolerate all taints; we want to run on all nodes
+      - operator: "Exists"
+      containers:
+      - name: istio-cni-daemonset
+        image: gcr.io/istio-release:master-latest-daily
+        imagePullPolicy: "Always"
+        env:
+        - name: "ICNID_NODE-NAME"
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: "ICNID_LABEL-PODS"
+          value: "true"
+        - name: "ICNID_DELETE-PODS"
+          value: "true"
+        - name: "ICNID_RUN-AS-DAEMON"
+          value: "true"
+        - name: "ICNID_SIDECAR-ANNOTATION"
+          value: "sidecar.istio.io/status"
+        - name: "ICNID_INIT-CONTAINER-NAME"
+          value: "istio-init"
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            memory: 200Mi
+            cpu: .1
+      terminationGracePeriodSeconds: 30
