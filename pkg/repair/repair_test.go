@@ -20,10 +20,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -81,6 +83,30 @@ func makePod(args makePodArgs) *v1.Pod {
 		},
 	}
 	return pod
+}
+
+func makeEvent(
+	name string,
+	namespace string,
+	uid types.UID,
+	labelkey string,
+	labelval string,
+	reason string,
+	message string,
+	eventtype string,
+	object *v1.ObjectReference) *v1.Event {
+	return &v1.Event{
+		ObjectMeta: v12.ObjectMeta{
+			GenerateName: name,
+			Namespace:    namespace,
+			UID:          uid,
+			Labels:       map[string]string{labelkey: labelval},
+		},
+		InvolvedObject: *object,
+		Reason:         reason,
+		Message:        message,
+		Type:           eventtype,
+	}
 }
 
 // Container specs
@@ -763,6 +789,89 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 				t.Errorf("DeleteBrokenPods() error havePods = %v, wantPods = %v", havePods.Items, tt.wantPods)
 			}
 
+		})
+	}
+}
+
+func TestBrokenPodReconciler_ListEvents(t *testing.T) {
+	var (
+		irrelevantEvent = makeEvent(
+			"Test",
+			"TestNS",
+			types.UID(1234),
+			"testlabel",
+			"true",
+			"Test",
+			"This is a test event",
+			"Warning",
+			&v1.ObjectReference{},
+		)
+		relevantEventUID = types.UID(4567)
+		relevantEvent    = makeEvent(
+			"Test2",
+			"TestNS",
+			types.UID(2345),
+			"istio-cni-daemonset-event",
+			"true",
+			"Test",
+			"This is a test event",
+			"Warning",
+			&v1.ObjectReference{UID: relevantEventUID},
+		)
+	)
+
+	type fields struct {
+		client  kubernetes.Interface
+		Filters *Filters
+		Options *Options
+	}
+	tests := []struct {
+		name     string
+		fields   fields
+		wantList map[types.UID]v1.Event
+		wantErr  bool
+	}{
+		{
+			name: "No matching Events",
+			fields: fields{
+				client: fake.NewSimpleClientset(
+					&brokenPodWaiting,
+					irrelevantEvent,
+				),
+				Filters: &Filters{},
+				Options: &Options{},
+			},
+			wantList: map[types.UID]v1.Event{},
+			wantErr:  false,
+		},
+		{
+			name: "One matching Events",
+			fields: fields{
+				client: fake.NewSimpleClientset(
+					relevantEvent,
+				),
+				Filters: &Filters{},
+				Options: &Options{},
+			},
+			wantList: map[types.UID]v1.Event{relevantEventUID: *relevantEvent},
+			wantErr:  false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bpr := BrokenPodReconciler{
+				client:  tt.fields.client,
+				Filters: tt.fields.Filters,
+				Options: tt.fields.Options,
+			}
+			gotList, err := bpr.ListEvents()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ListEvents() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotList, tt.wantList) {
+				t.Errorf("ListEvents() gotList = %v, want %v", spew.Sdump(gotList), spew.Sdump(tt.wantList))
+			}
 		})
 	}
 }

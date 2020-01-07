@@ -15,6 +15,7 @@
 package repair
 
 import (
+	"fmt"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -105,17 +106,19 @@ func (bpr BrokenPodReconciler) LabelBrokenPods() (err error) {
 
 	for _, pod := range podList.Items {
 		labels := pod.GetLabels()
-		if labels == nil {
-			labels = map[string]string{}
-		}
 		if _, ok := labels[bpr.Options.PodLabelKey]; ok {
 			log.Infof("Pod %s/%s already has label with key %s, skipping", pod.Namespace, pod.Name, bpr.Options.PodLabelKey)
 			continue
-		} else {
-			log.Infof("Labeling pod %s/%s with label %s=%s", pod.Namespace, pod.Name, bpr.Options.PodLabelKey, bpr.Options.PodLabelValue)
-			labels[bpr.Options.PodLabelKey] = bpr.Options.PodLabelValue
-			pod.SetLabels(labels)
 		}
+
+		if labels == nil {
+			labels = map[string]string{}
+		}
+
+		log.Infof("Labeling pod %s/%s with label %s=%s", pod.Namespace, pod.Name, bpr.Options.PodLabelKey, bpr.Options.PodLabelValue)
+		labels[bpr.Options.PodLabelKey] = bpr.Options.PodLabelValue
+		pod.SetLabels(labels)
+
 		if _, err = bpr.client.CoreV1().Pods(pod.Namespace).Update(&pod); err != nil {
 			return
 		}
@@ -135,6 +138,7 @@ func (bpr BrokenPodReconciler) CreateEventsForBrokenPods() error {
 		return err
 	}
 
+	var loopErrors []error
 	for _, pod := range podList.Items {
 		if event, ok := eventList[pod.UID]; ok {
 			log.Infof("Updating existing event for broken pod: %s/%s", pod.Namespace, pod.Name)
@@ -142,7 +146,7 @@ func (bpr BrokenPodReconciler) CreateEventsForBrokenPods() error {
 			event.Count++
 			_, err := bpr.client.CoreV1().Events(pod.Namespace).Update(&event)
 			if err != nil {
-				return err
+				loopErrors = append(loopErrors, err)
 			}
 		} else {
 			log.Infof("Creating event for broken pod: %s/%s", pod.Namespace, pod.Name)
@@ -172,9 +176,17 @@ func (bpr BrokenPodReconciler) CreateEventsForBrokenPods() error {
 				LastTimestamp:  metav1.Now(),
 			})
 			if err != nil {
-				return err
+				loopErrors = append(loopErrors, err)
 			}
 		}
+	}
+
+	if len(loopErrors) > 0 {
+		lerr := loopErrors[0].Error()
+		for _, err := range loopErrors[1:] {
+			lerr = fmt.Sprintf("%s,%s", lerr, err.Error())
+		}
+		return fmt.Errorf("%s", lerr)
 	}
 	return nil
 }
@@ -187,11 +199,19 @@ func (bpr BrokenPodReconciler) DeleteBrokenPods() error {
 		return err
 	}
 
+	var loopErrors []error
 	for _, pod := range podList.Items {
 		log.Infof("Deleting broken pod: %s/%s", pod.Namespace, pod.Name)
 		if err := bpr.client.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil); err != nil {
-			return err
+			loopErrors = append(loopErrors, err)
 		}
+	}
+	if len(loopErrors) > 0 {
+		lerr := loopErrors[0].Error()
+		for _, err := range loopErrors[1:] {
+			lerr = fmt.Sprintf("%s,%s", lerr, err.Error())
+		}
+		return fmt.Errorf("%s", lerr)
 	}
 	return nil
 }
