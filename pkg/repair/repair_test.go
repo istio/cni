@@ -23,199 +23,10 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-)
-
-type makePodArgs struct {
-	PodName             string
-	Namespace           string
-	Labels              map[string]string
-	Annotations         map[string]string
-	InitContainerName   string
-	InitContainerStatus *v1.ContainerStatus
-	NodeName            string
-}
-
-func makePod(args makePodArgs) *v1.Pod {
-	pod := &v1.Pod{
-		TypeMeta: v12.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-		ObjectMeta: v12.ObjectMeta{
-			Name:        args.PodName,
-			Namespace:   args.Namespace,
-			Labels:      args.Labels,
-			Annotations: args.Annotations,
-		},
-		Spec: v1.PodSpec{
-			NodeName: args.NodeName,
-			Volumes:  nil,
-			InitContainers: []v1.Container{
-				{
-					Name: args.InitContainerName,
-				},
-			},
-			Containers: []v1.Container{
-				{
-					Name: "payload-container",
-				},
-			},
-		},
-		Status: v1.PodStatus{
-			InitContainerStatuses: []v1.ContainerStatus{
-				*args.InitContainerStatus,
-			},
-			ContainerStatuses: []v1.ContainerStatus{
-				{
-					Name: "payload-container",
-					State: v1.ContainerState{
-						Waiting: &v1.ContainerStateWaiting{
-							Reason: "PodInitializing",
-						},
-					},
-				},
-			},
-		},
-	}
-	return pod
-}
-
-func makeEvent(
-	name string,
-	namespace string,
-	uid types.UID,
-	labelkey string,
-	labelval string,
-	reason string,
-	message string,
-	eventtype string,
-	object *v1.ObjectReference) *v1.Event {
-	return &v1.Event{
-		ObjectMeta: v12.ObjectMeta{
-			GenerateName: name,
-			Namespace:    namespace,
-			UID:          uid,
-			Labels:       map[string]string{labelkey: labelval},
-		},
-		InvolvedObject: *object,
-		Reason:         reason,
-		Message:        message,
-		Type:           eventtype,
-	}
-}
-
-// Container specs
-var (
-	brokenInitContainerWaiting = v1.ContainerStatus{
-		Name: "istio-init",
-		State: v1.ContainerState{
-			Waiting: &v1.ContainerStateWaiting{
-				Reason:  "CrashLoopBackOff",
-				Message: "Back-off 5m0s restarting failed blah blah blah",
-			},
-		},
-		LastTerminationState: v1.ContainerState{
-			Terminated: &v1.ContainerStateTerminated{
-				ExitCode: 126,
-				Reason:   "Error",
-				Message:  "Died for some reason",
-			},
-		},
-	}
-
-	brokenInitContainerTerminating = v1.ContainerStatus{
-		Name: "istio-init",
-		State: v1.ContainerState{
-			Terminated: &v1.ContainerStateTerminated{
-				ExitCode: 126,
-				Reason:   "Error",
-				Message:  "Died for some reason",
-			},
-		},
-		LastTerminationState: v1.ContainerState{
-			Terminated: &v1.ContainerStateTerminated{
-				ExitCode: 126,
-				Reason:   "Error",
-				Message:  "Died for some reason",
-			},
-		},
-	}
-
-	workingInitContainerDiedPreviously = v1.ContainerStatus{
-		Name: "istio-init",
-		State: v1.ContainerState{
-			Terminated: &v1.ContainerStateTerminated{
-				ExitCode: 0,
-				Reason:   "Completed",
-			},
-		},
-		LastTerminationState: v1.ContainerState{
-			Terminated: &v1.ContainerStateTerminated{
-				ExitCode: 126,
-				Reason:   "Error",
-				Message:  "Died for some reason",
-			},
-		},
-	}
-
-	workingInitContainer = v1.ContainerStatus{
-		Name: "istio-init",
-		State: v1.ContainerState{
-			Terminated: &v1.ContainerStateTerminated{
-				ExitCode: 0,
-				Reason:   "Completed",
-			},
-		},
-	}
-)
-
-// Pod specs
-var (
-	brokenPodTerminating = *makePod(makePodArgs{
-		PodName: "BrokenPodTerminating",
-		Annotations: map[string]string{
-			"sidecar.istio.io/status": "something",
-		},
-		Labels: map[string]string{
-			"testlabel": "true",
-		},
-		NodeName:            "TestNode",
-		InitContainerStatus: &brokenInitContainerTerminating,
-	})
-
-	brokenPodWaiting = *makePod(makePodArgs{
-		PodName: "BrokenPodWaiting",
-		Annotations: map[string]string{
-			"sidecar.istio.io/status": "something",
-		},
-		InitContainerStatus: &brokenInitContainerWaiting,
-	})
-
-	brokenPodNoAnnotation = *makePod(makePodArgs{
-		PodName:             "BrokenPodNoAnnotation",
-		InitContainerStatus: &brokenInitContainerWaiting,
-	})
-
-	workingPod = *makePod(makePodArgs{
-		PodName: "WorkingPod",
-		Annotations: map[string]string{
-			"sidecar.istio.io/status": "something",
-		},
-		InitContainerStatus: &workingInitContainer,
-	})
-
-	workingPodDiedPreviously = *makePod(makePodArgs{
-		PodName: "WorkingPodDiedPreviously",
-		Annotations: map[string]string{
-			"sidecar.istio.io/status": "something",
-		},
-		InitContainerStatus: &workingInitContainerDiedPreviously,
-	})
 )
 
 func TestBrokenPodReconciler_detectPod(t *testing.T) {
@@ -507,7 +318,7 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 					InitContainerName:               "istio-init",
 					InitContainerTerminationMessage: "Died for some reason",
 					InitContainerExitCode:           126,
-					LabelSelectors:                  &KeyValueSelectorSet{KeyValueSelectors: []string{"testlabel=true"}},
+					LabelSelectors:                  "testlabel=true",
 				},
 				Options: &Options{},
 			},
@@ -522,7 +333,7 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 					InitContainerName:               "istio-init",
 					InitContainerTerminationMessage: "Died for some reason",
 					InitContainerExitCode:           126,
-					LabelSelectors:                  &KeyValueSelectorSet{KeyValueSelectors: []string{"testlabel=true"}},
+					LabelSelectors:                  "testlabel=true",
 				},
 				Options: &Options{},
 			},
@@ -691,45 +502,6 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 	}
 }
 
-func TestKeyValueSelectorSet_AddSelectors(t *testing.T) {
-	type fields struct {
-		KeyValueSelectors []string
-	}
-	type args struct {
-		selectors []string
-	}
-	tests := []struct {
-		name       string
-		fields     fields
-		args       args
-		wantString string
-	}{
-		{
-			name:       "Adding a selector",
-			fields:     fields{KeyValueSelectors: []string{}},
-			args:       args{selectors: []string{"a=test", "b=test"}},
-			wantString: "a=test,b=test",
-		},
-		{
-			name:       "Adding empty selectors",
-			fields:     fields{KeyValueSelectors: []string{}},
-			args:       args{selectors: []string{}},
-			wantString: "",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := &KeyValueSelectorSet{
-				KeyValueSelectors: tt.fields.KeyValueSelectors,
-			}
-			a.AddSelectors(tt.args.selectors...)
-			if a.String() != tt.wantString {
-				t.Errorf("AddSelectors() haveSelectors = %v, wantSelectors = %v", a.String(), tt.wantString)
-			}
-		})
-	}
-}
-
 func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 	type fields struct {
 		client  kubernetes.Interface
@@ -794,32 +566,6 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 }
 
 func TestBrokenPodReconciler_ListEvents(t *testing.T) {
-	var (
-		irrelevantEvent = makeEvent(
-			"Test",
-			"TestNS",
-			types.UID(1234),
-			"testlabel",
-			"true",
-			"Test",
-			"This is a test event",
-			"Warning",
-			&v1.ObjectReference{},
-		)
-		relevantEventUID = types.UID(4567)
-		relevantEvent    = makeEvent(
-			"Test2",
-			"TestNS",
-			types.UID(2345),
-			"istio-cni-daemonset-event",
-			"true",
-			"Test",
-			"This is a test event",
-			"Warning",
-			&v1.ObjectReference{UID: relevantEventUID},
-		)
-	)
-
 	type fields struct {
 		client  kubernetes.Interface
 		Filters *Filters

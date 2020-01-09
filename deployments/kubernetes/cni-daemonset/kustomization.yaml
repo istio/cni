@@ -1,7 +1,0 @@
-resources:
-- istio-cni-daemonset.yaml
-- istio-cni-daemonset-rbac.yaml
-images:
-- name: "gcr.io/istio-release"
-  newName: "gcr.io/stewart-butler-test/istio-cni-daemonset"
-  newTag: "stewartbutler"

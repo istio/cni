@@ -1,0 +1,10 @@
+# hadolint ignore=DL3007
+FROM gcr.io/distroless/static:latest
+LABEL description="Istio CNI repair executable."
+
+COPY istio-cni-repair /opt/cni/bin/
+
+ENV PATH=$PATH:/opt/cni/bin
+VOLUME /opt/cni
+WORKDIR /opt/cni/bin
+CMD ["istio-cni-repair"]

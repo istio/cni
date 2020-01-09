@@ -67,8 +67,8 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 		126,
 		"Expected exit code for the init container when crash-looping because of CNI misconfiguration")
 
-	pflag.StringSlice("label-selectors", []string{}, "A set of label selectors in label=value format that will be added to the pod list filters")
-	pflag.StringSlice("field-selectors", []string{}, "A set of field selectors in label=value format that will be added to the pod list filters")
+	pflag.String("label-selectors", "", "A set of label selectors in label=value format that will be added to the pod list filters")
+	pflag.String("field-selectors", "", "A set of field selectors in label=value format that will be added to the pod list filters")
 
 	// Repair Options
 	pflag.Bool("delete-pods", false, "Controller will delete pods")
@@ -97,7 +97,7 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 		os.Exit(0)
 	}
 
-	viper.SetEnvPrefix("icnid")
+	viper.SetEnvPrefix("REPAIR")
 	viper.AutomaticEnv()
 	// Pull runtime args into structs
 	filters = &repair.Filters{
@@ -105,8 +105,8 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 		InitContainerTerminationMessage: viper.GetString("init-container-termination-message"),
 		InitContainerExitCode:           viper.GetInt("init-container-exit-code"),
 		SidecarAnnotation:               viper.GetString("sidecar-annotation"),
-		FieldSelectors:                  &repair.KeyValueSelectorSet{},
-		LabelSelectors:                  &repair.KeyValueSelectorSet{},
+		FieldSelectors:                  viper.GetString("field-selectors"),
+		LabelSelectors:                  viper.GetString("label-selectors"),
 	}
 	options = &ControllerOptions{
 		DeletePods:       viper.GetBool("delete-pods"),
@@ -120,14 +120,8 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 		},
 	}
 
-	if nodeName := viper.GetString("node_name"); nodeName != "" {
-		filters.FieldSelectors.AddSelectors(fmt.Sprintf("%s=%s", "spec.nodeName", nodeName))
-	}
-	for _, fieldselector := range viper.GetStringSlice("field-selectors") {
-		filters.FieldSelectors.AddSelectors(fieldselector)
-	}
-	for _, labelselector := range viper.GetStringSlice("label-selectors") {
-		filters.LabelSelectors.AddSelectors(labelselector)
+	if nodeName := viper.GetString("node-name"); nodeName != "" {
+		filters.FieldSelectors = fmt.Sprintf("%s=%s,%s", "spec.nodeName", nodeName, filters.FieldSelectors)
 	}
 
 	return
@@ -168,15 +162,11 @@ func logCurrentOptions(bpr *repair.BrokenPodReconciler, options *ControllerOptio
 	if bpr.Filters.SidecarAnnotation != "" {
 		log.Infof("Filter option: Only managing pods with an annotation with key %s", bpr.Filters.SidecarAnnotation)
 	}
-	if bpr.Filters.FieldSelectors != nil {
-		for _, fieldSelector := range bpr.Filters.FieldSelectors.KeyValueSelectors {
-			log.Infof("Filter option: Only managing pods with field selector %s", fieldSelector)
-		}
+	if bpr.Filters.FieldSelectors != "" {
+		log.Infof("Filter option: Only managing pods with field selector %s", bpr.Filters.FieldSelectors)
 	}
-	if bpr.Filters.LabelSelectors != nil {
-		for _, labelSelector := range bpr.Filters.LabelSelectors.KeyValueSelectors {
-			log.Infof("Filter option: Only managing pods with label selector %s", labelSelector)
-		}
+	if bpr.Filters.LabelSelectors != "" {
+		log.Infof("Filter option: Only managing pods with label selector %s", bpr.Filters.LabelSelectors)
 	}
 	if bpr.Filters.InitContainerName != "" {
 		log.Infof("Filter option: Only managing pods where init container is named %s", bpr.Filters.InitContainerName)

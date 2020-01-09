@@ -191,9 +191,9 @@ e2e:
 istio-cni ${ISTIO_OUT}/istio-cni:
 	common/scripts/gobuild.sh ${ISTIO_OUT}/istio-cni ./cmd/istio-cni
 
-.PHONY: istio-cni-daemonset
-istio-cni-daemonset ${ISTIO_OUT}/istio-cni-daemonset:
-	common/scripts/gobuild.sh ${ISTIO_OUT}/istio-cni-daemonset ./cmd/istio-cni-daemonset
+.PHONY: istio-cni-repair
+istio-cni-repair ${ISTIO_OUT}/istio-cni-repair:
+	common/scripts/gobuild.sh ${ISTIO_OUT}/istio-cni-repair ./cmd/istio-cni-repair
 
 # Non-static istio-cnis. These are typically a build artifact.
 ${ISTIO_OUT}/istio-cni-linux: depend
@@ -207,7 +207,7 @@ ${ISTIO_OUT}/istio-cni-linux: depend
 
 .PHONY: build
 # Build will rebuild the go binaries.
-build: depend istio-cni istio-cni-daemonset
+build: depend istio-cni istio-cni-repair
 
 # istio-cni-all makes all of the non-static istio-cni executables for each supported OS
 .PHONY: istio-cni-all

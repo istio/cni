@@ -32,51 +32,13 @@ type Options struct {
 }
 
 type Filters struct {
-	NodeName                        string               `json:"node_name"`
-	SidecarAnnotation               string               `json:"sidecar_annotation"`
-	InitContainerName               string               `json:"init_container_name"`
-	InitContainerTerminationMessage string               `json:"init_container_termination_message"`
-	InitContainerExitCode           int                  `json:"init_container_exit_code"`
-	FieldSelectors                  *KeyValueSelectorSet `json:"field_selectors"`
-	LabelSelectors                  *KeyValueSelectorSet `json:"label_selectors"`
-}
-
-// A safe getter for the FieldSelectors field of a Filters struct.
-// If the FieldSelectors struct is nil, it will create an empty one.
-func (f Filters) GetFieldSelectors() *KeyValueSelectorSet {
-	if f.FieldSelectors == nil {
-		f.FieldSelectors = &KeyValueSelectorSet{}
-	}
-	return f.FieldSelectors
-}
-
-// A safe getter for the LabelSelectors field of a Filters struct.
-// If the LabelSelectors struct is nil, it will create an empty one.
-func (f Filters) GetLabelSelectors() *KeyValueSelectorSet {
-	if f.LabelSelectors == nil {
-		f.LabelSelectors = &KeyValueSelectorSet{}
-	}
-	return f.LabelSelectors
-}
-
-// A struct wrapping a slice of field selector strings, used for convenience in
-// constructing a list of field selectors
-type KeyValueSelectorSet struct {
-	KeyValueSelectors []string
-}
-
-// Adds one or more selectors in format key=value to a KeyValueSelectorSet
-func (a *KeyValueSelectorSet) AddSelectors(selectors ...string) {
-	for _, selector := range selectors {
-		if selector != "" {
-			a.KeyValueSelectors = append(a.KeyValueSelectors, selector)
-		}
-	}
-}
-
-// Returns a stringified KeyValueSelectorSet
-func (a *KeyValueSelectorSet) String() string {
-	return strings.Join(a.KeyValueSelectors, ",")
+	NodeName                        string `json:"node_name"`
+	SidecarAnnotation               string `json:"sidecar_annotation"`
+	InitContainerName               string `json:"init_container_name"`
+	InitContainerTerminationMessage string `json:"init_container_termination_message"`
+	InitContainerExitCode           int    `json:"init_container_exit_code"`
+	FieldSelectors                  string `json:"field_selectors"`
+	LabelSelectors                  string `json:"label_selectors"`
 }
 
 // The pod reconciler struct. Contains state used to reconcile broken pods.
@@ -237,8 +199,8 @@ func (bpr BrokenPodReconciler) ListBrokenPods() (list v1.PodList, err error) {
 
 	var rawList *v1.PodList
 	rawList, err = bpr.client.CoreV1().Pods("").List(metav1.ListOptions{
-		LabelSelector: bpr.Filters.GetLabelSelectors().String(),
-		FieldSelector: bpr.Filters.GetFieldSelectors().String(),
+		LabelSelector: bpr.Filters.LabelSelectors,
+		FieldSelector: bpr.Filters.FieldSelectors,
 	})
 	if err != nil {
 		return
