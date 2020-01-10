@@ -268,8 +268,9 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 }
 
 // Test the ListBrokenPods function
-// Note: The fake client does NOT support filtering by field selector, so that
-// is not tested.
+// TODO:(stewartbutler) Add some simple field selector filter test logic to the client-go
+//  fake client. The fake client does NOT support filtering by field selector,
+//  so we need to add that ourselves to complete the test.
 func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 	type fields struct {
 		client  kubernetes.Interface

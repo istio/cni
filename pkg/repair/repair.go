@@ -49,13 +49,12 @@ type BrokenPodReconciler struct {
 }
 
 // Constructs a new BrokenPodReconciler struct.
-func NewBrokenPodReconciler(client client.Interface, filters *Filters, options *Options) (bpr BrokenPodReconciler) {
-	bpr = BrokenPodReconciler{
+func NewBrokenPodReconciler(client client.Interface, filters *Filters, options *Options) BrokenPodReconciler {
+	return BrokenPodReconciler{
 		client:  client,
 		Filters: filters,
 		Options: options,
 	}
-	return
 }
 
 // Label all pods detected as broken by ListPods with a customizable label
@@ -221,10 +220,8 @@ func (bpr BrokenPodReconciler) detectPod(pod v1.Pod) bool {
 	// Helper function; checks that a container's termination message matches filter
 	matchTerminationMessage := func(state *v1.ContainerStateTerminated) bool {
 		// If we are filtering on init container termination message and the termination message of 'state' does not match, exit
-		if s := strings.TrimSpace(bpr.Filters.InitContainerTerminationMessage); s == "" || s == strings.TrimSpace(state.Message) {
-			return true
-		}
-		return false
+		trimmedTerminationMessage := strings.TrimSpace(bpr.Filters.InitContainerTerminationMessage)
+		return trimmedTerminationMessage == "" || trimmedTerminationMessage == strings.TrimSpace(state.Message)
 	}
 	// Helper function; checks that container exit code matches filter
 	matchExitCode := func(state *v1.ContainerStateTerminated) bool {
@@ -246,27 +243,28 @@ func (bpr BrokenPodReconciler) detectPod(pod v1.Pod) bool {
 	// For each candidate pod, iterate across all init containers searching for
 	// crashlooping init containers that match our criteria
 	for _, container := range pod.Status.InitContainerStatuses {
-		// Skip the container if the InitContainerName is not a match
+		// Skip the container if the InitContainerName is not a match and our
+		// InitContainerName filter is non-empty.
 		if bpr.Filters.InitContainerName != "" && container.Name != bpr.Filters.InitContainerName {
 			continue
 		}
 
-		// Check the containers *current* status. If it is *currently* passing, skip.
-		// If it is currently in a matching failed state , return true.
+		// For safety, check the containers *current* status. If the container
+		// successfully exited, we NEVER want to identify this pod as broken.
+		// If the pod is going to fail, the failure state will show up in
+		// LastTerminationState eventually.
 		if state := container.State.Terminated; state != nil {
 			if state.Reason == "Completed" || state.ExitCode == 0 {
 				continue
-			} else if matchTerminationMessage(state) && matchExitCode(state) {
-				return true
 			}
 		}
 
-		// Next check that the container previously terminated due to our error
+		// Check the LastTerminationState struct for information about why the container
+		// last exited. If a pod is using the CNI configuration check init container,
+		// it will start crashlooping and populate this struct.
 		if state := container.LastTerminationState.Terminated; state != nil {
-			// Finally, check that the container state matches our filter criteria
-			// (namely, that the exit code and termination message look right)
-			if matchTerminationMessage(state) &&
-				matchExitCode(state) {
+			// Verify the container state matches our filter criteria
+			if matchTerminationMessage(state) && matchExitCode(state) {
 				return true
 			}
 		}
