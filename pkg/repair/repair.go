@@ -132,7 +132,7 @@ func (bpr BrokenPodReconciler) CreateEventsForBrokenPods() error {
 					ResourceVersion: pod.ResourceVersion,
 				},
 				Reason:         "IstioCniUninitialized",
-				Message:        "Pod detected with broken Istio CNI configuration.",
+				Message:        "Initialization by Istio CNI failed.",
 				FirstTimestamp: metav1.Now(),
 				LastTimestamp:  metav1.Now(),
 			})

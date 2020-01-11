@@ -48,7 +48,7 @@ var (
 func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 	// Parse command line flags
 	// Filter Options
-	pflag.String("node-name", "", "The name of the node we are managing (will manage all nodes if unset)")
+	pflag.String("node-name", "", "The name of the managed node (will manage all nodes if unset)")
 	pflag.String(
 		"sidecar-annotation",
 		"sidecar.istio.io/status",
