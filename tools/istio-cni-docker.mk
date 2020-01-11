@@ -26,7 +26,7 @@ $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 # directives to copy files to docker scratch directory
 
 # tell make which files are copied from go/out
-DOCKER_FILES_FROM_ISTIO_OUT:=istio-cni
+DOCKER_FILES_FROM_ISTIO_OUT:=istio-cni istio-cni-repair
 
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
@@ -36,7 +36,8 @@ DOCKER_FILES_FROM_SOURCE:=tools/packaging/common/istio-iptables.sh
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
 
-docker.install-cni: $(ISTIO_OUT)/istio-cni tools/packaging/common/istio-iptables.sh \
+docker.install-cni: $(ISTIO_OUT)/istio-cni $(ISTIO_OUT)/istio-cni-repair \
+    tools/packaging/common/istio-iptables.sh \
 		deployments/kubernetes/install/scripts/install-cni.sh \
 		deployments/kubernetes/install/scripts/istio-cni.conf.default \
 		deployments/kubernetes/Dockerfile.install-cni \

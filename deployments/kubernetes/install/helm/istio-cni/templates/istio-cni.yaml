@@ -155,7 +155,7 @@ spec:
           - name: "REPAIR_SIDECAR-ANNOTATION"
             value: "sidecar.istio.io/status"
           - name: "REPAIR_INIT-CONTAINER-NAME"
-            value: "{{.Values.repair.initContainerName}}"
+            value: "istio-init"
           - name: "REPAIR_BROKEN-POD-LABEL-KEY"
             value: "{{.Values.repair.brokenPodLabelKey}}"
           - name: "REPAIR_BROKEN-POD-LABEL-VALUE"
