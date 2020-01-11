@@ -1,5 +1,5 @@
-hub: gcr.io/istio-release
-tag: master-latest-daily
+hub: gcr.io/istio-testing
+tag: latest
 pullPolicy: Always
 
 logLevel: info
@@ -29,8 +29,8 @@ psp_cluster_role: ""
 
 repair:
   enabled: true
-  hub: gcr.io/istio-release
-  tag: master-latest-daily
+  hub: gcr.io/istio-testing
+  tag: latest
 
   labelPods: "true"
   createEvents: "true"

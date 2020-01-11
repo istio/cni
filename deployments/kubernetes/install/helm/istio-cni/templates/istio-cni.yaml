@@ -131,6 +131,7 @@ spec:
               name: cni-bin-dir
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
+          {{- if .Values.repair.enabled }}
       # This container installs the Istio CNI binaries
       # and CNI network config file on each node.
         - name: repair-cni
@@ -158,7 +159,7 @@ spec:
             value: "{{.Values.repair.brokenPodLabelKey}}"
           - name: "REPAIR_BROKEN-POD-LABEL-VALUE"
             value: "{{.Values.repair.brokenPodLabelValue}}"
-
+        {{- end }}
       volumes:
         # Used to install CNI.
         - name: cni-bin-dir
