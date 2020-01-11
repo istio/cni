@@ -12,6 +12,9 @@ COPY install-cni.sh /install-cni.sh
 COPY filter.jq /filter.jq
 COPY istio-cni.conf.default /istio-cni.conf.tmp
 
+# Copy over the Repair binary
+COPY istio-cni-repair /opt/cni/bin/
+
 ENV PATH=$PATH:/opt/cni/bin
 VOLUME /opt/cni
 WORKDIR /opt/cni/bin
