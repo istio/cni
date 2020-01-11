@@ -131,12 +131,13 @@ spec:
               name: cni-bin-dir
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
-          {{- if .Values.repair.enabled }}
-      # This container installs the Istio CNI binaries
-      # and CNI network config file on each node.
+{{- if .Values.repair.enabled }}
+        # This container repairs broken CNI pods
         - name: repair-cni
-          image: {{ .Values.repair.hub }}/istio-cni-repair:{{ .Values.repair.tag }}
+          image: {{ .Values.repair.hub }}/install-cni:{{ .Values.repair.tag }}
           imagePullPolicy: {{ .Values.pullPolicy }}
+          command:
+          - /opt/cni/bin/istio-cni-repair
           env:
           - name: "REPAIR_NODE-NAME"
             valueFrom:
@@ -159,7 +160,7 @@ spec:
             value: "{{.Values.repair.brokenPodLabelKey}}"
           - name: "REPAIR_BROKEN-POD-LABEL-VALUE"
             value: "{{.Values.repair.brokenPodLabelValue}}"
-        {{- end }}
+{{- end }}
       volumes:
         # Used to install CNI.
         - name: cni-bin-dir
@@ -192,7 +193,8 @@ subjects:
   name: istio-cni
   namespace: {{ .Release.Namespace }}
 {{- end }}
-    {{- if .Values.repair.enabled }}
+
+{{- if .Values.repair.enabled }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -203,7 +205,10 @@ metadata:
     k8s-app: istio-cni-repair
 rules:
 - apiGroups: [""]
-  resources: ["pods", "events"]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "delete", "patch", "update" ]
+- apiGroups: [""]
+  resources: ["events"]
   verbs: ["get", "list", "watch", "delete", "patch", "update", "create" ]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -221,4 +226,4 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: istio-cni-repair-role
-    {{- end }}
+{{- end }}

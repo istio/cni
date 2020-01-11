@@ -36,7 +36,8 @@ DOCKER_FILES_FROM_SOURCE:=tools/packaging/common/istio-iptables.sh
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
 
-docker.install-cni: $(ISTIO_OUT)/istio-cni tools/packaging/common/istio-iptables.sh \
+docker.install-cni: $(ISTIO_OUT)/istio-cni $(ISTIO_OUT)/istio-cni-repair \
+    tools/packaging/common/istio-iptables.sh \
 		deployments/kubernetes/install/scripts/install-cni.sh \
 		deployments/kubernetes/install/scripts/istio-cni.conf.default \
 		deployments/kubernetes/Dockerfile.install-cni \
@@ -47,14 +48,7 @@ docker.install-cni: $(ISTIO_OUT)/istio-cni tools/packaging/common/istio-iptables
 		-f $(ISTIO_DOCKER)/install-cni/Dockerfile.install-cni \
 		$(ISTIO_DOCKER)/install-cni
 
-docker.istio-cni-repair: $(ISTIO_OUT)/istio-cni-repair deployments/kubernetes/Dockerfile.istio-cni-repair
-	mkdir -p $(ISTIO_DOCKER)/istio-cni-repair
-	cp $^ $(ISTIO_DOCKER)/istio-cni-repair
-	time docker build -t $(HUB)/istio-cni-repair:$(TAG) \
-		-f $(ISTIO_DOCKER)/istio-cni-repair/Dockerfile.istio-cni-repair \
-		$(ISTIO_DOCKER)/istio-cni-repair
-
-DOCKER_TARGETS:=docker.install-cni docker.istio-cni-repair
+DOCKER_TARGETS:=docker.install-cni
 
 # create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
 DOCKER_PUSH_TARGETS:=
