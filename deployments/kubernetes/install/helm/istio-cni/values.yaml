@@ -32,6 +32,8 @@ repair:
   hub: gcr.io/istio-testing
   tag: latest
 
+  initContainerName: "istio-validation"
+
   labelPods: "true"
   createEvents: "true"
   deletePods: "false"
