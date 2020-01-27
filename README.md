@@ -163,7 +163,7 @@ To make use of the `istio-cni` chart from another chart:
 
 1. Run `helm dependency update <chart>` on the chart that needs to depend on istio-cni.
 
-    1. NOTE: for [istio/istio](https://github.com/istio/istio/tree/master/install/kubernetes/helm/istio) the charts
+    1. NOTE: for [istio/istio](https://github.com/istio/istio/tree/release-1.5/install/kubernetes/helm/istio) the charts
        need to be reorganized to make `helm dependency update` work.  The child charts (pilot, galley, etc) need to
        be made independent charts in the directorkefiy at the same level as the main `istio` chart
        (<https://github.com/istio/istio/pull/9306>).

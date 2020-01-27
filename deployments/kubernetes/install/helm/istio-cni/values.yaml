@@ -1,5 +1,5 @@
 hub: gcr.io/istio-testing
-tag: latest
+tag: 1.5-dev
 pullPolicy: Always
 
 logLevel: info
@@ -30,7 +30,7 @@ psp_cluster_role: ""
 repair:
   enabled: true
   hub: gcr.io/istio-testing
-  tag: latest
+  tag: 1.5-dev
 
   initContainerName: "istio-validation"
 

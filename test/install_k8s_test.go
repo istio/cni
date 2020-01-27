@@ -27,8 +27,8 @@ import (
 
 var (
 	TestWorkDir, _ = os.Getwd()
-	Hub            = "gcr.io/istio-release"
-	Tag            = "master-latest-daily"
+	Hub            = "gcr.io/istio-testing"
+	Tag            = "1.5-dev"
 )
 
 type testCase struct {
