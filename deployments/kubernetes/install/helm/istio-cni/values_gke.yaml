@@ -1,5 +1,5 @@
 hub: gcr.io/istio-release
-tag: master-latest-daily
+tag: 1.5-dev
 pullPolicy: Always
 
 logLevel: info
