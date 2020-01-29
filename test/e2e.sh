@@ -38,8 +38,6 @@ function setup_kind_cluster() {
     exit 1
   fi
 
-  KUBECONFIG="$(kind get kubeconfig-path --name="istio-testing")"
-  export KUBECONFIG
   kubectl cluster-info
 }
 
