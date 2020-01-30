@@ -28,6 +28,10 @@ VERSION ?= 0.1-dev
 DIRS_TO_CLEAN:=
 FILES_TO_CLEAN:=
 
+# If GOPATH is not set by the env, set it to a sane value
+GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
+export GOPATH
+
 # If GOPATH is made up of several paths, use the first one for our targets in this Makefile
 GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
 export GO_TOP

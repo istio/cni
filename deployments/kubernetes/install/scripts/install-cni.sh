@@ -76,10 +76,18 @@ function check_install() {
     fi
   fi
   if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
-    istiocni_conf=$(jq '.plugins[]? | select(.type == "istio-cni")' < "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}")
-    if [ -z "$istiocni_conf" ]; then
-      echo "ERROR: istio-cni CNI config removed from file: \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\""
-      exit 1
+    if [ "${CHAINED_CNI_PLUGIN}" == "true" ]; then
+      istiocni_conf=$(jq '.plugins[]? | select(.type == "istio-cni")' < "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}")
+      if [ -z "${istiocni_conf}" ]; then
+        echo "ERROR: istio-cni CNI config removed from file: \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\""
+        exit 1
+      fi
+    else
+      istiocni_conf=$(jq -r '.type' < "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}")
+      if [ "${istiocni_conf}" != "istio-cni" ]; then
+        echo "ERROR: istio-cni CNI config file modified: \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\""
+        exit 1
+      fi
     fi
   else
     echo "ERROR: CNI config file \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\" removed."
@@ -91,11 +99,16 @@ function cleanup() {
   echo "Cleaning up and exiting."
 
   if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
-    echo "Removing istio-cni config from CNI chain config in ${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}"
-    CNI_CONF_DATA=$(jq 'del( .plugins[]? | select(.type == "istio-cni"))' < "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}")
-    # Rewrite the config file atomically: write into a temp file in the same directory then rename.
-    echo "${CNI_CONF_DATA}" > "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}.tmp"
-    mv "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}.tmp" "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}"
+    if [ "${CHAINED_CNI_PLUGIN}" == "true" ]; then
+      echo "Removing istio-cni config from CNI chain config in ${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}"
+      CNI_CONF_DATA=$(jq 'del( .plugins[]? | select(.type == "istio-cni"))' < "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}")
+      # Rewrite the config file atomically: write into a temp file in the same directory then rename.
+      echo "${CNI_CONF_DATA}" > "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}.tmp"
+      mv "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}.tmp" "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}"
+    else
+      echo "Removing istio-cni net.d conf file: ${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}"
+      rm "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}"
+    fi
   fi
   if [ -e "${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}" ]; then
     echo "Removing istio-cni kubeconfig file: ${MOUNTED_CNI_NET_DIR}/${KUBECFG_FILE_NAME}"
@@ -121,6 +134,8 @@ CNI_CONF_NAME=${CNI_CONF_NAME:-YYY-istio-cni.conflist}
 KUBECFG_FILE_NAME=${KUBECFG_FILE_NAME:-ZZZ-istio-cni-kubeconfig}
 CFGCHECK_INTERVAL=${CFGCHECK_INTERVAL:-1}
 
+# Whether the Istio CNI plugin should be installed as a chained plugin (defaults to true) or as a standalone plugin (when false)
+CHAINED_CNI_PLUGIN=${CHAINED_CNI_PLUGIN:-true}
 
 trap cleanup EXIT
 
@@ -248,27 +263,29 @@ cat "${TMP_CONF}"
 
 sed -e "s/__SERVICEACCOUNT_TOKEN__/${SERVICEACCOUNT_TOKEN:-}/g" -i "${TMP_CONF}"
 
-if [ ! -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ] && [ "${CNI_CONF_NAME: -5}" = ".conf" ] && [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}list" ]; then
-    echo "${CNI_CONF_NAME} doesn't exist, but ${CNI_CONF_NAME}list does; Using it instead."
-    CNI_CONF_NAME="${CNI_CONF_NAME}list"
-fi
+if [ "${CHAINED_CNI_PLUGIN}" == "true" ]; then
+  if [ ! -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ] && [ "${CNI_CONF_NAME: -5}" = ".conf" ] && [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}list" ]; then
+      echo "${CNI_CONF_NAME} doesn't exist, but ${CNI_CONF_NAME}list does; Using it instead."
+      CNI_CONF_NAME="${CNI_CONF_NAME}list"
+  fi
 
-if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
-    # This section overwrites an existing plugins list entry to for istio-cni
-    CNI_TMP_CONF_DATA=$(cat "${TMP_CONF}")
-    CNI_CONF_DATA=$(jq --argjson CNI_TMP_CONF_DATA "$CNI_TMP_CONF_DATA" -f /filter.jq < "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}")
-    echo "${CNI_CONF_DATA}" > "${TMP_CONF}"
-fi
+  if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
+      # This section overwrites an existing plugins list entry to for istio-cni
+      CNI_TMP_CONF_DATA=$(cat "${TMP_CONF}")
+      CNI_CONF_DATA=$(jq --argjson CNI_TMP_CONF_DATA "$CNI_TMP_CONF_DATA" -f /filter.jq < "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}")
+      echo "${CNI_CONF_DATA}" > "${TMP_CONF}"
+  fi
 
-# If the old config filename ends with .conf, rename it to .conflist, because it has changed to be a list
-if [ "${CNI_CONF_NAME: -5}" = ".conf" ]; then
-    echo "Renaming ${CNI_CONF_NAME} extension to .conflist"
-    CNI_CONF_NAME="${CNI_CONF_NAME}list"
-fi
+  # If the old config filename ends with .conf, rename it to .conflist, because it has changed to be a list
+  if [ "${CNI_CONF_NAME: -5}" = ".conf" ]; then
+      echo "Renaming ${CNI_CONF_NAME} extension to .conflist"
+      CNI_CONF_NAME="${CNI_CONF_NAME}list"
+  fi
 
-# Delete old CNI config files for upgrades.
-if [ "${CNI_CONF_NAME}" != "${CNI_OLD_CONF_NAME}" ]; then
-    rm -f "${MOUNTED_CNI_NET_DIR}/${CNI_OLD_CONF_NAME}"
+  # Delete old CNI config files for upgrades.
+  if [ "${CNI_CONF_NAME}" != "${CNI_OLD_CONF_NAME}" ]; then
+      rm -f "${MOUNTED_CNI_NET_DIR}/${CNI_OLD_CONF_NAME}"
+  fi
 fi
 
 # Move the temporary CNI config into place.
