@@ -3,7 +3,6 @@
 # This manifest installs the following component versions:
 #   istio-cni:v0.1
 
-
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -132,6 +131,36 @@ spec:
               name: cni-bin-dir
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
+{{- if .Values.repair.enabled }}
+        # This container repairs broken CNI pods
+        - name: repair-cni
+          image: {{ .Values.repair.hub }}/install-cni:{{ .Values.repair.tag }}
+          imagePullPolicy: {{ .Values.pullPolicy }}
+          command:
+          - /opt/cni/bin/istio-cni-repair
+          env:
+          - name: "REPAIR_NODE-NAME"
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: "REPAIR_LABEL-PODS"
+            value: "{{.Values.repair.labelPods}}"
+          - name: "REPAIR_CREATE-EVENTS"
+            value: "{{.Values.repair.createEvents}}"
+          # Set to true to enable pod deletion
+          - name: "REPAIR_DELETE-PODS"
+            value: "{{.Values.repair.deletePods}}"
+          - name: "REPAIR_RUN-AS-DAEMON"
+            value: "true"
+          - name: "REPAIR_SIDECAR-ANNOTATION"
+            value: "sidecar.istio.io/status"
+          - name: "REPAIR_INIT-CONTAINER-NAME"
+            value: "{{.Values.repair.initContainerName}}"
+          - name: "REPAIR_BROKEN-POD-LABEL-KEY"
+            value: "{{.Values.repair.brokenPodLabelKey}}"
+          - name: "REPAIR_BROKEN-POD-LABEL-VALUE"
+            value: "{{.Values.repair.brokenPodLabelValue}}"
+{{- end }}
       volumes:
         # Used to install CNI.
         - name: cni-bin-dir
@@ -163,4 +192,38 @@ subjects:
 - kind: ServiceAccount
   name: istio-cni
   namespace: {{ .Release.Namespace }}
+{{- end }}
+
+{{- if .Values.repair.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-cni-repair-role
+  namespace: {{ .Release.Namespace}}
+  labels:
+    k8s-app: istio-cni-repair
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "delete", "patch", "update" ]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["get", "list", "watch", "delete", "patch", "update", "create" ]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-cni-repair-rolebinding
+  namespace: {{ .Release.Namespace}}
+  labels:
+    k8s-app: istio-cni-repair
+subjects:
+- kind: ServiceAccount
+  name: istio-cni
+  namespace: {{ .Release.Namespace}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-cni-repair-role
 {{- end }}

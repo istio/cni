@@ -26,3 +26,17 @@ podAnnotations: {}
 # This can be used to bind a preexisting ClusterRole to the istio/cni ServiceAccount
 # e.g. if you use PodSecurityPolicies
 psp_cluster_role: ""
+
+repair:
+  enabled: true
+  hub: gcr.io/istio-testing
+  tag: latest
+
+  initContainerName: "istio-validation"
+
+  labelPods: "true"
+  createEvents: "true"
+  deletePods: "false"
+
+  brokenPodLabelKey: "cni.istio.io/uninitialized"
+  brokenPodLabelValue: "true"
