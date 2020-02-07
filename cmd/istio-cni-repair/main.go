@@ -56,7 +56,7 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 			"The value of the annotation is ignored.")
 	pflag.String(
 		"init-container-name",
-		"istio-init",
+		"istio-validation",
 		"The name of the istio init container (will crash-loop if CNI is not configured for the pod)")
 	pflag.String(
 		"init-container-termination-message",

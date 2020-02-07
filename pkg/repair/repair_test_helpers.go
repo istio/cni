@@ -134,7 +134,7 @@ var (
 // Container specs
 var (
 	brokenInitContainerWaiting = v1.ContainerStatus{
-		Name: "istio-init",
+		Name: ValidationContainerName,
 		State: v1.ContainerState{
 			Waiting: &v1.ContainerStateWaiting{
 				Reason:  "CrashLoopBackOff",
@@ -151,7 +151,7 @@ var (
 	}
 
 	brokenInitContainerTerminating = v1.ContainerStatus{
-		Name: "istio-init",
+		Name: ValidationContainerName,
 		State: v1.ContainerState{
 			Terminated: &v1.ContainerStateTerminated{
 				ExitCode: 126,
@@ -169,7 +169,7 @@ var (
 	}
 
 	workingInitContainerDiedPreviously = v1.ContainerStatus{
-		Name: "istio-init",
+		Name: ValidationContainerName,
 		State: v1.ContainerState{
 			Terminated: &v1.ContainerStateTerminated{
 				ExitCode: 0,
@@ -186,7 +186,7 @@ var (
 	}
 
 	workingInitContainer = v1.ContainerStatus{
-		Name: "istio-init",
+		Name: ValidationContainerName,
 		State: v1.ContainerState{
 			Terminated: &v1.ContainerStateTerminated{
 				ExitCode: 0,
