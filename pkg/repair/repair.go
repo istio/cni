@@ -26,6 +26,8 @@ import (
 	"istio.io/pkg/log"
 )
 
+const ValidationContainerName = "istio-validation"
+
 type Options struct {
 	PodLabelKey   string `json:"pod_label_key"`
 	PodLabelValue string `json:"pod_label_value"`
