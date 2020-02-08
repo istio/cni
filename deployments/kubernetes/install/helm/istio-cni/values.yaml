@@ -34,8 +34,6 @@ repair:
 
   initContainerName: "istio-validation"
 
-  initContainerName: "istio-validation"
-
   labelPods: "true"
   createEvents: "true"
   deletePods: "false"
