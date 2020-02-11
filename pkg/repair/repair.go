@@ -31,6 +31,9 @@ const ValidationContainerName = "istio-validation"
 type Options struct {
 	PodLabelKey   string `json:"pod_label_key"`
 	PodLabelValue string `json:"pod_label_value"`
+	CreateEvents  bool   `json:"create_events"`
+	LabelPods     bool   `json:"label_pods"`
+	DeletePods    bool   `json:"delete_broken_pods"`
 }
 
 type Filters struct {
@@ -59,32 +62,80 @@ func NewBrokenPodReconciler(client client.Interface, filters *Filters, options *
 	}
 }
 
+func (bpr BrokenPodReconciler) ReconcilePod(pod v1.Pod) (err error) {
+	errors := []string{}
+
+	log.Debugf("Reconciling pod %s", pod.Name)
+
+	if bpr.Options.LabelPods {
+		newErr := bpr.labelBrokenPod(pod)
+		if newErr != nil {
+			errors = append(errors, newErr.Error())
+		}
+	}
+
+	if bpr.Options.DeletePods {
+		newErr := bpr.deleteBrokenPod(pod)
+		if newErr != nil {
+			errors = append(errors, newErr.Error())
+		}
+	}
+
+	//if bpr.Options.CreateEvents {
+	//	newErr := bpr.createEventForPod(pod)
+	//	if newErr != nil {
+	//		errors = append(errors, newErr)
+	//	}
+	//}
+
+	errStr := strings.Join(errors, ",")
+	if errStr == "" {
+		return nil
+	} else {
+		return fmt.Errorf(errStr)
+	}
+}
+
 // Label all pods detected as broken by ListPods with a customizable label
-func (bpr BrokenPodReconciler) LabelBrokenPods() (err error) {
+func (bpr BrokenPodReconciler) LabelBrokenPods() error {
 	// Get a list of all broken pods
 	podList, err := bpr.ListBrokenPods()
 	if err != nil {
-		return
+		return err
 	}
 
 	for _, pod := range podList.Items {
-		labels := pod.GetLabels()
-		if _, ok := labels[bpr.Options.PodLabelKey]; ok {
-			log.Infof("Pod %s/%s already has label with key %s, skipping", pod.Namespace, pod.Name, bpr.Options.PodLabelKey)
-			continue
+		err := bpr.labelBrokenPod(pod)
+		if err != nil {
+			return err
 		}
+	}
+	return nil
+}
 
-		if labels == nil {
-			labels = map[string]string{}
-		}
+func (bpr BrokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
+	if !bpr.detectPod(pod) {
+		return
+	}
 
-		log.Infof("Labeling pod %s/%s with label %s=%s", pod.Namespace, pod.Name, bpr.Options.PodLabelKey, bpr.Options.PodLabelValue)
-		labels[bpr.Options.PodLabelKey] = bpr.Options.PodLabelValue
-		pod.SetLabels(labels)
+	log.Infof("Pod detected as broken, adding label: %s", pod.Name)
 
-		if _, err = bpr.client.CoreV1().Pods(pod.Namespace).Update(&pod); err != nil {
-			return
-		}
+	labels := pod.GetLabels()
+	if _, ok := labels[bpr.Options.PodLabelKey]; ok {
+		log.Infof("Pod %s/%s already has label with key %s, skipping", pod.Namespace, pod.Name, bpr.Options.PodLabelKey)
+		return
+	}
+
+	if labels == nil {
+		labels = map[string]string{}
+	}
+
+	log.Infof("Labeling pod %s/%s with label %s=%s", pod.Namespace, pod.Name, bpr.Options.PodLabelKey, bpr.Options.PodLabelValue)
+	labels[bpr.Options.PodLabelKey] = bpr.Options.PodLabelValue
+	pod.SetLabels(labels)
+
+	if _, err = bpr.client.CoreV1().Pods(pod.Namespace).Update(&pod); err != nil {
+		log.Errorf("Failed to update pod: %s", err)
 	}
 	return
 }
@@ -165,7 +216,7 @@ func (bpr BrokenPodReconciler) DeleteBrokenPods() error {
 	var loopErrors []error
 	for _, pod := range podList.Items {
 		log.Infof("Deleting broken pod: %s/%s", pod.Namespace, pod.Name)
-		if err := bpr.client.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil); err != nil {
+		if err := bpr.deleteBrokenPod(pod); err != nil {
 			loopErrors = append(loopErrors, err)
 		}
 	}
@@ -177,6 +228,14 @@ func (bpr BrokenPodReconciler) DeleteBrokenPods() error {
 		return fmt.Errorf("%s", lerr)
 	}
 	return nil
+}
+
+func (bpr BrokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
+	if !bpr.detectPod(pod) {
+		return nil
+	}
+	log.Infof("Pod detected as broken, deleting: %s", pod.Name)
+	return bpr.client.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil)
 }
 
 func (bpr BrokenPodReconciler) ListEvents() (list map[types.UID]v1.Event, err error) {
