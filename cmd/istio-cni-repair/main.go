@@ -225,7 +225,7 @@ func main() {
 			log.Fatalf("Fatal error constructing repair controller: %+v", err)
 		}
 		stopCh := make(chan struct{})
-		rc.Run(1, stopCh)
+		rc.Run(stopCh)
 
 	} else {
 		err := reconcile(podFixer)
