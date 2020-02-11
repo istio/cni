@@ -13,6 +13,7 @@ require (
     github.com/sirupsen/logrus v1.2.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.4.0
+    go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.10.0
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect

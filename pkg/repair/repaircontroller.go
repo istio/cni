@@ -67,22 +67,20 @@ func NewRepairController(reconciler BrokenPodReconciler) (*RepairController, err
 	return c, nil
 }
 
-func (rc *RepairController) Run(threadiness int, stopCh <-chan struct{}) {
+func (rc *RepairController) Run(stopCh <-chan struct{}) {
 	go rc.podController.Run(stopCh)
 	if !cache.WaitForCacheSync(stopCh, rc.podController.HasSynced) {
 		runtime.HandleError(fmt.Errorf("Timed out waiting for caches to sync"))
 		return
 	}
 
-	for i := 0; i < threadiness; i++ {
-		go wait.Until(
-			func() {
-				for rc.processNextItem() {
-				}
-			}, time.Second,
-			stopCh,
-		)
-	}
+	go wait.Until(
+		func() {
+			for rc.processNextItem() {
+			}
+		}, time.Second,
+		stopCh,
+	)
 
 	<-stopCh
 	log.Infof("Stopping repair controller.")
@@ -97,11 +95,8 @@ func (rc *RepairController) processNextItem() bool {
 
 	pod, ok := obj.(*v1.Pod)
 	if !ok {
-		log.Errorf("Error decoding object, invalid type")
-		if rc.workQueue.NumRequeues(obj) < 5 {
-			log.Infof("Requeueing failed object...")
-			rc.workQueue.AddRateLimited(obj)
-		}
+		log.Errorf("Error decoding object, invalid type. Dropping.")
+		rc.workQueue.Forget(obj)
 		return true
 	}
 
