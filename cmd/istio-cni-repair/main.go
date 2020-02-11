@@ -19,7 +19,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -115,6 +114,9 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 		LabelPods:        viper.GetBool("label-pods"),
 		CreateEvents:     viper.GetBool("create-events"),
 		RepairOptions: &repair.Options{
+			DeletePods:    viper.GetBool("delete-pods"),
+			LabelPods:     viper.GetBool("label-pods"),
+			CreateEvents:  viper.GetBool("create-events"),
 			PodLabelKey:   viper.GetString("broken-pod-label-key"),
 			PodLabelValue: viper.GetString("broken-pod-label-value"),
 		},
@@ -218,13 +220,17 @@ func main() {
 	}
 
 	if options.RunAsDaemon {
-		for {
-			if err := reconcile(podFixer); err != nil {
-				log.Errorf("Error encountered in reconcile loop: %s", err)
-			}
-			time.Sleep(time.Second * time.Duration(options.DaemonPollPeriod))
+		rc, err := repair.NewRepairController(podFixer)
+		if err != nil {
+			log.Fatalf("Fatal error constructing repair controller: %+v", err)
 		}
-	} else if err := reconcile(podFixer); err != nil {
-		log.Fatalf("Error encountered in reconcile: %s", err)
+		stopCh := make(chan struct{})
+		rc.Run(1, stopCh)
+
+	} else {
+		err := reconcile(podFixer)
+		if err != nil {
+			log.Fatalf(err.Error())
+		}
 	}
 }
