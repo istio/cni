@@ -64,13 +64,10 @@ func NewBrokenPodReconciler(client client.Interface, filters *Filters, options *
 func (bpr BrokenPodReconciler) ReconcilePod(pod v1.Pod) (err error) {
 	log.Debugf("Reconciling pod %s", pod.Name)
 
-	if bpr.Options.LabelPods {
-		err = multierr.Append(err, bpr.labelBrokenPod(pod))
-
-	}
-
 	if bpr.Options.DeletePods {
 		err = multierr.Append(err, bpr.deleteBrokenPod(pod))
+	} else if bpr.Options.LabelPods {
+		err = multierr.Append(err, bpr.labelBrokenPod(pod))
 	}
 
 	return err

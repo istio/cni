@@ -131,9 +131,18 @@ func (rc *Controller) processNextItem() bool {
 		log.Debugf("Removing %s/%s from work queue", pod.Namespace, pod.Name)
 		rc.workQueue.Forget(obj)
 	} else if rc.workQueue.NumRequeues(obj) < 5 {
-		log.Errorf("Error: %s", err)
-		log.Infof("Re-adding %s/%s to work queue", pod.Namespace, pod.Name)
-		rc.workQueue.AddRateLimited(obj)
+		if strings.Contains(err.Error(), "the object has been modified; please apply your changes to the latest version and try again") {
+			log.Debugf("Object '%s/%s' modified, requeue for retry", pod.Namespace, pod.Name)
+			log.Infof("Re-adding %s/%s to work queue", pod.Namespace, pod.Name)
+			rc.workQueue.AddRateLimited(obj)
+		} else if strings.Contains(err.Error(), "not found") {
+			log.Debugf("Object '%s/%s' removed, dequeue", pod.Namespace, pod.Name)
+			rc.workQueue.Forget(obj)
+		} else {
+			log.Errorf("Error: %s", err)
+			log.Infof("Re-adding %s/%s to work queue", pod.Namespace, pod.Name)
+			rc.workQueue.AddRateLimited(obj)
+		}
 	} else {
 		log.Infof("Requeue limit reached, removing %s/%s", pod.Namespace, pod.Name)
 		rc.workQueue.Forget(obj)
