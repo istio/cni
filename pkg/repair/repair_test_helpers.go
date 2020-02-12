@@ -17,7 +17,6 @@ package repair
 import (
 	v1 "k8s.io/api/core/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 type makePodArgs struct {
@@ -74,62 +73,6 @@ func makePod(args makePodArgs) *v1.Pod {
 	}
 	return pod
 }
-
-func makeEvent(args makeEventArgs) *v1.Event {
-	return &v1.Event{
-		ObjectMeta: v12.ObjectMeta{
-			GenerateName: args.Name,
-			Namespace:    args.Namespace,
-			UID:          args.UID,
-			Labels:       args.Labels,
-		},
-		InvolvedObject: *args.Object,
-		Reason:         args.Reason,
-		Message:        args.Message,
-		Type:           args.EventType,
-	}
-}
-
-type makeEventArgs struct {
-	Name      string
-	Namespace string
-	UID       types.UID
-	Labels    map[string]string
-	Reason    string
-	Message   string
-	EventType string
-	Object    *v1.ObjectReference
-}
-
-var (
-	irrelevantEvent = makeEvent(
-		makeEventArgs{
-			Name:      "Test",
-			Namespace: "TestNS",
-			UID:       types.UID(1234),
-			Labels: map[string]string{
-				"testlabel": "true",
-			},
-			Reason:    "Test",
-			Message:   "This is a test event",
-			EventType: "Warning",
-			Object:    &v1.ObjectReference{},
-		})
-	relevantEventUID = types.UID(4567)
-	relevantEvent    = makeEvent(
-		makeEventArgs{
-			Name:      "Test2",
-			Namespace: "TestNS",
-			UID:       types.UID(2345),
-			Labels: map[string]string{
-				"istio-cni-daemonset-event": "true",
-			},
-			Reason:    "Test",
-			Message:   "This is a test event",
-			EventType: "Warning",
-			Object:    &v1.ObjectReference{UID: relevantEventUID},
-		})
-)
 
 // Container specs
 var (
