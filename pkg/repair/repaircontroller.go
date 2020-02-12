@@ -74,11 +74,15 @@ func (rc *RepairController) Run(stopCh <-chan struct{}) {
 		return
 	}
 
+	// This will run the func every 1 second until stopCh is sent
 	go wait.Until(
 		func() {
+			// Runs processNextItem in a loop, if it returns false it will
+			// be restarted by wait.Until unless stopCh is sent.
 			for rc.processNextItem() {
 			}
-		}, time.Second,
+		},
+		time.Second,
 		stopCh,
 	)
 
@@ -86,9 +90,13 @@ func (rc *RepairController) Run(stopCh <-chan struct{}) {
 	log.Infof("Stopping repair controller.")
 }
 
+// Process the next available item in the work queue.
+// Return false if exiting permanently, else return true
+// so the loop keeps processing.
 func (rc *RepairController) processNextItem() bool {
 	obj, quit := rc.workQueue.Get()
 	if quit {
+		// Exit permanently
 		return false
 	}
 	defer rc.workQueue.Done(obj)
@@ -97,6 +105,8 @@ func (rc *RepairController) processNextItem() bool {
 	if !ok {
 		log.Errorf("Error decoding object, invalid type. Dropping.")
 		rc.workQueue.Forget(obj)
+		// Short-circuit on this item, but return true to keep
+		// processing.
 		return true
 	}
 
@@ -115,5 +125,6 @@ func (rc *RepairController) processNextItem() bool {
 		runtime.HandleError(err)
 	}
 
+	// Return true to let the loop process the next item
 	return true
 }
