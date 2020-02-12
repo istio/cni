@@ -137,15 +137,15 @@ func logCurrentOptions(bpr *repair.BrokenPodReconciler, options *ControllerOptio
 	if options.RunAsDaemon {
 		log.Infof("Controller Option: Running as a Daemon.")
 	}
-	if bpr.Options.LabelPods {
+	if bpr.Options.DeletePods {
+		log.Info("Controller Option: Deleting broken pods. Pod Labeling deactivated.")
+	}
+	if bpr.Options.LabelPods && !bpr.Options.DeletePods {
 		log.Infof(
 			"Controller Option: Labeling broken pods with label %s=%s",
 			bpr.Options.PodLabelKey,
 			bpr.Options.PodLabelValue,
 		)
-	}
-	if bpr.Options.DeletePods {
-		log.Info("Controller Option: Deleting broken pods")
 	}
 	if bpr.Filters.SidecarAnnotation != "" {
 		log.Infof("Filter option: Only managing pods with an annotation with key %s", bpr.Filters.SidecarAnnotation)
