@@ -5,7 +5,6 @@ go 1.13
 require (
 	github.com/containernetworking/cni v0.7.0-alpha1
 	github.com/containernetworking/plugins v0.7.3
-	github.com/davecgh/go-spew v1.1.1
 	github.com/evanphx/json-patch v4.5.0+incompatible // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.6 // indirect
