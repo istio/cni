@@ -130,7 +130,7 @@ func (rc *Controller) processNextItem() bool {
 	if err == nil {
 		log.Debugf("Removing %s/%s from work queue", pod.Namespace, pod.Name)
 		rc.workQueue.Forget(obj)
-	} else if rc.workQueue.NumRequeues(obj) < 5 {
+	} else if rc.workQueue.NumRequeues(obj) < 50 {
 		if strings.Contains(err.Error(), "the object has been modified; please apply your changes to the latest version and try again") {
 			log.Debugf("Object '%s/%s' modified, requeue for retry", pod.Namespace, pod.Name)
 			log.Infof("Re-adding %s/%s to work queue", pod.Namespace, pod.Name)
