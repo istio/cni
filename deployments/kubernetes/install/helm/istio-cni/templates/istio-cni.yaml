@@ -131,60 +131,18 @@ spec:
               name: cni-bin-dir
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
-      volumes:
-        # Used to install CNI.
-        - name: cni-bin-dir
-          hostPath:
-            path: {{ default "/opt/cni/bin" .Values.cniBinDir }}
-        - name: cni-net-dir
-          hostPath:
-            path: {{ default "/etc/cni/net.d" .Values.cniConfDir }}
----
 {{- if .Values.repair.enabled }}
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: istio-cni-repair
-  namespace: {{ .Release.Namespace }}
-  labels:
-    k8s-app: istio-cni-repair
-    {{- template "common_labels" . }}
-spec:
-  selector:
-    matchLabels:
-      k8s-app: istio-cni-repair
-  template:
-    metadata:
-      labels:
-        k8s-app: istio-cni-repair
-      annotations:
-        # This, along with the CriticalAddonsOnly toleration below,
-        # marks the pod as a critical add-on, ensuring it gets
-        # priority scheduling and that its resources are reserved
-        # if it ever gets evicted.
-        scheduler.alpha.kubernetes.io/critical-pod: ''
-    spec:
-      nodeSelector:
-        beta.kubernetes.io/os: linux
-      tolerations:
-      # Make sure istio-cni-node gets scheduled on all nodes.
-      - effect: NoSchedule
-        operator: Exists
-      # Mark the pod as a critical add-on for rescheduling.
-      - key: CriticalAddonsOnly
-        operator: Exists
-      - effect: NoExecute
-        operator: Exists
-      priorityClassName: system-cluster-critical
-      serviceAccountName: istio-cni
-      containers:
-      # This container repairs broken CNI pods
-      - name: repair-controller
-        image: {{ .Values.repair.hub }}/install-cni:{{ .Values.repair.tag }}
-        imagePullPolicy: {{ .Values.pullPolicy }}
-        command:
-        - /opt/cni/bin/istio-cni-repair
-        env:
+        # This container repairs broken CNI pods
+        - name: repair-cni
+          image: {{ .Values.repair.hub }}/install-cni:{{ .Values.repair.tag }}
+          imagePullPolicy: {{ .Values.pullPolicy }}
+          command:
+          - /opt/cni/bin/istio-cni-repair
+          env:
+          - name: "REPAIR_NODE-NAME"
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
           - name: "REPAIR_LABEL-PODS"
             value: "{{.Values.repair.labelPods}}"
           # Set to true to enable pod deletion
@@ -200,11 +158,15 @@ spec:
             value: "{{.Values.repair.brokenPodLabelKey}}"
           - name: "REPAIR_BROKEN-POD-LABEL-VALUE"
             value: "{{.Values.repair.brokenPodLabelValue}}"
-      dnsPolicy: ClusterFirst
-      restartPolicy: Always
-      terminationGracePeriodSeconds: 30
 {{- end }}
-
+      volumes:
+        # Used to install CNI.
+        - name: cni-bin-dir
+          hostPath:
+            path: {{ default "/opt/cni/bin" .Values.cniBinDir }}
+        - name: cni-net-dir
+          hostPath:
+            path: {{ default "/etc/cni/net.d" .Values.cniConfDir }}
 ---
 
 apiVersion: v1
