@@ -60,7 +60,7 @@ func NewRepairController(reconciler BrokenPodReconciler) (*Controller, error) {
 					labelSelectors = append(labelSelectors, ls)
 				}
 			}
-			for _, fs := range []string{options.FieldSelector, reconciler.Filters.LabelSelectors} {
+			for _, fs := range []string{options.FieldSelector, reconciler.Filters.FieldSelectors} {
 				if fs != "" {
 					fieldSelectors = append(fieldSelectors, fs)
 				}
