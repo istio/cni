@@ -128,14 +128,16 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return err
 	}
 
+	var loggedPrevResult interface{}
 	if conf.PrevResult == nil {
-		log.Error("must be called as chained plugin")
-		return fmt.Errorf("must be called as chained plugin")
+		loggedPrevResult = "none"
+	} else {
+		loggedPrevResult = conf.PrevResult
 	}
 
 	log.Info("CmdAdd config parsed",
 		zap.String("version", conf.CNIVersion),
-		zap.Reflect("prevResult", conf.PrevResult))
+		zap.Reflect("prevResult", loggedPrevResult))
 
 	// Determine if running under k8s by checking the CNI args
 	k8sArgs := K8sArgs{}
@@ -246,8 +248,16 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Infof("No Kubernetes Data")
 	}
 
-	// Pass through the result for the next plugin
-	return types.PrintResult(conf.PrevResult, conf.CNIVersion)
+	var result *current.Result
+	if conf.PrevResult == nil {
+		result = &current.Result{
+			CNIVersion: current.ImplementedSpecVersion,
+		}
+	} else {
+		// Pass through the result for the next plugin
+		result = conf.PrevResult
+	}
+	return types.PrintResult(result, conf.CNIVersion)
 }
 
 func cmdGet(args *skel.CmdArgs) error {
