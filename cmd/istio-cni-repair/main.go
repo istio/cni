@@ -19,10 +19,10 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"go.uber.org/multierr"
 	client "k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
@@ -32,12 +32,8 @@ import (
 )
 
 type ControllerOptions struct {
-	DaemonPollPeriod int             `json:"daemon_poll_period"`
-	RepairOptions    *repair.Options `json:"repair_options"`
-	DeletePods       bool            `json:"delete_pods"`
-	LabelPods        bool            `json:"label_pods"`
-	CreateEvents     bool            `json:"create_events"`
-	RunAsDaemon      bool            `json:"run_as_daemon"`
+	RepairOptions *repair.Options `json:"repair_options"`
+	RunAsDaemon   bool            `json:"run_as_daemon"`
 }
 
 var (
@@ -73,9 +69,7 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 	// Repair Options
 	pflag.Bool("delete-pods", false, "Controller will delete pods")
 	pflag.Bool("label-pods", false, "Controller will label pods")
-	pflag.Bool("create-events", true, "Controller will create Kubernetes events")
 	pflag.Bool("run-as-daemon", false, "Controller will run in a loop")
-	pflag.Int("daemon-poll-period", 10, "Polling period for daemon (in seconds)")
 	pflag.String(
 		"broken-pod-label-key",
 		"cni.istio.io/uninitialized",
@@ -109,12 +103,10 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 		LabelSelectors:                  viper.GetString("label-selectors"),
 	}
 	options = &ControllerOptions{
-		DeletePods:       viper.GetBool("delete-pods"),
-		RunAsDaemon:      viper.GetBool("run-as-daemon"),
-		DaemonPollPeriod: viper.GetInt("daemon-poll-period"),
-		LabelPods:        viper.GetBool("label-pods"),
-		CreateEvents:     viper.GetBool("create-events"),
+		RunAsDaemon: viper.GetBool("run-as-daemon"),
 		RepairOptions: &repair.Options{
+			DeletePods:    viper.GetBool("delete-pods"),
+			LabelPods:     viper.GetBool("label-pods"),
 			PodLabelKey:   viper.GetString("broken-pod-label-key"),
 			PodLabelValue: viper.GetString("broken-pod-label-value"),
 		},
@@ -143,22 +135,18 @@ func clientSetup() (clientset *client.Clientset, err error) {
 // Log human-readable output describing the current filter and option selection
 func logCurrentOptions(bpr *repair.BrokenPodReconciler, options *ControllerOptions) {
 	if options.RunAsDaemon {
-		log.Infof("Controller Option: Running as a Daemon; will sleep %d seconds between passes", options.DaemonPollPeriod)
+		log.Infof("Controller Option: Running as a Daemon.")
 	}
-	if options.LabelPods {
+	if bpr.Options.DeletePods {
+		log.Info("Controller Option: Deleting broken pods. Pod Labeling deactivated.")
+	}
+	if bpr.Options.LabelPods && !bpr.Options.DeletePods {
 		log.Infof(
 			"Controller Option: Labeling broken pods with label %s=%s",
 			bpr.Options.PodLabelKey,
 			bpr.Options.PodLabelValue,
 		)
 	}
-	if options.DeletePods {
-		log.Info("Controller Option: Deleting broken pods")
-	}
-	if options.CreateEvents {
-		log.Info("Controller option: Creating Kubernetes Events for broken pods")
-	}
-
 	if bpr.Filters.SidecarAnnotation != "" {
 		log.Infof("Filter option: Only managing pods with an annotation with key %s", bpr.Filters.SidecarAnnotation)
 	}
@@ -188,8 +176,6 @@ func main() {
 
 	filters, options := parseFlags()
 
-	// TODO:(stewartbutler) This should probably use client-go/tools/cache at some
-	//  point, but I'm not sure yet if it is needed.
 	clientSet, err := clientSetup()
 	if err != nil {
 		log.Fatalf("Could not construct clientSet: %s", err)
@@ -198,33 +184,24 @@ func main() {
 	podFixer := repair.NewBrokenPodReconciler(clientSet, filters, options.RepairOptions)
 	logCurrentOptions(&podFixer, options)
 
-	reconcile := func(bpr repair.BrokenPodReconciler) error {
-		if options.CreateEvents {
-			if err := bpr.CreateEventsForBrokenPods(); err != nil {
-				return err
-			}
-		}
-		if options.LabelPods {
-			if err := bpr.LabelBrokenPods(); err != nil {
-				return err
-			}
-		}
-		if options.DeletePods {
-			if err := bpr.DeleteBrokenPods(); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
 	if options.RunAsDaemon {
-		for {
-			if err := reconcile(podFixer); err != nil {
-				log.Errorf("Error encountered in reconcile loop: %s", err)
-			}
-			time.Sleep(time.Second * time.Duration(options.DaemonPollPeriod))
+		rc, err := repair.NewRepairController(podFixer)
+		if err != nil {
+			log.Fatalf("Fatal error constructing repair controller: %+v", err)
 		}
-	} else if err := reconcile(podFixer); err != nil {
-		log.Fatalf("Error encountered in reconcile: %s", err)
+		stopCh := make(chan struct{})
+		rc.Run(stopCh)
+
+	} else {
+		err = nil
+		if podFixer.Options.LabelPods {
+			err = multierr.Append(err, podFixer.LabelBrokenPods())
+		}
+		if podFixer.Options.DeletePods {
+			err = multierr.Append(err, podFixer.DeleteBrokenPods())
+		}
+		if err != nil {
+			log.Fatalf(err.Error())
+		}
 	}
 }
