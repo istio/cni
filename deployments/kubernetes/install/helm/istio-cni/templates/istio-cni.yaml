@@ -114,10 +114,15 @@ spec:
           command: ["/install-cni.sh"]
           env:
 {{- if .Values.cniConfFileName }}
-            # Name of the CNI config file to create.
+            # Name of the CNI config file.
             - name: CNI_CONF_NAME
               value: "{{ .Values.cniConfFileName }}"
 {{- end }}
+{{- if .Values.cniConfWaitSeconds }}
+            # Wait until the CNI config file appears.
+            - name: CNI_CONF_WAIT_SECONDS
+              value: "{{ .Values.cniConfWaitSeconds }}"
+{{- end }
             # The CNI network config to install on each node.
             - name: CNI_NETWORK_CONFIG
               valueFrom:

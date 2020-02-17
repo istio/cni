@@ -131,6 +131,7 @@ CNI_CONF_NAME_OVERRIDE=${CNI_CONF_NAME:-}
 # if dir is empty, default to a filename that is not likely to be lexicographically first in the dir
 CNI_CONF_NAME=${CNI_CONF_NAME:-$(find_cni_conf_file)}
 CNI_CONF_NAME=${CNI_CONF_NAME:-YYY-istio-cni.conflist}
+CNI_CONF_WAIT_SECONDS=${CNI_CONF_WAIT_SECONDS:-0}
 KUBECFG_FILE_NAME=${KUBECFG_FILE_NAME:-ZZZ-istio-cni-kubeconfig}
 CFGCHECK_INTERVAL=${CFGCHECK_INTERVAL:-1}
 
@@ -268,6 +269,12 @@ if [ "${CHAINED_CNI_PLUGIN}" == "true" ]; then
       echo "${CNI_CONF_NAME} doesn't exist, but ${CNI_CONF_NAME}list does; Using it instead."
       CNI_CONF_NAME="${CNI_CONF_NAME}list"
   fi
+
+  while [ ! -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ] && [ "${CNI_CONF_WAIT_SECONDS}" -gt 0 ]; do
+    echo "${CNI_CONF_NAME} doesn't exist; Waiting another ${CNI_CONF_WAIT_SECONDS} seconds."
+    CNI_CONF_WAIT_SECONDS="$(($CNI_CONF_WAIT_SECONDS - 1))"
+    sleep 1
+  done
 
   if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
       # This section overwrites an existing plugins list entry to for istio-cni

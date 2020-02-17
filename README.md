@@ -48,6 +48,7 @@ Helm chart parameters:
 | cniBinDir | | `/opt/cni/bin` | Must be the same as the environment's `--cni-bin-dir` setting (`kubelet` param) |
 | cniConfDir | | `/etc/cni/net.d` | Must be the same as the environment's `--cni-conf-dir` setting (`kubelet` param) |
 | cniConfFileName | | None | Leave unset to auto-find the first file in the `cni-conf-dir` (as `kubelet` does).  Primarily used for testing `install-cni` plugin config.  If set, `install-cni` will inject the plugin config into this file in the `cni-conf-dir` |
+| cniConfWaitSeconds | | 0 | If set, `install-cni` will wait `cniConfWaitSeconds` seconds for the `cniConfFileName` to appear in the `cni-conf-dir` |
 | psp_cluster_role | | | A `ClusterRole` that sets the according use of [PodSecurityPolicy](https://kubernetes.io/docs/concepts/policy/pod-security-policy) for the `ServiceAccount`|
 | chained | `true` or `false` | `true` | Whether to deploy the config file as a plugin chain or as a standalone file in the conf dir. Some k8s flavors (e.g. OpenShift) do not support the chain approach, set to false if this is the case. |
 
@@ -231,6 +232,7 @@ $ gcloud logging read "resource.type=gce_instance AND jsonPayload.SYSLOG_IDENTIF
     - injects the CNI plugin config to the config file pointed to by CNI_CONF_NAME env var
         - example: `CNI_CONF_NAME: 10-calico.conflist`
         - `jq` is used to insert `CNI_NETWORK_CONFIG` into the `plugins` list in `/etc/cni/net.d/${CNI_CONF_NAME}`
+        - wait `CNI_CONF_WAIT_SECONDS` seconds for `CNI_CONF_NAME` to appear (default: 0) 
 
 - `istio-cni`
     - CNI plugin executable copied to `/opt/cni/bin`
