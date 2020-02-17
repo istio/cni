@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"strings"
 
+	"go.uber.org/multierr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	client "k8s.io/client-go/kubernetes"
 
 	"istio.io/pkg/log"
@@ -31,6 +31,8 @@ const ValidationContainerName = "istio-validation"
 type Options struct {
 	PodLabelKey   string `json:"pod_label_key"`
 	PodLabelValue string `json:"pod_label_value"`
+	LabelPods     bool   `json:"label_pods"`
+	DeletePods    bool   `json:"delete_broken_pods"`
 }
 
 type Filters struct {
@@ -59,99 +61,58 @@ func NewBrokenPodReconciler(client client.Interface, filters *Filters, options *
 	}
 }
 
+func (bpr BrokenPodReconciler) ReconcilePod(pod v1.Pod) (err error) {
+	log.Debugf("Reconciling pod %s", pod.Name)
+
+	if bpr.Options.DeletePods {
+		err = multierr.Append(err, bpr.deleteBrokenPod(pod))
+	} else if bpr.Options.LabelPods {
+		err = multierr.Append(err, bpr.labelBrokenPod(pod))
+	}
+
+	return err
+}
+
 // Label all pods detected as broken by ListPods with a customizable label
 func (bpr BrokenPodReconciler) LabelBrokenPods() (err error) {
 	// Get a list of all broken pods
 	podList, err := bpr.ListBrokenPods()
 	if err != nil {
+		return err
+	}
+
+	for _, pod := range podList.Items {
+		err = multierr.Append(err, bpr.labelBrokenPod(pod))
+	}
+	return err
+}
+
+func (bpr BrokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
+	// Added for safety, to make sure no healthy pods get labeled.
+	if !bpr.detectPod(pod) {
+		return
+	}
+	log.Infof("Pod detected as broken, adding label: %s/%s", pod.Namespace, pod.Name)
+
+	labels := pod.GetLabels()
+	if _, ok := labels[bpr.Options.PodLabelKey]; ok {
+		log.Infof("Pod %s/%s already has label with key %s, skipping", pod.Namespace, pod.Name, bpr.Options.PodLabelKey)
 		return
 	}
 
-	for _, pod := range podList.Items {
-		labels := pod.GetLabels()
-		if _, ok := labels[bpr.Options.PodLabelKey]; ok {
-			log.Infof("Pod %s/%s already has label with key %s, skipping", pod.Namespace, pod.Name, bpr.Options.PodLabelKey)
-			continue
-		}
-
-		if labels == nil {
-			labels = map[string]string{}
-		}
-
-		log.Infof("Labeling pod %s/%s with label %s=%s", pod.Namespace, pod.Name, bpr.Options.PodLabelKey, bpr.Options.PodLabelValue)
-		labels[bpr.Options.PodLabelKey] = bpr.Options.PodLabelValue
-		pod.SetLabels(labels)
-
-		if _, err = bpr.client.CoreV1().Pods(pod.Namespace).Update(&pod); err != nil {
-			return
-		}
+	if labels == nil {
+		labels = map[string]string{}
 	}
-	return
-}
 
-func (bpr BrokenPodReconciler) CreateEventsForBrokenPods() error {
-	// Get a list of all broken pods
-	podList, err := bpr.ListBrokenPods()
-	if err != nil {
+	log.Infof("Labeling pod %s/%s with label %s=%s", pod.Namespace, pod.Name, bpr.Options.PodLabelKey, bpr.Options.PodLabelValue)
+	labels[bpr.Options.PodLabelKey] = bpr.Options.PodLabelValue
+	pod.SetLabels(labels)
+
+	if _, err = bpr.client.CoreV1().Pods(pod.Namespace).Update(&pod); err != nil {
+		log.Errorf("Failed to update pod: %s", err)
 		return err
 	}
-
-	eventList, err := bpr.ListEvents()
-	if err != nil {
-		return err
-	}
-
-	var loopErrors []error
-	for _, pod := range podList.Items {
-		if event, ok := eventList[pod.UID]; ok {
-			log.Infof("Updating existing event for broken pod: %s/%s", pod.Namespace, pod.Name)
-			event.LastTimestamp = metav1.Now()
-			event.Count++
-			_, err := bpr.client.CoreV1().Events(pod.Namespace).Update(&event)
-			if err != nil {
-				loopErrors = append(loopErrors, err)
-			}
-		} else {
-			log.Infof("Creating event for broken pod: %s/%s", pod.Namespace, pod.Name)
-			_, err := bpr.client.CoreV1().Events(pod.Namespace).Create(&v1.Event{
-				Type: "Warning",
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName:      pod.Name,
-					Namespace:         pod.Namespace,
-					Generation:        0,
-					CreationTimestamp: metav1.Now(),
-					ClusterName:       pod.ClusterName,
-					Labels: map[string]string{
-						"istio-cni-daemonset-event": "true",
-					},
-				},
-				InvolvedObject: v1.ObjectReference{
-					Kind:            "pod",
-					Namespace:       pod.Namespace,
-					Name:            pod.Name,
-					UID:             pod.UID,
-					APIVersion:      pod.APIVersion,
-					ResourceVersion: pod.ResourceVersion,
-				},
-				Reason:         "IstioCniUninitialized",
-				Message:        "Initialization by Istio CNI failed.",
-				FirstTimestamp: metav1.Now(),
-				LastTimestamp:  metav1.Now(),
-			})
-			if err != nil {
-				loopErrors = append(loopErrors, err)
-			}
-		}
-	}
-
-	if len(loopErrors) > 0 {
-		lerr := loopErrors[0].Error()
-		for _, err := range loopErrors[1:] {
-			lerr = fmt.Sprintf("%s,%s", lerr, err.Error())
-		}
-		return fmt.Errorf("%s", lerr)
-	}
-	return nil
+	return err
 }
 
 // Delete all pods detected as broken by ListPods
@@ -165,7 +126,7 @@ func (bpr BrokenPodReconciler) DeleteBrokenPods() error {
 	var loopErrors []error
 	for _, pod := range podList.Items {
 		log.Infof("Deleting broken pod: %s/%s", pod.Namespace, pod.Name)
-		if err := bpr.client.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil); err != nil {
+		if err := bpr.deleteBrokenPod(pod); err != nil {
 			loopErrors = append(loopErrors, err)
 		}
 	}
@@ -179,20 +140,13 @@ func (bpr BrokenPodReconciler) DeleteBrokenPods() error {
 	return nil
 }
 
-func (bpr BrokenPodReconciler) ListEvents() (list map[types.UID]v1.Event, err error) {
-	list = map[types.UID]v1.Event{}
-
-	var rawList *v1.EventList
-	rawList, err = bpr.client.CoreV1().Events("").List(metav1.ListOptions{
-		LabelSelector: "istio-cni-daemonset-event=true",
-	})
-	if err != nil {
-		return
+func (bpr BrokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
+	// Added for safety, to make sure no healthy pods get labeled.
+	if !bpr.detectPod(pod) {
+		return nil
 	}
-	for _, event := range rawList.Items {
-		list[event.InvolvedObject.UID] = event
-	}
-	return
+	log.Infof("Pod detected as broken, deleting: %s/%s", pod.Namespace, pod.Name)
+	return bpr.client.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil)
 }
 
 // Lists all pods identified as broken by our Filter criteria
