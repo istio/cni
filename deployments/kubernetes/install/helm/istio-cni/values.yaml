@@ -33,14 +33,13 @@ chained: "true"
 
 repair:
   enabled: true
-  hub: gcr.io/istio-testing
-  tag: latest
+  #hub: gcr.io/istio-testing
+  #tag: latest
 
   initContainerName: "istio-validation"
 
   labelPods: "true"
-  createEvents: "true"
-  deletePods: "false"
+  deletePods: "true"
 
   brokenPodLabelKey: "cni.istio.io/uninitialized"
   brokenPodLabelValue: "true"
