@@ -33,8 +33,8 @@ chained: "true"
 
 repair:
   enabled: true
-  #hub: gcr.io/istio-testing
-  #tag: latest
+  hub: #gcr.io/istio-testing
+  tag: #latest
 
   initContainerName: "istio-validation"
 
