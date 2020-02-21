@@ -137,7 +137,7 @@ spec:
 {{- if .Values.repair.enabled }}
         # This container repairs broken CNI pods
         - name: repair-cni
-          image: {{ .Values.repair.hub }}/install-cni:{{ .Values.repair.tag }}
+          image: {{ default .Values.hub .Values.repair.hub }}/install-cni:{{ default .Values.tag .Values.repair.tag }}
           imagePullPolicy: {{ .Values.pullPolicy }}
           command:
           - /opt/cni/bin/istio-cni-repair
