@@ -30,6 +30,10 @@ exit_with_error(){
   exit 1
 }
 
+exit_graceful(){
+  exit 0
+}
+
 function rm_bin_files() {
   echo "Removing existing binaries"
   rm -f /host/opt/cni/bin/istio-cni /host/opt/cni/bin/istio-iptables.sh
@@ -137,6 +141,8 @@ CFGCHECK_INTERVAL=${CFGCHECK_INTERVAL:-1}
 # Whether the Istio CNI plugin should be installed as a chained plugin (defaults to true) or as a standalone plugin (when false)
 CHAINED_CNI_PLUGIN=${CHAINED_CNI_PLUGIN:-true}
 
+trap exit_graceful SIGINT
+trap exit_graceful SIGTERM
 trap cleanup EXIT
 
 # Choose which default cni binaries should be copied
