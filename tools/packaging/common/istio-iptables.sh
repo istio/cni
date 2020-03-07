@@ -19,7 +19,7 @@
 # Initialization script responsible for setting up port forwarding for Istio sidecar.
 
 function usage() {
-  echo "${0} -p PORT -u UID -g GID [-m mode] [-b ports] [-d ports] [-i CIDR] [-x CIDR] [-k interfaces] [-t] [-h]"
+  echo "${0} -p PORT -u UID -g GID [-m mode] [-b ports] [-d ports] [-i CIDR] [-x CIDR] [-k interfaces] [-l ports] [-t] [-h]"
   echo ''
   # shellcheck disable=SC2016
   echo '  -p: Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)'
@@ -51,6 +51,7 @@ function usage() {
   echo '  -o: Comma separated list of outbound ports to be excluded from redirection to Envoy (optional).'
   echo '  -k: Comma separated list of virtual interfaces whose inbound traffic (from VM)'
   echo '      will be treated as outbound (optional)'
+  echo '  -l: Comma separated list of inbound ports for which are binding to pod IP only.'
   echo '  -t: Unit testing, only functions are loaded and no other instructions are executed.'
   echo '  -h: Displays usage information and exits.'
   # shellcheck disable=SC2016
@@ -195,8 +196,9 @@ OUTBOUND_IP_RANGES_INCLUDE=${ISTIO_SERVICE_CIDR-}
 OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
 OUTBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_OUTBOUND_PORTS_EXCLUDE-}
 KUBEVIRT_INTERFACES=
+BIND_PODIP_PORTS=
 
-while getopts ":p:z:u:g:m:b:d:o:i:x:k:ht" opt; do
+while getopts ":p:z:u:g:m:b:d:o:i:x:k:l:ht" opt; do
   case ${opt} in
     p)
       PROXY_PORT=${OPTARG}
@@ -230,6 +232,9 @@ while getopts ":p:z:u:g:m:b:d:o:i:x:k:ht" opt; do
       ;;
     k)
       KUBEVIRT_INTERFACES=${OPTARG}
+      ;;
+    l)
+      BIND_PODIP_PORTS=${OPTARG}
       ;;
     t)
       echo "Unit testing is specified..."
@@ -300,7 +305,7 @@ ipv4_ranges_include=()
 if [ "${OUTBOUND_IP_RANGES_INCLUDE}" == "*" ]; then
    ipv6_ranges_include=("*")
    ipv4_ranges_include=("*")
-else 
+else
     for range in "${INCLUDE[@]}"; do
         r=${range%$pl}
         if isValidIP "$r"; then
@@ -341,6 +346,7 @@ echo "OUTBOUND_IP_RANGES_EXCLUDE=${OUTBOUND_IP_RANGES_EXCLUDE}"
 echo "OUTBOUND_PORTS_EXCLUDE=${OUTBOUND_PORTS_EXCLUDE}"
 echo "KUBEVIRT_INTERFACES=${KUBEVIRT_INTERFACES}"
 echo "ENABLE_INBOUND_IPV6=${ENABLE_INBOUND_IPV6}"
+echo "BIND_PODIP_PORTS=${BIND_PODIP_PORTS}"
 echo
 
 
@@ -451,6 +457,20 @@ iptables -t nat -N ISTIO_OUTPUT
 # Jump to the ISTIO_OUTPUT chain from OUTPUT chain for all tcp traffic.
 iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 
+if [ -n "${BIND_PODIP_PORTS}" ] && isIPv4 "${POD_IP}"; then
+  iptables -t nat -N ISTIO_BIND_PORT
+  for port in ${BIND_PODIP_PORTS}; do
+    for uid in ${PROXY_UID}; do
+      iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -p tcp -m owner --uid-owner ${uid} -m tcp --dport "${port}" -j ISTIO_BIND_PORT
+    done
+    for gid in ${PROXY_GID}; do
+      iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -p tcp -m owner --gid-owner ${gid} -m tcp --dport "${port}" -j ISTIO_BIND_PORT
+    done
+  done
+  iptables -t nat -A ISTIO_BIND_PORT -j DNAT --to-destination "${POD_IP}"
+  iptables -t nat -A ISTIO_BIND_PORT -j ACCEPT
+fi
+
 # Apply port based exclusions. Must be applied before connections back to self
 # are redirected.
 if [ -n "${OUTBOUND_PORTS_EXCLUDE}" ]; then
@@ -514,7 +534,7 @@ if [ ${#ipv4_ranges_include[@]} -gt 0 ]; then
      for internalInterface in ${KUBEVIRT_INTERFACES}; do
        iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -j ISTIO_REDIRECT
      done
-   else 
+   else
      # User has specified a non-empty list of cidrs to be redirected to Envoy.
      for cidr in "${ipv4_ranges_include[@]}"; do
         for internalInterface in ${KUBEVIRT_INTERFACES}; do
@@ -578,6 +598,20 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   # Jump to the ISTIO_OUTPUT chain from OUTPUT chain for all tcp traffic.
   ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 
+  if [ -n "${BIND_PODIP_PORTS}" ]; then
+    ip6tables -t nat -N ISTIO_BIND_PORT
+    for port in ${BIND_PODIP_PORTS}; do
+      for uid in ${PROXY_UID}; do
+        ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -p tcp -m owner --uid-owner ${uid} -m tcp --dport "${port}" -j ISTIO_BIND_PORT
+      done
+      for gid in ${PROXY_GID}; do
+        ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -p tcp -m owner --gid-owner ${gid} -m tcp --dport "${port}" -j ISTIO_BIND_PORT
+      done
+    done
+    ip6tables -t nat -A ISTIO_BIND_PORT -j DNAT --to-destination "${POD_IP}"
+    ip6tables -t nat -A ISTIO_BIND_PORT -j ACCEPT
+  fi
+
   # Apply port based exclusions. Must be applied before connections back to self
   # are redirected.
   if [ -n "${OUTBOUND_PORTS_EXCLUDE}" ]; then
@@ -621,7 +655,7 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   # container-to-container traffic both of which explicitly use
   # localhost.
   ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN
-  
+
   # Apply outbound IPv6 exclusions. Must be applied before inclusions.
   if [ ${#ipv6_ranges_exclude[@]} -gt 0 ]; then
     for cidr in "${ipv6_ranges_exclude[@]}"; do

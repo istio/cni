@@ -36,6 +36,7 @@ const (
 	defaultRedirectExcludeIPCidr = ""
 	defaultRedirectExcludePort   = defaultProxyStatusPort
 	defaultKubevirtInterfaces    = ""
+	defaultBindPodIPPorts        = ""
 )
 
 var (
@@ -50,6 +51,8 @@ var (
 
 	kubevirtInterfacesKey = annotation.SidecarTrafficKubevirtInterfaces.Name
 
+	bindPodIPPortsKey = annotation.SidecarTrafficBindPodIPPorts.Name
+
 	annotationRegistry = map[string]*annotationParam{
 		"inject":               {injectAnnotationKey, "", alwaysValidFunc},
 		"status":               {sidecarStatusKey, "", alwaysValidFunc},
@@ -61,6 +64,7 @@ var (
 		"excludeInboundPorts":  {excludeInboundPortsKey, defaultRedirectExcludePort, validatePortList},
 		"excludeOutboundPorts": {excludeOutboundPortsKey, defaultRedirectExcludePort, validatePortList},
 		"kubevirtInterfaces":   {kubevirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc},
+		"bindPodIPPorts":       {bindPodIPPortsKey, defaultBindPodIPPorts, validatePortList},
 	}
 )
 
@@ -75,6 +79,7 @@ type Redirect struct {
 	excludeInboundPorts  string
 	excludeOutboundPorts string
 	kubevirtInterfaces   string
+	bindPodIPPorts       string
 }
 
 type annotationValidationFunc func(value string) error
@@ -228,6 +233,12 @@ func NewRedirect(ports []string, annotations map[string]string) (*Redirect, erro
 	if valErr != nil {
 		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"kubevirtInterfaces", isFound, valErr)
+		return nil, valErr
+	}
+	isFound, redir.bindPodIPPorts, valErr = getAnnotationOrDefault("bindPodIPPorts", annotations)
+	if valErr != nil {
+		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
+			"bindPodIPPorts", isFound, valErr)
 		return nil, valErr
 	}
 

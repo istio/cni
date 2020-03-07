@@ -53,6 +53,7 @@ func (ipt *iptables) Program(netns string, rdrct *Redirect) error {
 		"-o", rdrct.excludeOutboundPorts,
 		"-x", rdrct.excludeIPCidrs,
 		"-k", rdrct.kubevirtInterfaces,
+		"-l", rdrct.bindPodIPPorts,
 	}
 	log.Info("nsenter args",
 		zap.Reflect("nsenterArgs", nsenterArgs))
