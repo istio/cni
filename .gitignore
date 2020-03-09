@@ -12,3 +12,5 @@
 # lint
 lintconfig.gen.json
 *.orig
+# Contains the built artifacts
+out/
