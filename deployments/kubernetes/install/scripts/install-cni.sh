@@ -260,6 +260,13 @@ if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
     echo "${CNI_CONF_DATA}" > "${TMP_CONF}"
 fi
 
+# If the old config filename ends with .conf, rename it to .conflist, because it has changed to be a list
+# OpenShift 4.3.5 and beyond uses a specific readiness file.
+if [ "${CNI_CONF_NAME: -5}" = ".conf" ] && [ "$(basename "$(jq -r '.readinessindicatorfile' /host/etc/kubernetes/cni/net.d/00-multus.conf)")" != "${CNI_CONF_NAME}" ]; then
+    echo "Renaming ${CNI_CONF_NAME} extension to .conflist"
+    CNI_CONF_NAME="${CNI_CONF_NAME}list"
+fi
+
 # Delete old CNI config files for upgrades.
 if [ "${CNI_CONF_NAME}" != "${CNI_OLD_CONF_NAME}" ]; then
     rm -f "${MOUNTED_CNI_NET_DIR}/${CNI_OLD_CONF_NAME}"

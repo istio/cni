@@ -131,6 +131,8 @@ spec:
               name: cni-bin-dir
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
+            - mountPath: /host/etc/kubernetes/cni/net.d
+              name: k8s-cni-net-dir
 {{- if .Values.repair.enabled }}
         # This container repairs broken CNI pods
         - name: repair-cni
@@ -167,6 +169,9 @@ spec:
         - name: cni-net-dir
           hostPath:
             path: {{ default "/etc/cni/net.d" .Values.cniConfDir }}
+        - name: k8s-cni-net-dir
+          hostPath:
+            path: {{ default "/etc/kubernetes/cni/net.d" .Values.kubernetesCNIConfDir }}
 ---
 
 apiVersion: v1
