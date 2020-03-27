@@ -227,6 +227,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 					if redirect, redirErr := NewRedirect(ports, annotations); redirErr != nil {
 						log.Errorf("Pod redirect failed due to bad params: %v", redirErr)
 					} else {
+						if redirect.includePorts != "*" {
+							log.Errorf("lambdai: should always redirect to local port but see %v", redirect.includePorts)
+						} else {
+							log.Errorf("lambdai: redirect to local port: %v", redirect.includePorts)
+						}
 						// Get the constructor for the configured type of InterceptRuleMgr
 						interceptMgrCtor := GetInterceptRuleMgrCtor(interceptRuleMgrType)
 						if interceptMgrCtor == nil {
