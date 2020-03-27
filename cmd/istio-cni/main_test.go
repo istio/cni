@@ -44,6 +44,7 @@ var (
 	testInitContainers = map[string]struct{}{
 		"foo-init": {},
 	}
+	singletonMockInterceptRuleMgr = &mockInterceptRuleMgr{}
 )
 
 var conf = `{
@@ -93,15 +94,17 @@ var conf = `{
     }`
 
 type mockInterceptRuleMgr struct {
+	lastRedirect []*Redirect
 }
 
 func (mrdir *mockInterceptRuleMgr) Program(netns string, redirect *Redirect) error {
 	nsenterFuncCalled = true
+	mrdir.lastRedirect = append(mrdir.lastRedirect, redirect)
 	return nil
 }
 
 func NewMockInterceptRuleMgr() InterceptRuleMgr {
-	return &mockInterceptRuleMgr{}
+	return singletonMockInterceptRuleMgr
 }
 
 func mocknewK8sClient(conf PluginConf) (*kubernetes.Clientset, error) {
@@ -221,7 +224,6 @@ func TestCmdAddTwoContainersWithAnnotation(t *testing.T) {
 
 func TestCmdAddTwoContainers(t *testing.T) {
 	defer resetGlobalTestVariables()
-
 	testAnnotations[injectAnnotationKey] = "true"
 	testContainers = []string{"mockContainer", "mockContainer2"}
 
@@ -229,6 +231,45 @@ func TestCmdAddTwoContainers(t *testing.T) {
 
 	if !nsenterFuncCalled {
 		t.Fatalf("expected nsenterFunc to be called")
+	}
+}
+
+func TestCmdAddTwoContainersWithStarInboundPort(t *testing.T) {
+	defer resetGlobalTestVariables()
+	testAnnotations[includePortsKey] = "*"
+	testContainers = []string{"mockContainer", "mockContainer2"}
+	testCmdAdd(t)
+
+	if !nsenterFuncCalled {
+		t.Fatalf("expected nsenterFunc to be called")
+	}
+	mockIntercept, ok := GetInterceptRuleMgrCtor("mock")().(*mockInterceptRuleMgr)
+	if !ok {
+		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"]())
+	}
+	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
+	if r.includePorts != "*" {
+		t.Fatalf("expect includePorts is '*', actual %v", r.includePorts)
+	}
+}
+
+func TestCmdAddTwoContainersWithEmptyInboundPort(t *testing.T) {
+	defer resetGlobalTestVariables()
+	delete(testAnnotations, includePortsKey)
+	testContainers = []string{"mockContainer", "mockContainer2"}
+	testAnnotations[includePortsKey] = ""
+	testCmdAdd(t)
+
+	if !nsenterFuncCalled {
+		t.Fatalf("expected nsenterFunc to be called")
+	}
+	mockIntercept, ok := GetInterceptRuleMgrCtor("mock")().(*mockInterceptRuleMgr)
+	if !ok {
+		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"])
+	}
+	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
+	if r.includePorts != "9080" {
+		t.Fatalf("expect includePorts is 9080, actual %v", r.includePorts)
 	}
 }
 
