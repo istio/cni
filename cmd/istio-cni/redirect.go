@@ -202,13 +202,14 @@ func NewRedirect(ports []string, annotations map[string]string, logger *logrus.E
 		return nil, valErr
 	}
 	isFound, redir.includePorts, valErr = getAnnotationOrDefault("includePorts", annotations)
-	if !isFound || valErr != nil {
+	if valErr != nil {
+		logger.Errorf("Annotation value error for redirect ports, using ContainerPorts=\"%s\": %v",
+			redir.includePorts, valErr)
+		return nil, valErr
+	} else if !isFound || redir.includePorts == "*" {
+		redir.includePorts = "*"
+	} else {
 		redir.includePorts = strings.Join(ports, ",")
-		if valErr != nil {
-			logger.Errorf("Annotation value error for redirect ports, using ContainerPorts=\"%s\": %v",
-				redir.includePorts, valErr)
-			return nil, valErr
-		}
 	}
 	isFound, redir.excludeIPCidrs, valErr = getAnnotationOrDefault("excludeIPCidrs", annotations)
 	if valErr != nil {

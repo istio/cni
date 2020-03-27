@@ -227,6 +227,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 					if redirect, redirErr := NewRedirect(ports, annotations, logger); redirErr != nil {
 						logger.Errorf("Pod redirect failed due to bad params: %v", redirErr)
 					} else {
+						logger.Infof("Redirect local ports: %v", redirect.includePorts)
 						// Get the constructor for the configured type of InterceptRuleMgr
 						interceptMgrCtor := GetInterceptRuleMgrCtor(interceptRuleMgrType)
 						if interceptMgrCtor == nil {
