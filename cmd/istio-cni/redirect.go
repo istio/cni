@@ -181,7 +181,7 @@ func getAnnotationOrDefault(name string, annotations map[string]string) (isFound
 }
 
 // NewRedirect returns a new Redirect Object constructed from a list of ports and annotations
-func NewRedirect(ports []string, annotations map[string]string, logger *logrus.Entry) (*Redirect, error) {
+func NewRedirect(annotations map[string]string, logger *logrus.Entry) (*Redirect, error) {
 	var isFound bool
 	var valErr error
 
