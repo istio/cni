@@ -206,10 +206,9 @@ func NewRedirect(ports []string, annotations map[string]string, logger *logrus.E
 		logger.Errorf("Annotation value error for redirect ports, using ContainerPorts=\"%s\": %v",
 			redir.includePorts, valErr)
 		return nil, valErr
-	} else if !isFound || redir.includePorts == "*" {
+	} else if !isFound {
+		// reflect injection-template: istio fill the value only when the annotation is not set
 		redir.includePorts = "*"
-	} else {
-		redir.includePorts = strings.Join(ports, ",")
 	}
 	isFound, redir.excludeIPCidrs, valErr = getAnnotationOrDefault("excludeIPCidrs", annotations)
 	if valErr != nil {
