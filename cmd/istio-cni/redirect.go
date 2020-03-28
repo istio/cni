@@ -181,7 +181,7 @@ func getAnnotationOrDefault(name string, annotations map[string]string) (isFound
 }
 
 // NewRedirect returns a new Redirect Object constructed from a list of ports and annotations
-func NewRedirect(ports []string, annotations map[string]string, logger *logrus.Entry) (*Redirect, error) {
+func NewRedirect(annotations map[string]string, logger *logrus.Entry) (*Redirect, error) {
 	var isFound bool
 	var valErr error
 
@@ -202,13 +202,13 @@ func NewRedirect(ports []string, annotations map[string]string, logger *logrus.E
 		return nil, valErr
 	}
 	isFound, redir.includePorts, valErr = getAnnotationOrDefault("includePorts", annotations)
-	if !isFound || valErr != nil {
-		redir.includePorts = strings.Join(ports, ",")
-		if valErr != nil {
-			logger.Errorf("Annotation value error for redirect ports, using ContainerPorts=\"%s\": %v",
-				redir.includePorts, valErr)
-			return nil, valErr
-		}
+	if valErr != nil {
+		logger.Errorf("Annotation value error for redirect ports, using ContainerPorts=\"%s\": %v",
+			redir.includePorts, valErr)
+		return nil, valErr
+	} else if !isFound {
+		// reflect injection-template: istio fill the value only when the annotation is not set
+		redir.includePorts = "*"
 	}
 	isFound, redir.excludeIPCidrs, valErr = getAnnotationOrDefault("excludeIPCidrs", annotations)
 	if valErr != nil {
