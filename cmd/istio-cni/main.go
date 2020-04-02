@@ -224,7 +224,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 				}
 				if !excludePod {
 					log.Infof("setting up redirect")
-					if redirect, redirErr := NewRedirect(ports, annotations); redirErr != nil {
+					if redirect, redirErr := NewRedirect(annotations); redirErr != nil {
 						log.Errorf("Pod redirect failed due to bad params: %v", redirErr)
 					} else {
 						log.Infof("Redirect local ports: %v", redirect.includePorts)

@@ -232,6 +232,14 @@ func TestCmdAddTwoContainers(t *testing.T) {
 	if !nsenterFuncCalled {
 		t.Fatalf("expected nsenterFunc to be called")
 	}
+	mockIntercept, ok := GetInterceptRuleMgrCtor("mock")().(*mockInterceptRuleMgr)
+	if !ok {
+		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"]())
+	}
+	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
+	if r.includePorts != "*" {
+		t.Fatalf("expect includePorts has value '*' set by istio, actual %v", r.includePorts)
+	}
 }
 
 func TestCmdAddTwoContainersWithStarInboundPort(t *testing.T) {
@@ -268,8 +276,8 @@ func TestCmdAddTwoContainersWithEmptyInboundPort(t *testing.T) {
 		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"])
 	}
 	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
-	if r.includePorts != "9080" {
-		t.Fatalf("expect includePorts is 9080, actual %v", r.includePorts)
+	if r.includePorts != "" {
+		t.Fatalf("expect includePorts is \"\", actual %v", r.includePorts)
 	}
 }
 
