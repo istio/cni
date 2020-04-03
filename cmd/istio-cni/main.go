@@ -177,10 +177,9 @@ func cmdAdd(args *skel.CmdArgs) error {
 			var containers []string
 			var initContainersMap map[string]struct{}
 			var annotations map[string]string
-			var ports []string
 			var k8sErr error
 			for attempt := 1; attempt <= podRetrievalMaxRetries; attempt++ {
-				containers, initContainersMap, _, annotations, ports, k8sErr = getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
+				containers, initContainersMap, _, annotations, k8sErr = getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
 				if k8sErr == nil {
 					break
 				}
@@ -207,7 +206,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 					zap.String("netns", args.Netns),
 					zap.String("pod", string(k8sArgs.K8S_POD_NAME)),
 					zap.String("Namespace", string(k8sArgs.K8S_POD_NAMESPACE)),
-					zap.Strings("ports", ports),
 					zap.Reflect("annotations", annotations))
 				if val, ok := annotations[injectAnnotationKey]; ok {
 					log.Infof("Pod %s contains inject annotation: %s", string(k8sArgs.K8S_POD_NAME), val)
@@ -224,7 +222,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 				}
 				if !excludePod {
 					log.Infof("setting up redirect")
-					if redirect, redirErr := NewRedirect(ports, annotations); redirErr != nil {
+					if redirect, redirErr := NewRedirect(annotations); redirErr != nil {
 						log.Errorf("Pod redirect failed due to bad params: %v", redirErr)
 					} else {
 						log.Infof("Redirect local ports: %v", redirect.includePorts)
