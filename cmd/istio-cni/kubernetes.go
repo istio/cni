@@ -15,8 +15,6 @@
 package main
 
 import (
-	"strconv"
-
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -57,11 +55,11 @@ func newK8sClient(conf PluginConf) (*kubernetes.Clientset, error) {
 
 // getK8sPodInfo returns information of a POD
 func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
-	initContainers map[string]struct{}, labels map[string]string, annotations map[string]string, ports []string, err error) {
+	initContainers map[string]struct{}, labels map[string]string, annotations map[string]string, err error) {
 	pod, err := client.CoreV1().Pods(podNamespace).Get(podName, metav1.GetOptions{})
 	log.Infof("pod info %+v", pod)
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	initContainers = map[string]struct{}{}
@@ -79,19 +77,7 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 			// don't include ports from istio-proxy in the redirect ports
 			continue
 		}
-		for _, containerPort := range container.Ports {
-			log.Debug("Added pod port",
-				zap.String("pod", podName),
-				zap.String("container", container.Name),
-				zap.Reflect("port", containerPort))
-
-			ports = append(ports, strconv.Itoa(int(containerPort.ContainerPort)))
-			log.Debug("port",
-				zap.Strings("ports", ports),
-				zap.String("pod", podName),
-				zap.String("container", container.Name))
-		}
 	}
 
-	return containers, initContainers, pod.Labels, pod.Annotations, ports, nil
+	return containers, initContainers, pod.Labels, pod.Annotations, nil
 }

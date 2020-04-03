@@ -40,7 +40,6 @@ var (
 	testContainers     = []string{"mockContainer"}
 	testLabels         = map[string]string{}
 	testAnnotations    = map[string]string{}
-	testPorts          = []string{"9080"}
 	testInitContainers = map[string]struct{}{
 		"foo-init": {},
 	}
@@ -116,15 +115,14 @@ func mocknewK8sClient(conf PluginConf) (*kubernetes.Clientset, error) {
 }
 
 func mockgetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
-	initContainers map[string]struct{}, labels map[string]string, annotations map[string]string, ports []string, err error) {
+	initContainers map[string]struct{}, labels map[string]string, annotations map[string]string, err error) {
 
 	containers = testContainers
 	labels = testLabels
 	annotations = testAnnotations
-	ports = testPorts
 	initContainers = testInitContainers
 
-	return containers, initContainers, labels, annotations, ports, nil
+	return containers, initContainers, labels, annotations, nil
 }
 
 func resetGlobalTestVariables() {
@@ -134,7 +132,6 @@ func resetGlobalTestVariables() {
 	testContainers = []string{"mockContainer"}
 	testLabels = map[string]string{}
 	testAnnotations = map[string]string{}
-	testPorts = []string{"9080"}
 
 	interceptRuleMgrType = "mock"
 	testAnnotations[sidecarStatusKey] = "true"
