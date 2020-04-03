@@ -202,7 +202,8 @@ func NewRedirect(annotations map[string]string) (*Redirect, error) {
 		log.Errorf("Annotation value error for redirect ports, using ContainerPorts=\"%s\": %v",
 			redir.includePorts, valErr)
 		return nil, valErr
-	} else if !isFound {
+	}
+	if !isFound {
 		// reflect injection-template: istio fill the value only when the annotation is not set
 		redir.includePorts = "*"
 	}
