@@ -13,6 +13,7 @@ logLevel: info
 # defaults:
 cniBinDir: /opt/cni/bin
 cniConfDir: /etc/cni/net.d
+kubernetesCNIConfDir: /etc/kubernetes/cni/net.d
 cniConfFileName: ""
 
 excludeNamespaces:

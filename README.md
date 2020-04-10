@@ -65,6 +65,7 @@ of hosted Kubernetes environments and whether `istio-cni` has been trialed in th
 | EKS (AWS) | Y | N |
 | AKS (Azure) | Y | N |
 | Red Hat OpenShift 3.10| Y | Y |
+| Red Hat OpenShift 4.3.5| Y | Y |
 
 #### GKE Setup
 
