@@ -164,7 +164,7 @@ func testCmdInvalidVersion(t *testing.T, f func(args *skel.CmdArgs) error) {
 	}
 }
 
-func testCmdInvalidExcludeIpRanges(t *testing.T, f func(args *skel.CmdArgs) error) {
+func testCmdInvalidExcludeIPRanges(t *testing.T, f func(args *skel.CmdArgs) error) {
 	cniConf := fmt.Sprintf(conf, invalidVersion, ifname, sandboxDirectory, "10.0.0.1")
 	args := testSetArgs(cniConf)
 
@@ -374,7 +374,7 @@ func TestCmdAddInvalidK8sArgsKeyword(t *testing.T) {
 }
 
 func TestCmdInvalidExcludeIpRanges(t *testing.T) {
-	testCmdInvalidExcludeIpRanges(t, cmdAdd)
+	testCmdInvalidExcludeIPRanges(t, cmdAdd)
 }
 
 func TestCmdAddInvalidVersion(t *testing.T) {

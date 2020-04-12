@@ -55,7 +55,7 @@ type Kubernetes struct {
 	NodeName             string   `json:"node_name"`
 	ExcludeNamespaces    []string `json:"exclude_namespaces"`
 	CniBinDir            string   `json:"cni_bin_dir"`
-	ExcludeIpRanges      string   `json:"exclude_ip_ranges"`
+	ExcludeIPRanges      string   `json:"exclude_ip_ranges"`
 }
 
 // PluginConf is whatever you expect your configuration json to be. This is whatever

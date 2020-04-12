@@ -213,13 +213,13 @@ func NewRedirect(annotations map[string]string, pluginConfiguration *PluginConf)
 			"excludeIPCidrs", isFound, valErr)
 		return nil, valErr
 	}
-	if !isFound && pluginConfiguration.Kubernetes.ExcludeIpRanges != "" {
-		if valErr := validateCIDRList(pluginConfiguration.Kubernetes.ExcludeIpRanges); valErr != nil {
+	if !isFound && pluginConfiguration.Kubernetes.ExcludeIPRanges != "" {
+		if valErr := validateCIDRList(pluginConfiguration.Kubernetes.ExcludeIPRanges); valErr != nil {
 			log.Errorf("Plugin configuration value error for value %s; configurationFound = %v, err = %v",
-				"exclude_ip_ranges", pluginConfiguration.Kubernetes.ExcludeIpRanges, valErr)
+				"exclude_ip_ranges", pluginConfiguration.Kubernetes.ExcludeIPRanges, valErr)
 			return nil, valErr
 		}
-		redir.excludeIPCidrs = pluginConfiguration.Kubernetes.ExcludeIpRanges
+		redir.excludeIPCidrs = pluginConfiguration.Kubernetes.ExcludeIPRanges
 	}
 	isFound, redir.excludeInboundPorts, valErr = getAnnotationOrDefault("excludeInboundPorts", annotations)
 	if valErr != nil {
