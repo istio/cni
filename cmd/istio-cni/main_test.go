@@ -88,7 +88,8 @@ var conf = `{
 		"intercept_type": "mock",
         "node_name": "testNodeName",
         "exclude_namespaces": ["testExcludeNS"],
-        "cni_bin_dir": "/testDirectory"
+        "cni_bin_dir": "/testDirectory",
+        "exclude_ip_ranges": "%s"
     }
     }`
 
@@ -157,6 +158,20 @@ func testCmdInvalidVersion(t *testing.T, f func(args *skel.CmdArgs) error) {
 	if err != nil {
 		if !strings.Contains(err.Error(), "could not convert result to current version") {
 			t.Fatalf("expected substring error 'could not convert result to current version', got: %v", err)
+		}
+	} else {
+		t.Fatalf("expected failed CNI version, got: no error")
+	}
+}
+
+func testCmdInvalidExcludeIpRanges(t *testing.T, f func(args *skel.CmdArgs) error) {
+	cniConf := fmt.Sprintf(conf, invalidVersion, ifname, sandboxDirectory, "10.0.0.1")
+	args := testSetArgs(cniConf)
+
+	err := f(args)
+	if err != nil {
+		if !strings.Contains(err.Error(), "no valid IP addresses") {
+			t.Fatalf("expected substring error 'no valid IP addresses', got: %v", err)
 		}
 	} else {
 		t.Fatalf("expected failed CNI version, got: no error")
@@ -356,6 +371,10 @@ func TestCmdAddInvalidK8sArgsKeyword(t *testing.T) {
 	} else {
 		t.Fatalf("expected a failed response for an invalid K8sArgs setting, got: no error")
 	}
+}
+
+func TestCmdInvalidExcludeIpRanges(t *testing.T) {
+	testCmdInvalidExcludeIpRanges(t, cmdAdd)
 }
 
 func TestCmdAddInvalidVersion(t *testing.T) {

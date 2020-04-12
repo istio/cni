@@ -178,7 +178,7 @@ func getAnnotationOrDefault(name string, annotations map[string]string) (isFound
 }
 
 // NewRedirect returns a new Redirect Object constructed from a list of ports and annotations
-func NewRedirect(annotations map[string]string) (*Redirect, error) {
+func NewRedirect(annotations map[string]string, pluginConfiguration *PluginConf) (*Redirect, error) {
 	var isFound bool
 	var valErr error
 
@@ -212,6 +212,14 @@ func NewRedirect(annotations map[string]string) (*Redirect, error) {
 		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
 			"excludeIPCidrs", isFound, valErr)
 		return nil, valErr
+	}
+	if !isFound && pluginConfiguration.Kubernetes.ExcludeIpRanges != "" {
+		if valErr := validateCIDRList(pluginConfiguration.Kubernetes.ExcludeIpRanges); valErr != nil {
+			log.Errorf("Plugin configuration value error for value %s; configurationFound = %v, err = %v",
+				"exclude_ip_ranges", pluginConfiguration.Kubernetes.ExcludeIpRanges, valErr)
+			return nil, valErr
+		}
+		redir.excludeIPCidrs = pluginConfiguration.Kubernetes.ExcludeIpRanges
 	}
 	isFound, redir.excludeInboundPorts, valErr = getAnnotationOrDefault("excludeInboundPorts", annotations)
 	if valErr != nil {
