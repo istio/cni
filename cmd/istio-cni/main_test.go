@@ -151,7 +151,7 @@ func testSetArgs(stdinData string) *skel.CmdArgs {
 }
 
 func testCmdInvalidVersion(t *testing.T, f func(args *skel.CmdArgs) error) {
-	cniConf := fmt.Sprintf(conf, invalidVersion, ifname, sandboxDirectory)
+	cniConf := fmt.Sprintf(conf, invalidVersion, ifname, sandboxDirectory, "")
 	args := testSetArgs(cniConf)
 
 	err := f(args)
@@ -179,7 +179,7 @@ func testCmdInvalidExcludeIpRanges(t *testing.T, f func(args *skel.CmdArgs) erro
 }
 
 func testCmdAdd(t *testing.T) {
-	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory)
+	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory, "")
 	testCmdAddWithStdinData(t, cniConf)
 }
 
@@ -360,7 +360,7 @@ func TestCmdAddInvalidK8sArgsKeyword(t *testing.T) {
 
 	k8Args = "K8S_POD_NAMESPACE_InvalidKeyword=istio-system"
 
-	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory)
+	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory, "")
 	args := testSetArgs(cniConf)
 
 	err := cmdAdd(args)
