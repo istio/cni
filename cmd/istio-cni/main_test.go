@@ -174,7 +174,7 @@ func testCmdInvalidExcludeIPRanges(t *testing.T, f func(args *skel.CmdArgs) erro
 			t.Fatalf("expected substring error 'no valid IP addresses', got: %v", err)
 		}
 	} else {
-		t.Fatalf("expected failed CNI version, got: no error")
+		t.Fatalf("expected error for invalid exclude_ip_ranges configuration value, got none")
 	}
 }
 
