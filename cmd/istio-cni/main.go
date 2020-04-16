@@ -139,14 +139,16 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 	ConfigureLogging(conf.LogLevel)
 
+	var loggedPrevResult interface{}
 	if conf.PrevResult == nil {
-		logrus.Error("must be called as chained plugin")
-		return fmt.Errorf("must be called as chained plugin")
+		loggedPrevResult = "none"
+	} else {
+		loggedPrevResult = conf.PrevResult
 	}
 
 	logrus.WithFields(logrus.Fields{
 		"version":    conf.CNIVersion,
-		"prevResult": conf.PrevResult,
+		"prevResult": loggedPrevResult,
 	}).Info("cmdAdd config parsed")
 
 	// Determine if running under k8s by checking the CNI args
@@ -248,8 +250,16 @@ func cmdAdd(args *skel.CmdArgs) error {
 		logger.Infof("No Kubernetes Data")
 	}
 
-	// Pass through the result for the next plugin
-	return types.PrintResult(conf.PrevResult, conf.CNIVersion)
+	var result *current.Result
+	if conf.PrevResult == nil {
+		result = &current.Result{
+			CNIVersion: current.ImplementedSpecVersion,
+		}
+	} else {
+		// Pass through the result for the next plugin
+		result = conf.PrevResult
+	}
+	return types.PrintResult(result, conf.CNIVersion)
 }
 
 func cmdGet(args *skel.CmdArgs) error {

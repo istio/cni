@@ -49,6 +49,7 @@ Helm chart parameters:
 | cniConfDir | | `/etc/cni/net.d` | Must be the same as the environment's `--cni-conf-dir` setting (`kubelet` param) |
 | cniConfFileName | | None | Leave unset to auto-find the first file in the `cni-conf-dir` (as `kubelet` does).  Primarily used for testing `install-cni` plugin config.  If set, `install-cni` will inject the plugin config into this file in the `cni-conf-dir` |
 | psp_cluster_role | | | A `ClusterRole` that sets the according use of [PodSecurityPolicy](https://kubernetes.io/docs/concepts/policy/pod-security-policy) for the `ServiceAccount`|
+| chained | `true` or `false` | `true` | Whether to deploy the config file as a plugin chain or as a standalone file in the conf dir. Some k8s flavors (e.g. OpenShift) do not support the chain approach, set to false if this is the case. |
 
 ### Hosted Kubernetes Usage
 
@@ -65,7 +66,6 @@ of hosted Kubernetes environments and whether `istio-cni` has been trialed in th
 | EKS (AWS) | Y | N |
 | AKS (Azure) | Y | N |
 | Red Hat OpenShift 3.10| Y | Y |
-| Red Hat OpenShift 4.3.5| Y | Y |
 
 #### GKE Setup
 
