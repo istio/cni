@@ -225,6 +225,12 @@ func NewRedirect(ports []string, annotations map[string]string) (*Redirect, erro
 			"excludeOutboundPorts", isFound, valErr)
 		return nil, valErr
 	}
+	// Add 15090 to sync with non-cni injection template
+	redir.excludeOutboundPorts = strings.TrimSpace(redir.excludeOutboundPorts)
+	if len(redir.excludeOutboundPorts) > 0 && redir.excludeOutboundPorts[len(redir.excludeOutboundPorts)-1] != ',' {
+		redir.excludeOutboundPorts = redir.excludeOutboundPorts + ","
+	}
+	redir.excludeOutboundPorts = redir.excludeOutboundPorts + "15090"
 	isFound, redir.kubevirtInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", annotations)
 	if valErr != nil {
 		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
