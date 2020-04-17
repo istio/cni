@@ -139,6 +139,7 @@ func resetGlobalTestVariables() {
 
 	interceptRuleMgrType = "mock"
 	testAnnotations[sidecarStatusKey] = "true"
+	k8Args = "K8S_POD_NAMESPACE=istio-system;K8S_POD_NAME=testPodName"
 }
 
 func testSetArgs(stdinData string) *skel.CmdArgs {
@@ -167,14 +168,18 @@ func testCmdInvalidVersion(t *testing.T, f func(args *skel.CmdArgs) error) {
 }
 
 func testCmdAdd(t *testing.T) {
+	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory)
+	testCmdAddWithStdinData(t, cniConf)
+}
+
+func testCmdAddWithStdinData(t *testing.T, stdinData string) {
 	newKubeClient = mocknewK8sClient
 	getKubePodInfo = mockgetK8sPodInfo
 
-	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory)
-	args := testSetArgs(cniConf)
+	args := testSetArgs(stdinData)
 
 	result, _, err := testutils.CmdAddWithResult(
-		sandboxDirectory, ifname, []byte(cniConf), func() error { return cmdAdd(args) })
+		sandboxDirectory, ifname, []byte(stdinData), func() error { return cmdAdd(args) })
 
 	if err != nil {
 		t.Fatalf("failed with error: %v", err)
@@ -379,16 +384,8 @@ func TestCmdAddNoPrevResult(t *testing.T) {
     }
     }`
 
-	args := testSetArgs(confNoPrevResult)
-
-	err := cmdAdd(args)
-	if err != nil {
-		if !strings.Contains(err.Error(), "must be called as chained plugin") {
-			t.Fatalf("expected substring error 'must be called as chained plugin', got: %v", err)
-		}
-	} else {
-		t.Fatalf("expected failed no PrevResult, got: no error")
-	}
+	defer resetGlobalTestVariables()
+	testCmdAddWithStdinData(t, confNoPrevResult)
 }
 
 func TestCmdDel(t *testing.T) {
