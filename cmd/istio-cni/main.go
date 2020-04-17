@@ -207,7 +207,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 					zap.String("pod", string(k8sArgs.K8S_POD_NAME)),
 					zap.String("Namespace", string(k8sArgs.K8S_POD_NAMESPACE)),
 					zap.Reflect("annotations", annotations))
-				if val, ok := pkg/kube/inject/inject.go[injectAnnotationKey]; ok {
+				if val, ok := annotations[injectAnnotationKey]; ok {
 					log.Infof("Pod %s contains inject annotation: %s", string(k8sArgs.K8S_POD_NAME), val)
 					if injectEnabled, err := strconv.ParseBool(val); err == nil {
 						if !injectEnabled {
