@@ -226,11 +226,12 @@ func NewRedirect(ports []string, annotations map[string]string) (*Redirect, erro
 		return nil, valErr
 	}
 	// Add 15090 to sync with non-cni injection template
+	// TODO: Revert below once https://github.com/istio/istio/pull/23037 or its follow up is merged.
 	redir.excludeInboundPorts = strings.TrimSpace(redir.excludeInboundPorts)
 	if len(redir.excludeInboundPorts) > 0 && redir.excludeInboundPorts[len(redir.excludeInboundPorts)-1] != ',' {
-		redir.excludeInboundPorts = redir.excludeInboundPorts + ","
+		redir.excludeInboundPorts += ","
 	}
-	redir.excludeInboundPorts = redir.excludeInboundPorts + "15090"
+	redir.excludeInboundPorts += "15090"
 	isFound, redir.kubevirtInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", annotations)
 	if valErr != nil {
 		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
