@@ -278,6 +278,46 @@ func TestCmdAddTwoContainersWithEmptyInboundPort(t *testing.T) {
 	}
 }
 
+func TestCmdAddTwoContainersWithEmptyExcludeInboundPort(t *testing.T) {
+	defer resetGlobalTestVariables()
+	delete(testAnnotations, includePortsKey)
+	testContainers = []string{"mockContainer", "mockContainer2"}
+	testAnnotations[excludeInboundPortsKey] = ""
+	testCmdAdd(t)
+
+	if !nsenterFuncCalled {
+		t.Fatalf("expected nsenterFunc to be called")
+	}
+	mockIntercept, ok := GetInterceptRuleMgrCtor("mock")().(*mockInterceptRuleMgr)
+	if !ok {
+		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"])
+	}
+	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
+	if r.excludeInboundPorts != "15090" {
+		t.Fatalf("expect excludeInboundPorts is \"15090\", actual %v", r.excludeInboundPorts)
+	}
+}
+
+func TestCmdAddTwoContainersWithExplictExcludeInboundPort(t *testing.T) {
+	defer resetGlobalTestVariables()
+	delete(testAnnotations, includePortsKey)
+	testContainers = []string{"mockContainer", "mockContainer2"}
+	testAnnotations[excludeInboundPortsKey] = "3306"
+	testCmdAdd(t)
+
+	if !nsenterFuncCalled {
+		t.Fatalf("expected nsenterFunc to be called")
+	}
+	mockIntercept, ok := GetInterceptRuleMgrCtor("mock")().(*mockInterceptRuleMgr)
+	if !ok {
+		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"])
+	}
+	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
+	if r.excludeInboundPorts != "3306,15090" {
+		t.Fatalf("expect excludeInboundPorts is \"3306,15090\", actual %v", r.excludeInboundPorts)
+	}
+}
+
 func TestCmdAddTwoContainersWithoutSideCar(t *testing.T) {
 	defer resetGlobalTestVariables()
 
