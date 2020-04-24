@@ -298,8 +298,9 @@ Workflow:
     Following conditions will prevent the redirect rules to be setup in the pods:
 
         1. Pods only have 1 container(no sidecar proxy injected)
-        2. Pods have annotation `sidecar.istio.io/inject` set to `false` or has no key `sidecar.istio.io/status` in annotations
-        3. Pod has `istio-init` initContainer
+        1. Pods have annotation `sidecar.istio.io/inject` set to `false` or has no key `sidecar.istio.io/status` in annotations
+        1. Pod has `istio-init` initContainer
+        1. Pods are in one of the namespaces specified in the `exclude_namespaces` parameter of the `istio-cni` plugin config
 1.  Return prevResult
 
 **TBD** istioctl / auto-sidecar-inject logic for handling things like specific include/exclude IPs and any
