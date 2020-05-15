@@ -115,6 +115,20 @@ func splitPorts(portsString string) []string {
 	return strings.Split(portsString, ",")
 }
 
+func dedupPorts(ports []string) []string {
+	var (
+		dedup map[string]bool
+		keys []string
+	)
+	for _, port := range ports {
+		if dedup[port] == false {
+			dedup[port] = true
+			keys = append(keys, port)
+		}
+	}
+	return keys
+}
+
 func parsePort(portStr string) (uint16, error) {
 	port, err := strconv.ParseUint(strings.TrimSpace(portStr), 10, 16)
 	if err != nil {
@@ -231,7 +245,8 @@ func NewRedirect(annotations map[string]string) (*Redirect, error) {
 	if len(redir.excludeInboundPorts) > 0 && redir.excludeInboundPorts[len(redir.excludeInboundPorts)-1] != ',' {
 		redir.excludeInboundPorts += ","
 	}
-	redir.excludeInboundPorts += "15090"
+	redir.excludeInboundPorts += "15020,15021,15090"
+	redir.excludeInboundPorts = strings.Join(dedupPorts(splitPorts(redir.excludeInboundPorts)), ",")
 	isFound, redir.kubevirtInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", annotations)
 	if valErr != nil {
 		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
