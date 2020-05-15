@@ -462,17 +462,17 @@ func Test_dedupPorts(t *testing.T) {
 		{
 			name: "No duplicates",
 			args: args{ports: []string{"1234", "2345"}},
-			want: []string{"1234","2345"},
+			want: []string{"1234", "2345"},
 		},
 		{
 			name: "Sequential Duplicates",
 			args: args{ports: []string{"1234", "1234", "2345", "2345"}},
-			want: []string{"1234","2345"},
+			want: []string{"1234", "2345"},
 		},
 		{
 			name: "Mixed Duplicates",
 			args: args{ports: []string{"1234", "2345", "1234", "2345"}},
-			want: []string{"1234","2345"},
+			want: []string{"1234", "2345"},
 		},
 		{
 			name: "Empty",
@@ -482,7 +482,7 @@ func Test_dedupPorts(t *testing.T) {
 		{
 			name: "Non-parseable",
 			args: args{ports: []string{"abcd", "2345", "abcd"}},
-			want: []string{"abcd","2345"},
+			want: []string{"abcd", "2345"},
 		},
 	}
 	for _, tt := range tests {

@@ -118,10 +118,10 @@ func splitPorts(portsString string) []string {
 func dedupPorts(ports []string) []string {
 	var (
 		dedup map[string]bool
-		keys []string
+		keys  []string
 	)
 	for _, port := range ports {
-		if dedup[port] == false {
+		if !dedup[port] {
 			dedup[port] = true
 			keys = append(keys, port)
 		}
