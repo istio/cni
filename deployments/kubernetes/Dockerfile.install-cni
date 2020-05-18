@@ -16,6 +16,5 @@ COPY istio-cni.conf.default /istio-cni.conf.tmp
 COPY istio-cni-repair /opt/cni/bin/
 
 ENV PATH=$PATH:/opt/cni/bin
-VOLUME /opt/cni
 WORKDIR /opt/cni/bin
 CMD ["/install-cni.sh"]
