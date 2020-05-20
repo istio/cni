@@ -264,12 +264,14 @@ if [ -z "${PROXY_GID}" ]; then
 PROXY_GID=${PROXY_UID}
 fi
 
-POD_IP=$(hostname --ip-address)
-# Check if pod's ip is ipv4 or ipv6, in case of ipv6 set variable
+# Check if any of the pod's ip addresses are ipv6. If so, set variable
 # to program ip6tables
-if isIPv6 "$POD_IP"; then
-  ENABLE_INBOUND_IPV6=$POD_IP
-fi
+hostname --all-ip-addresses | while read -d' ' POD_IP; do
+  if isIPv6 "$POD_IP"; then
+    ENABLE_INBOUND_IPV6=$POD_IP
+    break
+  fi
+done
 
 #
 # Since OUTBOUND_IP_RANGES_EXCLUDE could carry ipv4 and ipv6 ranges
