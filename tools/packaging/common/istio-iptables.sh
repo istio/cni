@@ -48,6 +48,13 @@ function usage() {
   echo '  -x: Comma separated list of IP ranges in CIDR form to be excluded from redirection. Only applies when all '
   # shellcheck disable=SC2016
   echo '      outbound traffic (i.e. "*") is being redirected (default to $ISTIO_SERVICE_EXCLUDE_CIDR).'
+  echo '  -q: Comma separated list of outbound ports to be included in redirection to Envoy (optional). The'
+  echo '      wildcard character "*" can be used to configure redirection for all destination ports. An empty list'
+  # shellcheck disable=SC2016
+  echo '      will disable all outbound redirection (default to $ISTIO_LOCAL_OUTBOUND_PORTS_INCLUDE). If the same port'
+  echo '      exists in both -o and -q, the port will be excluded from redirection to envoy.'
+  echo '  -n  If present, no inbound redirect would be performed for the traffic from the UID/GID specified through -u'
+  echo '      and -g to loopback addresses. Default behavior is to perform inbound redirect for such traffic.'
   echo '  -o: Comma separated list of outbound ports to be excluded from redirection to Envoy (optional).'
   echo '  -k: Comma separated list of virtual interfaces whose inbound traffic (from VM)'
   echo '      will be treated as outbound (optional)'
@@ -194,9 +201,11 @@ INBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_EXCLUDE_PORTS-}
 OUTBOUND_IP_RANGES_INCLUDE=${ISTIO_SERVICE_CIDR-}
 OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
 OUTBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_OUTBOUND_PORTS_EXCLUDE-}
+OUTBOUND_PORTS_INCLUDE=${ISTIO_LOCAL_OUTBOUND_PORTS_INCLUDE-*}
 KUBEVIRT_INTERFACES=
+NO_INBOUND_REDIRECT_OF_PROXY=0
 
-while getopts ":p:z:u:g:m:b:d:o:i:x:k:ht" opt; do
+while getopts ":p:z:u:g:m:b:d:o:q:i:x:k:nht" opt; do
   case ${opt} in
     p)
       PROXY_PORT=${OPTARG}
@@ -228,8 +237,14 @@ while getopts ":p:z:u:g:m:b:d:o:i:x:k:ht" opt; do
     o)
       OUTBOUND_PORTS_EXCLUDE=${OPTARG}
       ;;
+    q)
+      OUTBOUND_PORTS_INCLUDE=${OPTARG}
+      ;;
     k)
       KUBEVIRT_INTERFACES=${OPTARG}
+      ;;
+    n)
+      NO_INBOUND_REDIRECT_OF_PROXY=1
       ;;
     t)
       echo "Unit testing is specified..."
@@ -339,6 +354,7 @@ echo "INBOUND_PORTS_EXCLUDE=${INBOUND_PORTS_EXCLUDE}"
 echo "OUTBOUND_IP_RANGES_INCLUDE=${OUTBOUND_IP_RANGES_INCLUDE}"
 echo "OUTBOUND_IP_RANGES_EXCLUDE=${OUTBOUND_IP_RANGES_EXCLUDE}"
 echo "OUTBOUND_PORTS_EXCLUDE=${OUTBOUND_PORTS_EXCLUDE}"
+echo "OUTBOUND_PORTS_INCLUDE=${OUTBOUND_PORTS_INCLUDE}"
 echo "KUBEVIRT_INTERFACES=${KUBEVIRT_INTERFACES}"
 echo "ENABLE_INBOUND_IPV6=${ENABLE_INBOUND_IPV6}"
 echo
@@ -463,9 +479,11 @@ fi
 iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
 
 for uid in ${PROXY_UID}; do
-  # Redirect app calls back to itself via Envoy when using the service VIP
-  # e.g. appN => Envoy (client) => Envoy (server) => appN.
-  iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner "${uid}" -j ISTIO_IN_REDIRECT
+  if [ "${NO_INBOUND_REDIRECT_OF_PROXY}" != 1 ]; then
+    # Redirect app calls back to itself via Envoy when using the service VIP
+    # e.g. appN => Envoy (client) => Envoy (server) => appN.
+    iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner "${uid}" -j ISTIO_IN_REDIRECT
+  fi
 
   # Do not redirect app calls to back itself via Envoy when using the endpoint address
   # e.g. appN => appN by lo
@@ -477,9 +495,11 @@ for uid in ${PROXY_UID}; do
 done
 
 for gid in ${PROXY_GID}; do
-  # Redirect app calls back to itself via Envoy when using the service VIP
-  # e.g. appN => Envoy (client) => Envoy (server) => appN.
-  iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner "${gid}" -j ISTIO_IN_REDIRECT
+  if [ "${NO_INBOUND_REDIRECT_OF_PROXY}" != 1 ]; then
+    # Redirect app calls back to itself via Envoy when using the service VIP
+    # e.g. appN => Envoy (client) => Envoy (server) => appN.
+    iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner "${gid}" -j ISTIO_IN_REDIRECT
+  fi
 
   # Do not redirect app calls to back itself via Envoy when using the endpoint address
   # e.g. appN => appN by lo
@@ -517,10 +537,21 @@ if [ ${#ipv4_ranges_include[@]} -gt 0 ]; then
    else 
      # User has specified a non-empty list of cidrs to be redirected to Envoy.
      for cidr in "${ipv4_ranges_include[@]}"; do
-        for internalInterface in ${KUBEVIRT_INTERFACES}; do
-           iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT
-        done
-        iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j ISTIO_REDIRECT
+        # Apply port based inclusions if present.
+        # Currently only matching tcp protocol
+        if [ "${OUTBOUND_PORTS_INCLUDE}" != "*" ]; then
+          for port in ${OUTBOUND_PORTS_INCLUDE}; do
+            for internalInterface in ${KUBEVIRT_INTERFACES}; do
+               iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -p tcp -d "${cidr}" --dport "${port}" -j ISTIO_REDIRECT
+            done
+            iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -p tcp --dport "${port}" -j ISTIO_REDIRECT
+          done
+        else
+          for internalInterface in ${KUBEVIRT_INTERFACES}; do
+             iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT
+          done
+          iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j ISTIO_REDIRECT
+        fi
       done
       # All other traffic is not redirected.
       iptables -t nat -A ISTIO_OUTPUT -j RETURN

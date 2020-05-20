@@ -132,6 +132,9 @@ func resetGlobalTestVariables() {
 	nsenterFuncCalled = false
 
 	testContainers = []string{"mockContainer"}
+	testInitContainers = map[string]struct{}{
+		"foo-init": {},
+	}
 	testLabels = map[string]string{}
 	testAnnotations = map[string]string{}
 	testPorts = []string{"9080"}
@@ -313,6 +316,93 @@ func TestCmdAddTwoContainersWithExplictExcludeInboundPort(t *testing.T) {
 	}
 }
 
+func TestCmdAddTwoContainersWithExplictIncludeOutboundPort(t *testing.T) {
+	defer resetGlobalTestVariables()
+	testContainers = []string{"mockContainer", "mockContainer2"}
+	testAnnotations[excludeOutboundPortsKey] = "3306"
+	testAnnotations[includeOutboundPortsKey] = "80,443"
+	testCmdAdd(t)
+
+	if !nsenterFuncCalled {
+		t.Fatalf("expected nsenterFunc to be called")
+	}
+	mockIntercept, ok := GetInterceptRuleMgrCtor("mock")().(*mockInterceptRuleMgr)
+	if !ok {
+		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"])
+	}
+	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
+	if r.excludeOutboundPorts != "3306" {
+		t.Fatalf("expect excludeInboundPorts is \"3306,15020\", actual %v", r.excludeOutboundPorts)
+	}
+	if r.includeOutboundPorts != "80,443" {
+		t.Fatalf("expect includeInboundPorts is \"80,443\", actual %v", r.includeOutboundPorts)
+	}
+}
+
+func TestCmdAddWithExplicitTargetPort(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	testAnnotations[targetPortKey] = "8084"
+	testContainers = []string{"mockContainer", "mockContainer2"}
+
+	testCmdAdd(t)
+
+	value, ok := testAnnotations[targetPortKey]
+	if !ok {
+		t.Fatalf("expected targetPort annotation to exist")
+	}
+
+	if value != testAnnotations[targetPortKey] {
+		t.Fatalf(fmt.Sprintf("expected targetPort annotation to equals %s", testAnnotations[targetPortKey]))
+	}
+
+	if !nsenterFuncCalled {
+		t.Fatalf("expected nsenterFunc to be called")
+	}
+
+	mockIntercept, ok := GetInterceptRuleMgrCtor("mock")().(*mockInterceptRuleMgr)
+	if !ok {
+		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"])
+	}
+
+	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
+	if r.targetPort != testAnnotations[targetPortKey] {
+		t.Fatalf("expect targetPort is \"8084\", actual %v", r.targetPort)
+	}
+}
+
+func TestCmdAddWithExplicitNoRedirectUID(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	testAnnotations[noRedirectUIDKey] = "1000"
+	testContainers = []string{"mockContainer", "mockContainer2"}
+
+	testCmdAdd(t)
+
+	value, ok := testAnnotations[noRedirectUIDKey]
+	if !ok {
+		t.Fatalf("expected noRedirectUID annotation to exist")
+	}
+
+	if value != testAnnotations[noRedirectUIDKey] {
+		t.Fatalf(fmt.Sprintf("expected noRedirectUID annotation to equals %s", testAnnotations[noRedirectUIDKey]))
+	}
+
+	if !nsenterFuncCalled {
+		t.Fatalf("expected nsenterFunc to be called")
+	}
+
+	mockIntercept, ok := GetInterceptRuleMgrCtor("mock")().(*mockInterceptRuleMgr)
+	if !ok {
+		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"])
+	}
+
+	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
+	if r.noRedirectUID != testAnnotations[noRedirectUIDKey] {
+		t.Fatalf("expect noRedirectUID is \"1000\", actual %v", r.noRedirectUID)
+	}
+}
+
 func TestCmdAddTwoContainersWithoutSideCar(t *testing.T) {
 	defer resetGlobalTestVariables()
 
@@ -372,6 +462,38 @@ func TestCmdAddWithKubevirtInterfaces(t *testing.T) {
 
 	if value != testAnnotations[kubevirtInterfacesKey] {
 		t.Fatalf(fmt.Sprintf("expected kubevirtInterfaces annotation to equals %s", testAnnotations[kubevirtInterfacesKey]))
+	}
+}
+
+func TestCmdAddWithNoLocalOutboundRedirectForProxy(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	testAnnotations[noLocalOutboundRedirectForProxyKey] = "true"
+	testContainers = []string{"mockContainer", "mockContainer2"}
+
+	testCmdAdd(t)
+
+	value, ok := testAnnotations[noLocalOutboundRedirectForProxyKey]
+	if !ok {
+		t.Fatalf("expected noLocalOutboundRedirectForProxyKey annotation to exist")
+	}
+
+	if value != testAnnotations[noLocalOutboundRedirectForProxyKey] {
+		t.Fatalf(fmt.Sprintf("expected noLocalOutboundRedirectForProxy annotation to equals %s", testAnnotations[noLocalOutboundRedirectForProxyKey]))
+	}
+
+	if !nsenterFuncCalled {
+		t.Fatalf("expected nsenterFunc to be called")
+	}
+
+	mockIntercept, ok := GetInterceptRuleMgrCtor("mock")().(*mockInterceptRuleMgr)
+	if !ok {
+		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"])
+	}
+
+	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
+	if r.noLocalOutboundRedirectForProxy != testAnnotations[noLocalOutboundRedirectForProxyKey] {
+		t.Fatalf("expect noLocalOutboundRedirectForProxy is \"true\", actual %v", r.noLocalOutboundRedirectForProxy)
 	}
 }
 

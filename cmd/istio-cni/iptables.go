@@ -50,9 +50,13 @@ func (ipt *iptables) Program(netns string, rdrct *Redirect) error {
 		"-i", rdrct.includeIPCidrs,
 		"-b", rdrct.includePorts,
 		"-d", rdrct.excludeInboundPorts,
+		"-q", rdrct.includeOutboundPorts,
 		"-o", rdrct.excludeOutboundPorts,
 		"-x", rdrct.excludeIPCidrs,
 		"-k", rdrct.kubevirtInterfaces,
+	}
+	if rdrct.noLocalOutboundRedirectForProxy == "true" {
+		nsenterArgs = append(nsenterArgs, "-n")
 	}
 	log.Info("nsenter args",
 		zap.Reflect("nsenterArgs", nsenterArgs))
