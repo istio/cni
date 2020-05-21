@@ -266,10 +266,12 @@ fi
 
 # Check if any of the pod's ip addresses are ipv6. If so, set variable
 # to program ip6tables
-hostname --all-ip-addresses | while read -d' ' POD_IP; do
+ip -brief -oneline addr | awk '{print $3}' | sed 's|/.*||g' | while read POD_IP; do
   if isIPv6 "$POD_IP"; then
+    echo "Found ipv6 pod IP: ${POD_IP}"
     ENABLE_INBOUND_IPV6=$POD_IP
-    break
+  else
+    echo "Found ipv4 pod IP: ${POD_IP}"
   fi
 done
 
