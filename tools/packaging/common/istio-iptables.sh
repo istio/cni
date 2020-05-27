@@ -271,14 +271,14 @@ fi
 # The odd structure of this loop is to prevent the while loop from
 # executing in a subshell, which prevents ENABLE_INBOUND_IPV6 from
 # being set in the main script.
-while read POD_IP; do 
+while read -r POD_IP; do 
   if isIPv6 "$POD_IP"; then
     echo "Found ipv6 pod IP: ${POD_IP}"
     ENABLE_INBOUND_IPV6="${POD_IP}"
   else
     echo "Found ipv4 pod IP: ${POD_IP}"
   fi
-done <<<$(ip -brief -oneline addr | awk '{print $3}' | sed 's|/.*||g')
+done <<< "$(ip -brief -oneline addr | awk '{print $3}' | sed 's|/.*||g')"
 
 #
 # Since OUTBOUND_IP_RANGES_EXCLUDE could carry ipv4 and ipv6 ranges
