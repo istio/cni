@@ -195,6 +195,7 @@ OUTBOUND_IP_RANGES_INCLUDE=${ISTIO_SERVICE_CIDR-}
 OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
 OUTBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_OUTBOUND_PORTS_EXCLUDE-}
 KUBEVIRT_INTERFACES=
+ENABLE_INBOUND_IPV6=
 
 while getopts ":p:z:u:g:m:b:d:o:i:x:k:ht" opt; do
   case ${opt} in
@@ -264,12 +265,20 @@ if [ -z "${PROXY_GID}" ]; then
 PROXY_GID=${PROXY_UID}
 fi
 
-POD_IP=$(hostname --ip-address)
-# Check if pod's ip is ipv4 or ipv6, in case of ipv6 set variable
-# to program ip6tables
-if isIPv6 "$POD_IP"; then
-  ENABLE_INBOUND_IPV6=$POD_IP
-fi
+# Check if any of the pod's ip addresses are ipv6. If so, set variable
+# to program ip6tables.
+#
+# The odd structure of this loop is to prevent the while loop from
+# executing in a subshell, which prevents ENABLE_INBOUND_IPV6 from
+# being set in the main script.
+while read -r POD_IP; do 
+  if isIPv6 "$POD_IP"; then
+    echo "Found ipv6 pod IP: ${POD_IP}"
+    ENABLE_INBOUND_IPV6="${POD_IP}"
+  else
+    echo "Found ipv4 pod IP: ${POD_IP}"
+  fi
+done <<< "$(ip -brief -oneline addr | awk '{print $3}' | sed 's|/.*||g')"
 
 #
 # Since OUTBOUND_IP_RANGES_EXCLUDE could carry ipv4 and ipv6 ranges
