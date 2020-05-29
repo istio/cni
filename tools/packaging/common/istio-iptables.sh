@@ -431,7 +431,7 @@ if [ -n "${INBOUND_PORTS_INCLUDE}" ]; then
     if [ "${INBOUND_INTERCEPTION_MODE}" = "TPROXY" ]; then
       # If an inbound packet belongs to an established socket, route it to the
       # loopback interface.
-      iptables -t mangle -A ISTIO_INBOUND -p tcp -m socket -j ISTIO_DIVERT || echo "No socket match support"
+      iptables -t mangle -A ISTIO_INBOUND -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ISTIO_DIVERT || echo "No conntrack match support"
       # Otherwise, it's a new connection. Redirect it using TPROXY.
       iptables -t mangle -A ISTIO_INBOUND -p tcp -j ISTIO_TPROXY
     else
@@ -441,8 +441,7 @@ if [ -n "${INBOUND_PORTS_INCLUDE}" ]; then
     # User has specified a non-empty list of ports to be redirected to Envoy.
     for port in ${INBOUND_PORTS_INCLUDE}; do
       if [ "${INBOUND_INTERCEPTION_MODE}" = "TPROXY" ]; then
-        iptables -t mangle -A ISTIO_INBOUND -p tcp --dport "${port}" -m socket -j ISTIO_DIVERT || echo "No socket match support"
-        iptables -t mangle -A ISTIO_INBOUND -p tcp --dport "${port}" -m socket -j ISTIO_DIVERT || echo "No socket match support"
+        iptables -t mangle -A ISTIO_INBOUND -p tcp --dport "${port}" -m conntrack --ctstate RELATED,ESTABLISHED -j ISTIO_DIVERT || echo "No conntrack match support"
         iptables -t mangle -A ISTIO_INBOUND -p tcp --dport "${port}" -j ISTIO_TPROXY
       else
         iptables -t nat -A ISTIO_INBOUND -p tcp --dport "${port}" -j ISTIO_IN_REDIRECT
