@@ -1,6 +1,12 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/cni)](https://goreportcard.com/report/github.com/istio/cni)
 [![GolangCI](https://golangci.com/badges/github.com/istio/cni.svg)](https://golangci.com/r/github.com/istio/cni)
 
+# Deprecation Notice
+
+This repo has been merged into [istio.io/istio/cni](https://github.com/istio/istio/blob/master/cni/). Please go to that repo
+to make any changes to CNI. The only exception is bug backports to branches <= 1.6, which should be submitted here. The text
+below is preserved for reference but is no longer maintained at this location.
+
 # Istio CNI plugin
 
 For application pods in the Istio service mesh, all traffic to/from the pods needs to go through the
