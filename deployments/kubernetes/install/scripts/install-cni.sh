@@ -68,15 +68,17 @@ function find_cni_conf_file() {
 }
 
 function check_install() {
-  cfgfile_nm=$(find_cni_conf_file)
-  if [ "${cfgfile_nm}" != "${CNI_CONF_NAME}" ]; then
-    if [ -n "${CNI_CONF_NAME_OVERRIDE}" ]; then
-       # Install was run with overridden cni config file so don't error out on the preempt check.
-       # Likely the only use for this is testing this script.
-       echo "WARNING: Configured CNI config file \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\" preempted by \"$cfgfile_nm\"."
-    else
-       echo "ERROR: CNI config file \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\" preempted by \"$cfgfile_nm\"."
-       exit 1
+  if [ "${CHAINED_CNI_PLUGIN}" == "true" ]; then
+    cfgfile_nm=$(find_cni_conf_file)
+    if [ "${cfgfile_nm}" != "${CNI_CONF_NAME}" ]; then
+      if [ -n "${CNI_CONF_NAME_OVERRIDE}" ]; then
+         # Install was run with overridden cni config file so don't error out on the preempt check.
+         # Likely the only use for this is testing this script.
+         echo "WARNING: Configured CNI config file \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\" preempted by \"$cfgfile_nm\"."
+      else
+         echo "ERROR: CNI config file \"${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}\" preempted by \"$cfgfile_nm\"."
+         exit 1
+      fi
     fi
   fi
   if [ -e "${MOUNTED_CNI_NET_DIR}/${CNI_CONF_NAME}" ]; then
